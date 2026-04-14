@@ -17,46 +17,67 @@ import {
 } from "recharts";
 
 const SERIES_MAP = {
-  DGS1MO:    SERIES.DGS1MO,
-  DGS3MO:    SERIES.DGS3MO,
-  DGS6MO:    SERIES.DGS6MO,
-  DGS1:      SERIES.DGS1,
-  DGS2:      SERIES.DGS2,
-  DGS5:      SERIES.DGS5,
-  DGS7:      SERIES.DGS7,
-  DGS10:     SERIES.DGS10,
-  DGS20:     SERIES.DGS20,
-  DGS30:     SERIES.DGS30,
-  FEDFUNDS:  SERIES.FEDFUNDS,
+  DGS1MO: SERIES.DGS1MO,
+  DGS3MO: SERIES.DGS3MO,
+  DGS6MO: SERIES.DGS6MO,
+  DGS1: SERIES.DGS1,
+  DGS2: SERIES.DGS2,
+  DGS5: SERIES.DGS5,
+  DGS7: SERIES.DGS7,
+  DGS10: SERIES.DGS10,
+  DGS20: SERIES.DGS20,
+  DGS30: SERIES.DGS30,
+  FEDFUNDS: SERIES.FEDFUNDS,
   MORTGAGE30: SERIES.MORTGAGE30,
-  T10Y2Y:    SERIES.T10Y2Y,
-  T10Y3M:    SERIES.T10Y3M,
+  T10Y2Y: SERIES.T10Y2Y,
+  T10Y3M: SERIES.T10Y3M,
 };
 
 const MATURITIES = [
-  { key: "DGS1MO",  label: "1M" },
-  { key: "DGS3MO",  label: "3M" },
-  { key: "DGS6MO",  label: "6M" },
-  { key: "DGS1",    label: "1Y" },
-  { key: "DGS2",    label: "2Y" },
-  { key: "DGS5",    label: "5Y" },
-  { key: "DGS7",    label: "7Y" },
-  { key: "DGS10",   label: "10Y" },
-  { key: "DGS20",   label: "20Y" },
-  { key: "DGS30",   label: "30Y" },
+  { key: "DGS1MO", label: "1M" },
+  { key: "DGS3MO", label: "3M" },
+  { key: "DGS6MO", label: "6M" },
+  { key: "DGS1", label: "1Y" },
+  { key: "DGS2", label: "2Y" },
+  { key: "DGS5", label: "5Y" },
+  { key: "DGS7", label: "7Y" },
+  { key: "DGS10", label: "10Y" },
+  { key: "DGS20", label: "20Y" },
+  { key: "DGS30", label: "30Y" },
 ];
 
-const TENORS = MATURITIES.map((m) => m.label);
+const DIM = "hsl(220,10%,35%)";
+const GREEN = "hsl(142,70%,55%)";
+const RED = "hsl(0,72%,55%)";
+const AMBER = "hsl(45,90%,55%)";
+const CYAN = "hsl(185,70%,55%)";
+const BORDER = "hsl(220,15%,14%)";
+const SURFACE = "hsl(220,20%,7%)";
 
-const TOOLTIP_STYLE = {
-  backgroundColor: "hsl(220,20%,7%)",
-  border: "1px solid hsl(220,15%,14%)",
-  borderRadius: 2,
-  fontSize: 10,
-  fontFamily: "JetBrains Mono, monospace",
-};
+const AXIS_TICK = { fontSize: 9, fill: DIM };
 
-const AXIS_TICK = { fontSize: 9, fill: "hsl(220,10%,35%)" };
+// Get value at approximately N trading days ago
+function valueAt(series, daysAgo) {
+  if (!series || series.length <= daysAgo) return null;
+  return series[daysAgo]?.value ?? null;
+}
+
+function bpsChange(cur, prev) {
+  if (cur == null || prev == null) return null;
+  return parseFloat(((cur - prev) * 100).toFixed(1));
+}
+
+function bpsColor(bps) {
+  if (bps == null) return DIM;
+  if (bps < 0) return GREEN; // yield fell = good
+  if (bps > 0) return RED; // yield rose = bad
+  return DIM;
+}
+
+function fmtBps(bps) {
+  if (bps == null) return "—";
+  return `${bps > 0 ? "+" : ""}${bps.toFixed(0)}`;
+}
 
 function fmtDate(dateStr) {
   if (!dateStr) return "";
@@ -64,112 +85,82 @@ function fmtDate(dateStr) {
   return `${m}/${d}`;
 }
 
+// ── YIELD CURVE TABLE (4 rows: Current, 1W Ago, 1M Ago, Chg 1M) ──
 function YieldCurveTable({ data }) {
-  const thBase = {
+  const cellStyle = (color, bold) => ({
+    padding: "5px 8px",
+    textAlign: "right",
+    fontFamily: "inherit",
+    fontSize: 11,
+    fontWeight: bold ? 600 : 400,
+    color,
+    whiteSpace: "nowrap",
+  });
+
+  const labelStyle = {
     padding: "5px 8px",
     fontSize: 9,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
-    color: "hsl(220,10%,35%)",
-    borderBottom: "1px solid hsl(220,15%,14%)",
-    fontWeight: 400,
+    color: DIM,
     whiteSpace: "nowrap",
   };
 
+  const headStyle = {
+    ...labelStyle,
+    textAlign: "right",
+    borderBottom: `1px solid ${BORDER}`,
+    fontWeight: 400,
+  };
+
+  const rowBorder = { borderBottom: `1px solid ${BORDER}` };
+
   return (
     <div style={{ overflowX: "auto" }}>
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          fontSize: 11,
-          tableLayout: "auto",
-        }}
-      >
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "auto" }}>
         <thead>
           <tr>
-            <th style={{ ...thBase, textAlign: "left" }}>Maturity</th>
-            {TENORS.map((t) => (
-              <th key={t} style={{ ...thBase, textAlign: "right" }}>{t}</th>
+            <th style={{ ...headStyle, textAlign: "left" }}>Maturity</th>
+            {MATURITIES.map(({ label }) => (
+              <th key={label} style={headStyle}>{label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {/* Current row */}
-          <tr style={{ borderBottom: "1px solid hsl(220,15%,14%)" }}>
-            <td
-              style={{
-                padding: "6px 8px",
-                fontSize: 9,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                color: "hsl(220,10%,35%)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Current
-            </td>
+          {/* Current */}
+          <tr style={rowBorder}>
+            <td style={labelStyle}>Current</td>
             {MATURITIES.map(({ key }) => {
-              const cur = latest(data[key] || []);
-              return (
-                <td
-                  key={key}
-                  style={{
-                    padding: "6px 8px",
-                    textAlign: "right",
-                    color: "hsl(142,70%,55%)",
-                    fontFamily: "JetBrains Mono, monospace",
-                    fontSize: 11,
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {cur ? `${formatNum(cur.value, 2)}%` : "—"}
-                </td>
-              );
+              const v = valueAt(data[key] || [], 0);
+              return <td key={key} style={cellStyle(GREEN, true)}>{v != null ? `${v.toFixed(2)}%` : "—"}</td>;
             })}
           </tr>
-          {/* Chg (bps) row */}
-          <tr>
-            <td
-              style={{
-                padding: "6px 8px",
-                fontSize: 9,
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                color: "hsl(220,10%,35%)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Chg (bps)
-            </td>
+          {/* 1W Ago */}
+          <tr style={rowBorder}>
+            <td style={labelStyle}>1W Ago</td>
             {MATURITIES.map(({ key }) => {
-              const series = data[key] || [];
-              const cur = latest(series);
-              const prv = prior(series);
-              const bpsRaw = cur && prv ? (cur.value - prv.value) * 100 : null;
-              const bps = bpsRaw != null ? parseFloat(bpsRaw.toFixed(1)) : null;
-              const color =
-                bps == null
-                  ? "hsl(220,10%,35%)"
-                  : bps < 0
-                  ? "hsl(142,70%,55%)"
-                  : bps > 0
-                  ? "hsl(0,72%,55%)"
-                  : "hsl(220,10%,35%)";
+              const v = valueAt(data[key] || [], 5);
+              return <td key={key} style={cellStyle(DIM, false)}>{v != null ? `${v.toFixed(2)}` : "—"}</td>;
+            })}
+          </tr>
+          {/* 1M Ago */}
+          <tr style={rowBorder}>
+            <td style={labelStyle}>1M Ago</td>
+            {MATURITIES.map(({ key }) => {
+              const v = valueAt(data[key] || [], 22);
+              return <td key={key} style={cellStyle(DIM, false)}>{v != null ? `${v.toFixed(2)}` : "—"}</td>;
+            })}
+          </tr>
+          {/* Chg (1M) in bps */}
+          <tr>
+            <td style={labelStyle}>Chg (1M)</td>
+            {MATURITIES.map(({ key }) => {
+              const cur = valueAt(data[key] || [], 0);
+              const mo = valueAt(data[key] || [], 22);
+              const bps = bpsChange(cur, mo);
               return (
-                <td
-                  key={key}
-                  style={{
-                    padding: "6px 8px",
-                    textAlign: "right",
-                    fontFamily: "JetBrains Mono, monospace",
-                    fontSize: 11,
-                    color,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {bps == null ? "—" : `${bps > 0 ? "+" : ""}${bps.toFixed(1)}`}
+                <td key={key} style={cellStyle(bpsColor(bps), false)}>
+                  {fmtBps(bps)}
                 </td>
               );
             })}
@@ -180,13 +171,22 @@ function YieldCurveTable({ data }) {
   );
 }
 
+// ── YIELD CURVE SHAPE (3 lines: Current, 1W Ago, 1M Ago) ──
 function YieldCurveShape({ data }) {
   const chartData = MATURITIES.map(({ key, label }) => {
-    const cur = latest(data[key] || []);
-    return { maturity: label, yield: cur ? cur.value : null };
-  }).filter((d) => d.yield != null);
+    const series = data[key] || [];
+    return {
+      maturity: label,
+      current: valueAt(series, 0),
+      weekAgo: valueAt(series, 5),
+      monthAgo: valueAt(series, 22),
+    };
+  });
 
-  if (chartData.length === 0) return null;
+  const allVals = chartData.flatMap((d) => [d.current, d.weekAgo, d.monthAgo].filter(Boolean));
+  if (allVals.length === 0) return null;
+  const minY = Math.min(...allVals);
+  const maxY = Math.max(...allVals);
 
   const latestDate = (() => {
     for (const { key } of MATURITIES) {
@@ -196,82 +196,71 @@ function YieldCurveShape({ data }) {
     return null;
   })();
 
-  const minY = Math.min(...chartData.map((d) => d.yield));
-  const maxY = Math.max(...chartData.map((d) => d.yield));
-
   return (
     <div>
-      <div
-        style={{
-          fontSize: 9,
-          color: "hsl(220,10%,35%)",
-          marginBottom: 8,
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-        }}
-      >
-        {latestDate ? `As of ${latestDate}` : "Yield Curve"}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          {latestDate ? `As of ${latestDate}` : ""}
+        </span>
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 12 }}>
+          {[
+            { color: GREEN, label: "Current" },
+            { color: AMBER, label: "1W Ago" },
+            { color: RED, label: "1M Ago" },
+          ].map(({ color, label }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: DIM }}>
+              <div style={{ width: 14, height: 2, background: color, borderRadius: 1 }} />
+              {label}
+            </div>
+          ))}
+        </div>
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <AreaChart data={chartData} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
           <defs>
-            <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(142,70%,55%)" stopOpacity={0.20} />
-              <stop offset="100%" stopColor="hsl(142,70%,55%)" stopOpacity={0.02} />
+            <linearGradient id="curveGradGreen" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={GREEN} stopOpacity={0.20} />
+              <stop offset="100%" stopColor={GREEN} stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke="hsl(220,15%,14%)"
-            vertical={false}
-          />
-          <XAxis
-            dataKey="maturity"
-            axisLine={false}
-            tickLine={false}
-            tick={AXIS_TICK}
-          />
+          <CartesianGrid strokeDasharray="3 3" stroke={BORDER} vertical={false} />
+          <XAxis dataKey="maturity" axisLine={false} tickLine={false} tick={AXIS_TICK} />
           <YAxis
             domain={[Math.max(0, minY - 0.2), maxY + 0.2]}
-            axisLine={false}
-            tickLine={false}
-            tick={AXIS_TICK}
-            tickFormatter={(v) => `${v.toFixed(1)}%`}
-            width={38}
+            axisLine={false} tickLine={false} tick={AXIS_TICK}
+            tickFormatter={(v) => `${v.toFixed(1)}%`} width={38}
           />
-          <Tooltip
-            content={<ChartTooltip formatter={(v) => `${formatNum(v, 3)}%`} />}
-            contentStyle={TOOLTIP_STYLE}
-            labelStyle={{ color: "hsl(142,70%,55%)" }}
-          />
-          <Area
-            type="monotone"
-            dataKey="yield"
-            name="Yield"
-            stroke="hsl(142,70%,55%)"
-            strokeWidth={2}
-            fill="url(#greenGrad)"
-            dot={{ r: 3, fill: "hsl(142,70%,55%)", strokeWidth: 0 }}
-            activeDot={{ r: 4 }}
-            isAnimationActive={false}
-          />
+          <Tooltip content={<ChartTooltip formatter={(v) => v != null ? `${v.toFixed(3)}%` : "—"} />} />
+          {/* 1M Ago (back layer) */}
+          <Line type="monotone" dataKey="monthAgo" name="1M Ago" stroke={RED} strokeWidth={1} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
+          {/* 1W Ago */}
+          <Line type="monotone" dataKey="weekAgo" name="1W Ago" stroke={AMBER} strokeWidth={1} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
+          {/* Current (top) */}
+          <Area type="monotone" dataKey="current" name="Current" stroke={GREEN} strokeWidth={2} fill="url(#curveGradGreen)" dot={{ r: 3, fill: GREEN, strokeWidth: 0 }} activeDot={{ r: 4 }} isAnimationActive={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
+// ── YIELD TIME SERIES (4 lines: 2Y, 5Y, 10Y, 30Y) ──
 function YieldTimeSeries({ data }) {
-  const raw10Y = data.DGS10 || [];
-  const raw2Y  = data.DGS2  || [];
+  const seriesKeys = [
+    { key: "DGS2", field: "y2" },
+    { key: "DGS5", field: "y5" },
+    { key: "DGS10", field: "y10" },
+    { key: "DGS30", field: "y30" },
+  ];
 
   const dateMap = {};
-  [...raw10Y].forEach(({ date, value }) => {
-    dateMap[date] = { ...dateMap[date], date, y10: value };
-  });
-  [...raw2Y].forEach(({ date, value }) => {
-    dateMap[date] = { ...dateMap[date], date, y2: value };
-  });
+  for (const { key, field } of seriesKeys) {
+    const raw = data[key] || [];
+    for (const { date, value } of raw) {
+      if (!dateMap[date]) dateMap[date] = { date };
+      dateMap[date][field] = value;
+    }
+  }
 
   const chartData = Object.values(dateMap)
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -279,356 +268,227 @@ function YieldTimeSeries({ data }) {
 
   if (chartData.length === 0) return null;
 
-  const allVals = chartData.flatMap((d) =>
-    [d.y10, d.y2].filter((v) => v != null)
-  );
+  const allVals = chartData.flatMap((d) => [d.y2, d.y5, d.y10, d.y30].filter(Boolean));
   const minY = Math.min(...allVals);
   const maxY = Math.max(...allVals);
 
-  return (
-    <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-        <CartesianGrid
-          strokeDasharray="3 3"
-          stroke="hsl(220,15%,14%)"
-          vertical={false}
-        />
-        <XAxis
-          dataKey="date"
-          axisLine={false}
-          tickLine={false}
-          tick={AXIS_TICK}
-          tickFormatter={fmtDate}
-          interval="preserveStartEnd"
-        />
-        <YAxis
-          domain={[Math.max(0, minY - 0.1), maxY + 0.1]}
-          axisLine={false}
-          tickLine={false}
-          tick={AXIS_TICK}
-          tickFormatter={(v) => `${v.toFixed(1)}%`}
-          width={38}
-        />
-        <Tooltip
-          content={<ChartTooltip formatter={(v) => `${formatNum(v, 3)}%`} />}
-          contentStyle={TOOLTIP_STYLE}
-          labelStyle={{ color: "hsl(142,70%,55%)" }}
-        />
-        <Line
-          type="monotone"
-          dataKey="y10"
-          name="10Y"
-          stroke="hsl(142,70%,55%)"
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 3 }}
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="y2"
-          name="2Y"
-          stroke="hsl(185,70%,55%)"
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 3 }}
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  );
-}
+  // Derive date range for title
+  const first = chartData[0]?.date || "";
+  const last = chartData[chartData.length - 1]?.date || "";
+  const fmtRange = (d) => {
+    if (!d) return "";
+    const parts = d.split("-");
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${months[parseInt(parts[1], 10) - 1]} ${parts[2]}`;
+  };
 
-function ChartLegend({ items }) {
   return (
-    <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
-      {items.map(({ color, label }) => (
-        <div
-          key={label}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            fontSize: 9,
-            color: "hsl(220,10%,35%)",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-          }}
-        >
-          <div style={{ width: 16, height: 2, background: color, borderRadius: 1 }} />
-          {label}
-        </div>
-      ))}
+    <div>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={chartData} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={BORDER} vertical={false} />
+          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={AXIS_TICK} tickFormatter={fmtDate} interval="preserveStartEnd" />
+          <YAxis domain={[Math.max(0, minY - 0.15), maxY + 0.15]} axisLine={false} tickLine={false} tick={AXIS_TICK} tickFormatter={(v) => `${v.toFixed(1)}%`} width={38} />
+          <Tooltip content={<ChartTooltip formatter={(v) => v != null ? `${v.toFixed(3)}%` : "—"} />} />
+          <Line type="monotone" dataKey="y2" name="2Y" stroke={CYAN} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
+          <Line type="monotone" dataKey="y5" name="5Y" stroke={AMBER} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
+          <Line type="monotone" dataKey="y10" name="10Y" stroke={GREEN} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
+          <Line type="monotone" dataKey="y30" name="30Y" stroke={RED} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+      {/* Legend below chart */}
+      <div style={{ display: "flex", gap: 14, marginTop: 6 }}>
+        {[
+          { color: CYAN, label: "2Y" },
+          { color: AMBER, label: "5Y" },
+          { color: GREEN, label: "10Y" },
+          { color: RED, label: "30Y" },
+        ].map(({ color, label }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: DIM }}>
+            <div style={{ width: 14, height: 2, background: color, borderRadius: 1 }} />
+            {label}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function spreadSignal(value) {
-  if (value == null) return "neutral";
-  if (value < 0) return "bearish";
-  if (value > 0.5) return "bullish";
-  return "neutral";
-}
-
-function t10y3mSignal(value) {
-  if (value == null) return "neutral";
-  if (value < 0) return "bearish";
-  if (value > 0) return "bullish";
-  return "neutral";
-}
-
-function mortgageSignal(value) {
-  if (value == null) return "neutral";
-  if (value > 7) return "bearish";
-  if (value < 5) return "bullish";
-  return "neutral";
-}
-
-function directionFromChange(chg) {
-  if (chg == null) return "flat";
-  if (chg > 0) return "up";
-  if (chg < 0) return "down";
-  return "flat";
-}
-
+// ── Signal helpers ──
+function spreadSignal(v) { return v == null ? "neutral" : v < 0 ? "bearish" : v > 0.5 ? "bullish" : "neutral"; }
+function t10y3mSignal(v) { return v == null ? "neutral" : v < 0 ? "bearish" : v > 0 ? "bullish" : "neutral"; }
+function mortgageSignal(v) { return v == null ? "neutral" : v > 7 ? "bearish" : v < 5 ? "bullish" : "neutral"; }
+function dir(chg) { return chg == null ? "flat" : chg > 0 ? "up" : chg < 0 ? "down" : "flat"; }
 function bpsLabel(cur, prv) {
   if (cur == null || prv == null) return null;
-  const bps = ((cur - prv) * 100).toFixed(1);
-  const n = parseFloat(bps);
-  return `${n > 0 ? "+" : ""}${bps} bps`;
+  const b = ((cur - prv) * 100).toFixed(0);
+  const n = parseFloat(b);
+  return `${n > 0 ? "+" : ""}${b} bps`;
 }
 
+// ── MAIN ──
 export default function Rates() {
   const { data, loading, error } = useFredData(SERIES_MAP);
 
   if (loading) return <Loading />;
-  if (error) {
-    return (
-      <div style={{ padding: 24, color: "hsl(0,72%,55%)", fontSize: 11 }}>
-        ERROR: {error}
-      </div>
-    );
-  }
+  if (error) return <div style={{ padding: 24, color: RED, fontSize: 11 }}>ERROR: {error}</div>;
 
-  // Series helpers
-  const ffSeries    = data.FEDFUNDS  || [];
-  const d10Series   = data.DGS10     || [];
-  const d2Series    = data.DGS2      || [];
-  const t10y2ySeries = data.T10Y2Y   || [];
-  const t10y3mSeries = data.T10Y3M   || [];
-  const mortSeries  = data.MORTGAGE30 || [];
+  const ffCur = latest(data.FEDFUNDS || []);
+  const ffPrv = prior(data.FEDFUNDS || []);
+  const d10Cur = latest(data.DGS10 || []);
+  const d10Prv = prior(data.DGS10 || []);
+  const d2Cur = latest(data.DGS2 || []);
+  const d2Prv = prior(data.DGS2 || []);
+  const t10y2yCur = latest(data.T10Y2Y || []);
+  const t10y2yPrv = prior(data.T10Y2Y || []);
+  const t10y3mCur = latest(data.T10Y3M || []);
+  const t10y3mPrv = prior(data.T10Y3M || []);
+  const mortCur = latest(data.MORTGAGE30 || []);
+  const mortPrv = prior(data.MORTGAGE30 || []);
 
-  const ffCur     = latest(ffSeries);
-  const ffPrv     = prior(ffSeries);
-  const d10Cur    = latest(d10Series);
-  const d10Prv    = prior(d10Series);
-  const d2Cur     = latest(d2Series);
-  const d2Prv     = prior(d2Series);
-  const t10y2yCur = latest(t10y2ySeries);
-  const t10y2yPrv = prior(t10y2ySeries);
-  const t10y3mCur = latest(t10y3mSeries);
-  const t10y3mPrv = prior(t10y3mSeries);
-  const mortCur   = latest(mortSeries);
-  const mortPrv   = prior(mortSeries);
+  const d10Chg = change(d10Cur?.value, d10Prv?.value);
+  const d2Chg = change(d2Cur?.value, d2Prv?.value);
+  const t2yChg = change(t10y2yCur?.value, t10y2yPrv?.value);
+  const t3mChg = change(t10y3mCur?.value, t10y3mPrv?.value);
+  const mortChg = change(mortCur?.value, mortPrv?.value);
 
-  const d10Chg  = change(d10Cur?.value,    d10Prv?.value);
-  const d2Chg   = change(d2Cur?.value,     d2Prv?.value);
-  const t2yChg  = change(t10y2yCur?.value, t10y2yPrv?.value);
-  const t3mChg  = change(t10y3mCur?.value, t10y3mPrv?.value);
-  const mortChg = change(mortCur?.value,   mortPrv?.value);
+  // Derive date range for time series title
+  const tsData = data.DGS10 || [];
+  const oldest = tsData.length > 0 ? tsData[tsData.length - 1]?.date : "";
+  const newest = tsData.length > 0 ? tsData[0]?.date : "";
+  const fmtPeriod = (d) => {
+    if (!d) return "";
+    const [y, m] = d.split("-");
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${months[parseInt(m, 10) - 1]} ${y}`;
+  };
+  const periodLabel = oldest && newest ? `${fmtPeriod(oldest)} TO ${fmtPeriod(newest)}` : "";
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1200, margin: "0 auto" }}>
 
-      {/* ── Section Header ── */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "hsl(142,70%,55%)" }}>
-          $ RATES &amp; YIELD CURVE
-        </div>
-        <div style={{ fontSize: 10, color: "hsl(220,10%,35%)", marginTop: 2 }}>
-          — Click any card for analysis
-        </div>
+      {/* Section Header */}
+      <div style={{ marginBottom: 16 }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: GREEN }}>$ RATES &amp; YIELD CURVE</span>
+        <span style={{ fontSize: 10, color: DIM, marginLeft: 8 }}>— Click any card for analysis</span>
       </div>
 
-      {/* ── Yield Curve Snapshot Table ── */}
-      <div
-        style={{
-          background: "hsl(220,15%,10%)",
-          border: "1px solid hsl(220,15%,14%)",
-          borderRadius: 4,
-          padding: 12,
-          marginBottom: 20,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 9,
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            color: "hsl(220,10%,35%)",
-            marginBottom: 10,
-          }}
-        >
+      {/* Yield Curve Snapshot Table */}
+      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: 12, marginBottom: 16 }}>
+        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: DIM, marginBottom: 10 }}>
           Yield Curve Snapshot
         </div>
         <YieldCurveTable data={data} />
       </div>
 
-      {/* ── Two charts side-by-side ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
-          marginBottom: 20,
-        }}
-      >
-        {/* Left: Yield Curve Shape */}
-        <div
-          style={{
-            background: "hsl(220,15%,10%)",
-            border: "1px solid hsl(220,15%,14%)",
-            borderRadius: 4,
-            padding: 12,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 9,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              color: "hsl(220,10%,35%)",
-              marginBottom: 10,
-            }}
-          >
-            Yield Curve Shape
+      {/* Two charts side-by-side */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        {/* Left: U.S. Treasury Yield Curve */}
+        <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: 12 }}>
+          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: DIM, marginBottom: 8 }}>
+            U.S. Treasury Yield Curve
           </div>
           <YieldCurveShape data={data} />
         </div>
 
         {/* Right: Yield Time Series */}
-        <div
-          style={{
-            background: "hsl(220,15%,10%)",
-            border: "1px solid hsl(220,15%,14%)",
-            borderRadius: 4,
-            padding: 12,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 9,
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-              color: "hsl(220,10%,35%)",
-              marginBottom: 8,
-            }}
-          >
-            Yield Time Series
+        <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: 12 }}>
+          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: DIM, marginBottom: 8 }}>
+            YIELD TIME SERIES — {periodLabel}
           </div>
-          <ChartLegend
-            items={[
-              { color: "hsl(185,70%,55%)", label: "2Y" },
-              { color: "hsl(142,70%,55%)", label: "10Y" },
-            ]}
-          />
           <YieldTimeSeries data={data} />
         </div>
       </div>
 
-      {/* ── 6 Indicator Cards ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 12,
-        }}
-      >
+      {/* 6 Indicator Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         <IndicatorCard
           label="Fed Funds Rate"
           value={ffCur?.value}
           unit="%"
           change={change(ffCur?.value, ffPrv?.value)}
-          changeLabel={bpsLabel(ffCur?.value, ffPrv?.value)}
+          changeLabel={ffCur && ffPrv ? `${bpsLabel(ffCur.value, ffPrv.value)} from ${formatNum(ffPrv.value, 2)}%` : null}
           direction="flat"
           signal="neutral"
-          detail={`The Federal Reserve's target overnight lending rate, currently ${ffCur ? formatNum(ffCur.value, 2) : "—"}%. Set by the FOMC to balance maximum employment and price stability. After 525 bps of hikes in 2022–2023 — the fastest tightening cycle since the 1980s — the Fed began cutting in late 2024. Rate changes transmit to the entire economy via lending costs, mortgage rates, and bond yields.`}
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/DFF"
+          dateLabel={ffCur?.date ? `${ffCur.date.slice(5)}` : ""}
+          detail="The Federal Reserve's target overnight lending rate. Set by the FOMC to balance maximum employment and price stability. After 525 bps of hikes in 2022-2023 — the fastest tightening cycle since the 1980s — the Fed began cutting in late 2024. Rate changes transmit to the entire economy via lending costs, mortgage rates, and bond yields."
+          source="Federal Reserve"
+          sourceUrl="https://fred.stlouisfed.org/series/FEDFUNDS"
           decimals={2}
         />
-
         <IndicatorCard
           label="10Y Treasury Yield"
           value={d10Cur?.value}
           unit="%"
           change={d10Chg}
-          changeLabel={bpsLabel(d10Cur?.value, d10Prv?.value)}
-          direction={directionFromChange(d10Chg)}
-          signal={d10Chg == null ? "neutral" : d10Chg > 0 ? "bearish" : "bullish"}
-          detail={`The benchmark long-term interest rate. The 10Y Treasury yield is used globally to price mortgages, corporate debt, and equity risk premiums. When yields rise sharply — as in 2022–2023 when the 10Y hit 5% for the first time since 2007 — valuations compress across assets. The yield reflects both Fed policy expectations and term premium, which markets demand to hold duration risk.`}
-          source="FRED"
+          changeLabel={d10Cur && d10Prv ? `${bpsLabel(d10Cur.value, d10Prv.value)} from ${formatNum(d10Prv.value, 2)}%` : null}
+          direction={dir(d10Chg)}
+          signal={d10Chg == null ? "neutral" : d10Chg > 0 ? "bearish" : "neutral"}
+          dateLabel={d10Cur?.date?.slice(5) || ""}
+          detail="The benchmark long-term interest rate. Used globally to price mortgages, corporate debt, and equity risk premiums. When yields rise sharply — as in 2022-2023 when the 10Y hit 5% for the first time since 2007 — valuations compress across assets."
+          source="U.S. Treasury"
           sourceUrl="https://fred.stlouisfed.org/series/DGS10"
-          decimals={3}
+          decimals={2}
         />
-
         <IndicatorCard
           label="2Y Treasury Yield"
           value={d2Cur?.value}
           unit="%"
           change={d2Chg}
-          changeLabel={bpsLabel(d2Cur?.value, d2Prv?.value)}
-          direction={directionFromChange(d2Chg)}
-          signal={d2Chg == null ? "neutral" : d2Chg > 0 ? "bearish" : "bullish"}
-          detail={`The most policy-sensitive point on the curve. The 2Y yield closely tracks market expectations for the federal funds rate over the next two years — effectively a prediction of where the Fed will be. When the 2Y trades well above the 10Y (inversion), it signals that markets expect the Fed to cut rates ahead as growth deteriorates. The 2Y peaked above 5.1% in 2023 — its highest since 2006.`}
-          source="FRED"
+          changeLabel={d2Cur && d2Prv ? `${bpsLabel(d2Cur.value, d2Prv.value)} from ${formatNum(d2Prv.value, 2)}%` : null}
+          direction={dir(d2Chg)}
+          signal={d2Chg == null ? "neutral" : d2Chg > 0 ? "bearish" : "neutral"}
+          dateLabel={d2Cur?.date?.slice(5) || ""}
+          detail="The most policy-sensitive point on the curve. Closely tracks market expectations for the fed funds rate over the next two years. When the 2Y trades well above the 10Y (inversion), it signals markets expect the Fed to cut as growth deteriorates."
+          source="U.S. Treasury"
           sourceUrl="https://fred.stlouisfed.org/series/DGS2"
-          decimals={3}
+          decimals={2}
         />
-
         <IndicatorCard
           label="2s10s Spread"
-          value={t10y2yCur?.value}
-          unit="%"
+          value={t10y2yCur?.value != null ? t10y2yCur.value * 100 : null}
+          unit=" bps"
           change={t2yChg}
-          changeLabel={bpsLabel(t10y2yCur?.value, t10y2yPrv?.value)}
-          direction={directionFromChange(t2yChg)}
+          changeLabel={t10y2yCur && t10y2yPrv ? `${bpsLabel(t10y2yCur.value, t10y2yPrv.value)}` : null}
+          direction={dir(t2yChg)}
           signal={spreadSignal(t10y2yCur?.value)}
-          detail={`The spread between the 10-year and 2-year Treasury yields — the classic recession signal. A sustained inversion (negative reading) has preceded every US recession since the 1970s with a typical lead time of 6–18 months. The curve inverted deeply in 2022–2023, the steepest inversion since 1981. A return to positive territory (re-steepening) can signal either Fed cuts ahead or growth re-acceleration — context matters.`}
+          dateLabel={t10y2yCur?.date?.slice(5) || ""}
+          detail="The spread between 10-year and 2-year Treasury yields — the classic recession signal. A sustained inversion has preceded every US recession since the 1970s with a typical lead time of 6-18 months. The curve inverted deeply in 2022-2023, the steepest since 1981."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/T10Y2Y"
-          decimals={3}
+          decimals={0}
+          prefix="+"
         />
-
         <IndicatorCard
           label="10Y-3M Spread"
-          value={t10y3mCur?.value}
-          unit="%"
+          value={t10y3mCur?.value != null ? t10y3mCur.value * 100 : null}
+          unit=" bps"
           change={t3mChg}
-          changeLabel={bpsLabel(t10y3mCur?.value, t10y3mPrv?.value)}
-          direction={directionFromChange(t3mChg)}
+          changeLabel={t10y3mCur && t10y3mPrv ? `${bpsLabel(t10y3mCur.value, t10y3mPrv.value)}` : null}
+          direction={dir(t3mChg)}
           signal={t10y3mSignal(t10y3mCur?.value)}
-          detail={`The NY Federal Reserve's preferred recession indicator — used in its widely-cited recession probability model. Academic research (Estrella & Mishkin) shows this spread has the strongest predictive power of any yield curve measure. When inverted, it has preceded all eight US recessions since 1960 with fewer false positives than the 2s10s. An inversion here is considered a high-conviction warning signal by professional forecasters.`}
+          dateLabel={t10y3mCur?.date?.slice(5) || ""}
+          detail="The NY Fed's preferred recession indicator. Academic research shows this spread has the strongest predictive power of any yield curve measure. An inversion has preceded all eight US recessions since 1960 with fewer false positives than the 2s10s."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/T10Y3M"
-          decimals={3}
+          decimals={0}
+          prefix="+"
         />
-
         <IndicatorCard
-          label="30Y Mortgage"
+          label="30Y Mortgage Rate"
           value={mortCur?.value}
           unit="%"
           change={mortChg}
-          changeLabel={bpsLabel(mortCur?.value, mortPrv?.value)}
-          direction={directionFromChange(mortChg)}
+          changeLabel={mortCur && mortPrv ? `${bpsLabel(mortCur.value, mortPrv.value)} from ${formatNum(mortPrv.value, 2)}%` : null}
+          direction={dir(mortChg)}
           signal={mortgageSignal(mortCur?.value)}
-          detail={`Freddie Mac's weekly 30-year fixed mortgage survey rate — the primary cost of homeownership for most Americans. Tightly linked to the 10Y Treasury yield plus a spread of ~170 bps on average, though that spread widened sharply during the 2022–2023 tightening cycle. Rates above 7% — last seen in the early 2000s — have caused a severe affordability crunch and locked existing homeowners out of moving (the "lock-in effect").`}
+          dateLabel={mortCur?.date?.slice(5) || ""}
+          detail="Freddie Mac's weekly 30-year fixed mortgage survey rate. Tightly linked to the 10Y Treasury yield plus a spread of ~170 bps. Rates above 7% have caused a severe affordability crunch and locked existing homeowners out of moving (the 'lock-in effect')."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
           decimals={2}
         />
       </div>
-
     </div>
   );
 }
