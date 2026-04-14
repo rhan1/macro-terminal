@@ -16,7 +16,7 @@ import {
   ReferenceLine,
 } from "recharts";
 
-// ── date helpers ─────────────────────────────────────────────────────────────
+// ── date helpers ──────────────────────────────────────────────────────────────
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 function fmtDaily(dateStr) {
@@ -31,170 +31,141 @@ function fmtMonthly(dateStr) {
   return `${MONTHS[parseInt(m, 10) - 1]} ${y.slice(2)}`;
 }
 
-// ── risk level + description derivation ──────────────────────────────────────
-function riskInfo(category, data) {
-  const vixLatest  = latest(data.VIXCLS)?.value;
-  const hyLatest   = latest(data.HYSPREAD)?.value;
-  const recLatest  = latest(data.RECESSION)?.value;
-  const sentLatest = latest(data.UMCSENT)?.value;
-  const goldLatest = latest(data.GOLD)?.value;
-  const sp500      = data.SP500;
+// ── risk level colors ─────────────────────────────────────────────────────────
+const RISK_COLORS = {
+  HIGH:     { bg: "hsla(0,72%,55%,0.12)",   border: "hsla(0,72%,55%,0.3)",   text: "hsl(0,72%,55%)"   },
+  ELEVATED: { bg: "hsla(45,90%,55%,0.08)",  border: "hsla(45,90%,55%,0.25)", text: "hsl(45,90%,55%)"  },
+  MODERATE: { bg: "hsla(142,70%,55%,0.06)", border: "hsla(142,70%,55%,0.2)", text: "hsl(142,70%,55%)" },
+  LOW:      { bg: "hsla(142,70%,55%,0.06)", border: "hsla(142,70%,55%,0.2)", text: "hsl(142,70%,55%)" },
+  UNKNOWN:  { bg: "hsla(220,10%,30%,0.12)", border: "hsla(220,10%,40%,0.3)", text: "hsl(220,10%,50%)" },
+};
+
+// ── heat map category derivation ──────────────────────────────────────────────
+function heatMapInfo(category, data) {
+  const goldVal = latest(data.GOLD)?.value;
+  const cpiVal  = latest(data.CPI)?.value;
+  const pceVal  = latest(data.COREPCE)?.value;
+  const unrate  = latest(data.UNRATE)?.value;
+  const payems  = latest(data.PAYEMS)?.value;
+  const hyVal   = latest(data.HYSPREAD)?.value;
+  const gdpVal  = latest(data.GDP)?.value;
 
   switch (category) {
-    case "Market Volatility": {
-      if (vixLatest == null) return { level: "UNKNOWN", desc: "No data" };
-      if (vixLatest > 35) return { level: "HIGH",     desc: `VIX ${formatNum(vixLatest, 1)} — panic/crisis territory` };
-      if (vixLatest > 25) return { level: "ELEVATED", desc: `VIX ${formatNum(vixLatest, 1)} — above fear threshold` };
-      if (vixLatest > 18) return { level: "MODERATE", desc: `VIX ${formatNum(vixLatest, 1)} — mild uncertainty` };
-      return                     { level: "LOW",      desc: `VIX ${formatNum(vixLatest, 1)} — markets calm` };
+    case "Geopolitical": {
+      if (goldVal == null) return { level: "UNKNOWN", desc: "No gold data" };
+      if (goldVal > 2500) return { level: "HIGH",     desc: `Gold $${formatNum(goldVal, 0)} — extreme safe-haven bid` };
+      if (goldVal > 2200) return { level: "ELEVATED", desc: `Gold $${formatNum(goldVal, 0)} — flight to safety` };
+      if (goldVal > 1800) return { level: "MODERATE", desc: `Gold $${formatNum(goldVal, 0)} — modest safe-haven demand` };
+      return                     { level: "LOW",      desc: `Gold $${formatNum(goldVal, 0)} — no safe-haven premium` };
+    }
+
+    case "Inflation Stickiness": {
+      const inf = cpiVal ?? pceVal;
+      if (inf == null) return { level: "UNKNOWN", desc: "No inflation data" };
+      if (inf > 3)   return { level: "ELEVATED", desc: `CPI/PCE ${formatNum(inf, 1)}% — above 3%, sticky` };
+      if (inf > 2.5) return { level: "MODERATE", desc: `CPI/PCE ${formatNum(inf, 1)}% — above target` };
+      return                { level: "LOW",      desc: `CPI/PCE ${formatNum(inf, 1)}% — near target` };
+    }
+
+    case "Labor Deterioration": {
+      if (unrate == null && payems == null) return { level: "UNKNOWN", desc: "No labor data" };
+      if (payems != null && payems < 0)    return { level: "HIGH",     desc: `Payrolls ${formatNum(payems, 0)}K — net job losses` };
+      if (unrate != null && unrate > 4.5)  return { level: "ELEVATED", desc: `Unemployment ${formatNum(unrate, 1)}% — elevated` };
+      return                               { level: "MODERATE", desc: `Unemp ${unrate != null ? formatNum(unrate, 1) : "—"}% — holding` };
+    }
+
+    case "Fiscal/Deficit": {
+      return { level: "ELEVATED", desc: "Deficit >$1.5T — structural concern" };
     }
 
     case "Credit Stress": {
-      if (hyLatest == null) return { level: "UNKNOWN", desc: "No data" };
-      if (hyLatest > 6) return { level: "HIGH",     desc: `HY spread ${formatNum(hyLatest, 2)}% — distress signals` };
-      if (hyLatest > 4) return { level: "ELEVATED", desc: `HY spread ${formatNum(hyLatest, 2)}% — stress building` };
-      if (hyLatest > 3) return { level: "MODERATE", desc: `HY spread ${formatNum(hyLatest, 2)}% — modest widening` };
-      return                   { level: "LOW",      desc: `HY spread ${formatNum(hyLatest, 2)}% — tight, benign` };
-    }
-
-    case "Recession Risk": {
-      if (recLatest == null) return { level: "UNKNOWN", desc: "No data" };
-      if (recLatest > 40) return { level: "HIGH",     desc: `${formatNum(recLatest, 1)}% prob — historically recessionary` };
-      if (recLatest > 20) return { level: "ELEVATED", desc: `${formatNum(recLatest, 1)}% prob — meaningfully elevated` };
-      if (recLatest > 10) return { level: "MODERATE", desc: `${formatNum(recLatest, 1)}% prob — above baseline` };
-      return                     { level: "LOW",      desc: `${formatNum(recLatest, 1)}% prob — below baseline` };
-    }
-
-    case "Consumer Sentiment": {
-      if (sentLatest == null) return { level: "UNKNOWN", desc: "No data" };
-      if (sentLatest < 55) return { level: "HIGH",     desc: `Index ${formatNum(sentLatest, 1)} — deeply pessimistic` };
-      if (sentLatest < 65) return { level: "ELEVATED", desc: `Index ${formatNum(sentLatest, 1)} — significant weakness` };
-      if (sentLatest < 75) return { level: "MODERATE", desc: `Index ${formatNum(sentLatest, 1)} — below average` };
-      return                      { level: "LOW",      desc: `Index ${formatNum(sentLatest, 1)} — healthy consumer` };
-    }
-
-    case "Gold Signal": {
-      if (goldLatest == null) return { level: "UNKNOWN", desc: "No data" };
-      if (goldLatest > 2500) return { level: "HIGH",     desc: `$${formatNum(goldLatest, 0)} — extreme safe-haven bid` };
-      if (goldLatest > 2200) return { level: "ELEVATED", desc: `$${formatNum(goldLatest, 0)} — flight to safety` };
-      if (goldLatest > 1700) return { level: "MODERATE", desc: `$${formatNum(goldLatest, 0)} — moderate safe-haven demand` };
-      return                        { level: "LOW",      desc: `$${formatNum(goldLatest, 0)} — no safe-haven premium` };
+      if (hyVal == null) return { level: "UNKNOWN", desc: "No spread data" };
+      if (hyVal > 6) return { level: "HIGH",     desc: `HY spread ${formatNum(hyVal, 2)}% — distress signals` };
+      if (hyVal > 4) return { level: "ELEVATED", desc: `HY spread ${formatNum(hyVal, 2)}% — stress building` };
+      if (hyVal > 3) return { level: "MODERATE", desc: `HY spread ${formatNum(hyVal, 2)}% — modest widening` };
+      return                { level: "LOW",      desc: `HY spread ${formatNum(hyVal, 2)}% — tight, benign` };
     }
 
     case "Financial Conditions": {
-      if (hyLatest == null) return { level: "UNKNOWN", desc: "No data" };
-      if (hyLatest > 7)   return { level: "HIGH",     desc: `Spreads ${formatNum(hyLatest, 2)}% — conditions seized` };
-      if (hyLatest > 5)   return { level: "ELEVATED", desc: `Spreads ${formatNum(hyLatest, 2)}% — tightening fast` };
-      if (hyLatest > 3.5) return { level: "MODERATE", desc: `Spreads ${formatNum(hyLatest, 2)}% — some tightening` };
-      return                     { level: "LOW",      desc: `Spreads ${formatNum(hyLatest, 2)}% — conditions loose` };
+      if (hyVal == null) return { level: "UNKNOWN", desc: "No spread data" };
+      if (hyVal > 5)   return { level: "HIGH",     desc: `Spreads ${formatNum(hyVal, 2)}% — conditions seized` };
+      if (hyVal > 3.5) return { level: "MODERATE", desc: `Spreads ${formatNum(hyVal, 2)}% — some tightening` };
+      return                  { level: "LOW",      desc: `Spreads ${formatNum(hyVal, 2)}% — conditions loose` };
     }
 
-    case "Equity Risk": {
-      if (!sp500 || sp500.length < 20) return { level: "UNKNOWN", desc: "Insufficient history" };
-      const now  = sp500[0].value;
-      const then = sp500[Math.min(19, sp500.length - 1)].value;
-      const pct  = ((now - then) / Math.abs(then)) * 100;
-      if (pct < -10) return { level: "HIGH",     desc: `20D return ${formatNum(pct, 1)}% — sharp drawdown` };
-      if (pct < -5)  return { level: "ELEVATED", desc: `20D return ${formatNum(pct, 1)}% — meaningful decline` };
-      if (pct < 0)   return { level: "MODERATE", desc: `20D return ${formatNum(pct, 1)}% — slight weakness` };
-      return               { level: "LOW",      desc: `20D return +${formatNum(pct, 1)}% — trending up` };
+    case "Systemic Risk": {
+      return { level: "LOW", desc: "No acute systemic signals" };
     }
 
-    case "Systemic Risk":
+    case "Growth Momentum": {
+      if (gdpVal == null) return { level: "UNKNOWN", desc: "No GDP data" };
+      if (gdpVal < 0)   return { level: "HIGH",     desc: `GDP ${formatNum(gdpVal, 1)}% — contraction` };
+      if (gdpVal < 1.5) return { level: "ELEVATED", desc: `GDP ${formatNum(gdpVal, 1)}% — stall speed` };
+      if (gdpVal > 2.5) return { level: "LOW",      desc: `GDP ${formatNum(gdpVal, 1)}% — solid growth` };
+      return                   { level: "MODERATE", desc: `GDP ${formatNum(gdpVal, 1)}% — below trend` };
+    }
+
     default:
-      return { level: "LOW", desc: "No acute signals" };
+      return { level: "UNKNOWN", desc: "No data" };
   }
 }
 
-const RISK_COLORS = {
-  HIGH:     { bg: "rgba(239,68,68,0.15)",  border: "#ef4444", label: "#ef4444"  },
-  ELEVATED: { bg: "rgba(234,179,8,0.12)",  border: "#eab308", label: "#eab308"  },
-  MODERATE: { bg: "rgba(74,222,128,0.07)", border: "#22543d", label: "#4ade80"  },
-  LOW:      { bg: "rgba(74,222,128,0.10)", border: "#4ade80", label: "#4ade80"  },
-  UNKNOWN:  { bg: "rgba(90,99,118,0.12)",  border: "#5a6376", label: "#5a6376"  },
-};
-
-const RISK_CATEGORIES = [
-  "Market Volatility",
+const HEAT_MAP_CATEGORIES = [
+  "Geopolitical",
+  "Inflation Stickiness",
+  "Labor Deterioration",
+  "Fiscal/Deficit",
   "Credit Stress",
-  "Recession Risk",
-  "Consumer Sentiment",
-  "Gold Signal",
   "Financial Conditions",
-  "Equity Risk",
   "Systemic Risk",
+  "Growth Momentum",
 ];
 
-// ── Geopolitical Risk Alert ───────────────────────────────────────────────────
+// ── Geopolitical Alert ────────────────────────────────────────────────────────
 function GeopoliticalAlert({ goldVal, vixVal }) {
   const goldHigh = goldVal != null && goldVal > 2200;
-  const vixHigh  = vixVal  != null && vixVal  > 30;
-
+  const vixHigh  = vixVal  != null && vixVal  > 25;
   if (!goldHigh && !vixHigh) return null;
 
-  const messages = [];
+  let body = "";
   if (goldHigh && vixHigh) {
-    messages.push(
-      `ELEVATED GEOPOLITICAL RISK — Gold at safe-haven levels ($${formatNum(goldVal, 0)}), signaling flight to safety. Monitor commodity supply chains and energy prices.`
-    );
-    messages.push(
-      `MARKET STRESS — VIX at crisis levels indicating extreme fear and potential for cascading sell-offs.`
-    );
+    body = `Gold at safe-haven levels ($${formatNum(goldVal, 0)}) signaling flight to safety alongside elevated market volatility (VIX ${formatNum(vixVal, 1)}). Monitor commodity supply chains and energy prices for compounding geopolitical risk factors.`;
   } else if (goldHigh) {
-    messages.push(
-      `ELEVATED GEOPOLITICAL RISK — Gold at safe-haven levels ($${formatNum(goldVal, 0)}), signaling flight to safety. Monitor commodity supply chains and energy prices.`
-    );
+    body = `Gold at safe-haven levels ($${formatNum(goldVal, 0)}) signals active flight to safety. Geopolitical tensions or macro uncertainty appear to be driving demand. Monitor commodity supply chains and energy prices.`;
   } else {
-    messages.push(
-      `MARKET STRESS — VIX at crisis levels indicating extreme fear and potential for cascading sell-offs.`
-    );
+    body = `Market volatility elevated (VIX ${formatNum(vixVal, 1)}) — above fear threshold. Potential for cascading sell-offs. Consider tail-risk positioning and monitor credit spread widening.`;
   }
 
   return (
     <div
       style={{
-        background: "rgba(239,68,68,0.08)",
-        border: "1px solid rgba(239,68,68,0.50)",
-        borderLeft: "3px solid #ef4444",
+        border: "1px solid hsla(0,72%,55%,0.4)",
+        background: "hsla(0,72%,55%,0.06)",
         borderRadius: 4,
-        padding: "11px 14px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
+        padding: 12,
       }}
     >
-      {messages.map((msg, i) => (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: 8,
-          }}
-        >
-          <span
-            style={{
-              fontSize: 13,
-              lineHeight: 1,
-              marginTop: 1,
-              color: "#ef4444",
-              flexShrink: 0,
-            }}
-          >
-            ⚠
-          </span>
-          <span
-            style={{
-              fontSize: 10,
-              color: "rgba(239,68,68,0.90)",
-              letterSpacing: "0.04em",
-              lineHeight: 1.5,
-            }}
-          >
-            {msg}
-          </span>
-        </div>
-      ))}
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: "hsl(0,72%,55%)",
+          letterSpacing: "0.08em",
+          marginBottom: 6,
+        }}
+      >
+        GEOPOLITICAL RISK: ELEVATED
+      </div>
+      <div
+        style={{
+          fontSize: 10,
+          color: "hsla(0,72%,55%,0.85)",
+          lineHeight: 1.6,
+          letterSpacing: "0.03em",
+        }}
+      >
+        {body}
+      </div>
     </div>
   );
 }
@@ -209,8 +180,8 @@ function RiskHeatMap({ data }) {
         gap: 8,
       }}
     >
-      {RISK_CATEGORIES.map((cat) => {
-        const { level, desc } = riskInfo(cat, data);
+      {HEAT_MAP_CATEGORIES.map((cat) => {
+        const { level, desc } = heatMapInfo(cat, data);
         const colors = RISK_COLORS[level] || RISK_COLORS.UNKNOWN;
         return (
           <div
@@ -222,12 +193,12 @@ function RiskHeatMap({ data }) {
               padding: "10px 10px 9px",
               display: "flex",
               flexDirection: "column",
-              gap: 5,
+              gap: 4,
             }}
           >
             <div
               style={{
-                fontSize: 8,
+                fontSize: 9,
                 textTransform: "uppercase",
                 letterSpacing: "0.10em",
                 color: "var(--color-term-dim)",
@@ -239,8 +210,8 @@ function RiskHeatMap({ data }) {
             <div
               style={{
                 fontSize: 11,
-                fontWeight: 700,
-                color: colors.label,
+                fontWeight: 600,
+                color: colors.text,
                 letterSpacing: "0.06em",
               }}
             >
@@ -248,10 +219,9 @@ function RiskHeatMap({ data }) {
             </div>
             <div
               style={{
-                fontSize: 8,
+                fontSize: 9,
                 color: "var(--color-term-dim)",
                 lineHeight: 1.4,
-                marginTop: 1,
               }}
             >
               {desc}
@@ -259,24 +229,6 @@ function RiskHeatMap({ data }) {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-// ── Section label ─────────────────────────────────────────────────────────────
-function SectionLabel({ children }) {
-  return (
-    <div
-      className="section-label"
-      style={{
-        fontSize: 9,
-        letterSpacing: "0.12em",
-        textTransform: "uppercase",
-        color: "var(--color-term-dim)",
-        marginBottom: 10,
-      }}
-    >
-      {children}
     </div>
   );
 }
@@ -290,12 +242,17 @@ export default function Risk() {
     HYSPREAD:  { ...SERIES.HYSPREAD,  limit: 60 },
     RECESSION: { ...SERIES.RECESSION, limit: 12 },
     SP500:     { ...SERIES.SP500,     limit: 60 },
+    CPI:       { ...SERIES.CPI,       limit: 12 },
+    COREPCE:   { ...SERIES.COREPCE,   limit: 12 },
+    UNRATE:    { ...SERIES.UNRATE,    limit: 12 },
+    PAYEMS:    { ...SERIES.PAYEMS,    limit: 12 },
+    GDP:       { ...SERIES.GDP,       limit: 8  },
   });
 
   if (loading) return <Loading />;
   if (error) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "var(--color-term-red)", fontSize: 11 }}>
+      <div style={{ padding: 40, textAlign: "center", color: "hsl(0,72%,55%)", fontSize: 11 }}>
         ERROR: {error}
       </div>
     );
@@ -305,61 +262,89 @@ export default function Risk() {
   const vixChart  = [...(data.VIXCLS  || [])].reverse();
   const sentChart = [...(data.UMCSENT || [])].reverse();
 
-  // Derived values
-  const vixVal  = latest(data.VIXCLS)?.value;
-  const vixPrev = prior(data.VIXCLS)?.value;
+  // Derived latest values
+  const vixVal   = latest(data.VIXCLS)?.value;
+  const vixPrev  = prior(data.VIXCLS)?.value;
+  const vixChg   = change(vixVal, vixPrev);
 
   const sentVal  = latest(data.UMCSENT)?.value;
   const sentPrev = prior(data.UMCSENT)?.value;
+  const sentChg  = change(sentVal, sentPrev);
 
   const goldVal  = latest(data.GOLD)?.value;
   const goldPrev = prior(data.GOLD)?.value;
+  const goldChg  = change(goldVal, goldPrev);
 
-  const hyVal  = latest(data.HYSPREAD)?.value;
-  const hyPrev = prior(data.HYSPREAD)?.value;
+  const hyVal    = latest(data.HYSPREAD)?.value;
+  const hyPrev   = prior(data.HYSPREAD)?.value;
+  const hyChg    = change(hyVal, hyPrev);
 
-  const recVal  = latest(data.RECESSION)?.value;
-  const recPrev = prior(data.RECESSION)?.value;
+  const recVal   = latest(data.RECESSION)?.value;
+  const recPrev  = prior(data.RECESSION)?.value;
+  const recChg   = change(recVal, recPrev);
 
   const sp500Val  = latest(data.SP500)?.value;
   const sp500Prev = prior(data.SP500)?.value;
+  const sp500Chg  = change(sp500Val, sp500Prev);
 
-  const vixChange   = change(vixVal,   vixPrev);
-  const sentChange  = change(sentVal,  sentPrev);
-  const goldChange  = change(goldVal,  goldPrev);
-  const hyChange    = change(hyVal,    hyPrev);
-  const recChange   = change(recVal,   recPrev);
-  const sp500Change = change(sp500Val, sp500Prev);
+  // VIX chart value label
+  const vixLabel = vixVal != null ? formatNum(vixVal, 2) : "—";
+  const vixArrow = vixChg == null ? "" : vixChg >= 0 ? " ▲" : " ▼";
+  const vixChgStr = vixChg != null ? `${vixArrow} ${formatNum(Math.abs(vixChg), 1)}%` : "";
 
-  // VIX area color
-  const vixAreaColor =
-    vixVal >= 30 ? "var(--color-term-red)"   :
-    vixVal >= 20 ? "var(--color-term-amber)"  :
-                   "var(--color-term-green)";
+  // Indicator signals
+  const vixSignal  = vixVal == null ? "neutral" : vixVal > 25 ? "bearish" : vixVal < 18 ? "bullish" : "neutral";
+  const sentSignal = sentVal == null ? "neutral" : sentVal < 60 ? "bearish" : sentVal > 80 ? "bullish" : "neutral";
+  const goldSignal = goldVal == null ? "neutral" : goldVal > 2200 ? "bearish" : "neutral";
+  const hySignal   = hyVal == null ? "neutral" : hyVal > 5 ? "bearish" : hyVal < 3 ? "bullish" : "neutral";
+  const recSignal  = recVal == null ? "neutral" : recVal > 30 ? "bearish" : recVal < 10 ? "bullish" : "neutral";
+  const sp500Signal = sp500Chg == null ? "neutral" : sp500Chg >= 0 ? "bullish" : "bearish";
 
   return (
     <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-      {/* ── Geopolitical Alert ──────────────────────────────────────────── */}
+      {/* ── Section Header ──────────────────────────────────────────────── */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "hsl(142,70%,55%)", letterSpacing: "0.06em" }}>
+          $ SENTIMENT &amp; RISK
+        </div>
+        <div style={{ fontSize: 10, color: "var(--color-term-dim)", marginTop: 2 }}>
+          — VIX, Consumer, Gold, Credit, Geopolitical
+        </div>
+      </div>
+
+      {/* ── Geopolitical Alert (conditional) ───────────────────────────── */}
       <GeopoliticalAlert goldVal={goldVal} vixVal={vixVal} />
 
       {/* ── VIX + Consumer Sentiment side by side ───────────────────────── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
-        }}
-      >
-        {/* VIX chart */}
-        <div className="panel" style={{ padding: "14px 16px" }}>
-          <SectionLabel>VIX — Volatility Index (60D)</SectionLabel>
-          <ResponsiveContainer width="100%" height={150}>
-            <AreaChart data={vixChart} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+        {/* Left: VIX */}
+        <div
+          className="panel"
+          style={{ padding: "14px 16px" }}
+        >
+          {/* Panel header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--color-term-dim)" }}>
+              CBOE Volatility Index (VIX)
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 16, fontWeight: 600, color: "hsl(45,90%,55%)", fontVariantNumeric: "tabular-nums" }}>
+                {vixLabel}
+              </span>
+              <span style={{ fontSize: 10, color: vixChg != null && vixChg < 0 ? "hsl(142,70%,55%)" : "hsl(0,72%,55%)" }}>
+                {vixChgStr}
+              </span>
+            </div>
+          </div>
+
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={vixChart} margin={{ top: 4, right: 40, bottom: 0, left: -20 }}>
               <defs>
                 <linearGradient id="vixGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor={vixAreaColor} stopOpacity={0.4} />
-                  <stop offset="95%" stopColor={vixAreaColor} stopOpacity={0.02} />
+                  <stop offset="20%" stopColor="hsl(45,90%,55%)" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="hsl(45,90%,55%)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--color-term-border)" strokeDasharray="3 3" vertical={false} />
@@ -380,35 +365,41 @@ export default function Risk() {
               <Tooltip content={<ChartTooltip formatter={(v) => formatNum(v, 2)} />} />
               <ReferenceLine
                 y={20}
-                stroke="var(--color-term-green)"
+                stroke="hsl(142,70%,55%)"
                 strokeDasharray="4 4"
-                label={{ value: "NORMAL 20", position: "right", fill: "var(--color-term-green)", fontSize: 8 }}
+                label={{ value: "Normal <20", position: "right", fill: "hsl(142,70%,55%)", fontSize: 9 }}
               />
               <ReferenceLine
                 y={30}
-                stroke="var(--color-term-red)"
+                stroke="hsl(0,72%,55%)"
                 strokeDasharray="4 4"
-                label={{ value: "FEAR 30", position: "right", fill: "var(--color-term-red)", fontSize: 8 }}
+                label={{ value: "Fear >30", position: "right", fill: "hsl(0,72%,55%)", fontSize: 9 }}
               />
               <Area
                 type="monotone"
                 dataKey="value"
                 name="VIX"
-                stroke={vixAreaColor}
-                strokeWidth={1.5}
+                stroke="hsl(45,90%,55%)"
+                strokeWidth={2}
                 fill="url(#vixGrad)"
                 dot={false}
-                activeDot={{ r: 3, fill: vixAreaColor }}
+                activeDot={{ r: 3, fill: "hsl(45,90%,55%)" }}
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Consumer Sentiment chart */}
-        <div className="panel" style={{ padding: "14px 16px" }}>
-          <SectionLabel>UMich Consumer Sentiment (24M)</SectionLabel>
-          <ResponsiveContainer width="100%" height={150}>
-            <LineChart data={sentChart} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+        {/* Right: Consumer Sentiment */}
+        <div
+          className="panel"
+          style={{ padding: "14px 16px" }}
+        >
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--color-term-dim)", marginBottom: 12 }}>
+            Consumer Sentiment
+          </div>
+
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={sentChart} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
               <CartesianGrid stroke="var(--color-term-border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="date"
@@ -425,97 +416,106 @@ export default function Risk() {
                 domain={["auto", "auto"]}
               />
               <Tooltip content={<ChartTooltip formatter={(v) => formatNum(v, 1)} />} />
-              <ReferenceLine
-                y={65}
-                stroke="var(--color-term-amber)"
-                strokeDasharray="4 4"
-                label={{ value: "WEAK 65", position: "right", fill: "var(--color-term-amber)", fontSize: 8 }}
-              />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="value"
-                name="Sentiment"
-                stroke="var(--color-term-cyan)"
+                name="UMich Sentiment"
+                stroke="hsl(45,90%,55%)"
                 strokeWidth={1.5}
+                fill="none"
                 dot={false}
-                activeDot={{ r: 3, fill: "var(--color-term-cyan)" }}
+                activeDot={{ r: 3, fill: "hsl(45,90%,55%)" }}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* ── Risk Heat Map ────────────────────────────────────────────────── */}
+      {/* ── Risk Heat Map — Druckenmiller Framework ─────────────────────── */}
       <div className="panel" style={{ padding: "14px 16px" }}>
-        <SectionLabel>Risk Heat Map</SectionLabel>
+        <div
+          style={{
+            fontSize: 10,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            color: "var(--color-term-dim)",
+            marginBottom: 12,
+          }}
+        >
+          Risk Heat Map — Druckenmiller Framework
+        </div>
         <RiskHeatMap data={data} />
       </div>
 
-      {/* ── Key Risk Indicator Cards (3x2) ──────────────────────────────── */}
-      <div className="panel" style={{ padding: "14px 16px" }}>
-        <SectionLabel>Key Risk Indicators</SectionLabel>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 10,
-          }}
-        >
-          <IndicatorCard
-            label="VIX Fear Gauge"
-            value={vixVal}
-            unit=""
-            change={vixChange}
-            decimals={2}
-            detail="CBOE Volatility Index measuring 30-day implied S&P volatility. Below 20 = calm; 20–30 = elevated fear; above 30 = crisis/panic. Historical spikes: COVID (66), GFC (80), 9/11 (43)."
-            source="CBOE / FRED VIXCLS"
-          />
-          <IndicatorCard
-            label="Consumer Sentiment"
-            value={sentVal}
-            unit=""
-            change={sentChange}
-            decimals={1}
-            detail="University of Michigan Consumer Sentiment. Long-run avg ~86. Below 65 = significant pessimism historically preceding spending contractions. All-time low: 50.0 (Jun 2022)."
-            source="UMich / FRED UMCSENT"
-          />
-          <IndicatorCard
-            label="Gold"
-            value={goldVal}
-            unit="$"
-            change={goldChange}
-            decimals={0}
-            detail="Gold spot price (USD/troy oz). Above $2,200 signals active safe-haven demand. Rising gold alongside rising rates or equities is a warning flag for geopolitical or tail-risk events."
-            source="ICE / FRED GOLDAMGBD228NLBM"
-          />
-          <IndicatorCard
-            label="HY Credit Spread"
-            value={hyVal}
-            unit="%"
-            change={hyChange}
-            decimals={2}
-            detail="ICE BofA High Yield OAS over Treasuries. Below 3% = tight/complacent; 4–6% = stress building; above 6% = distress. Widened to 20%+ during GFC. Leading indicator for defaults."
-            source="ICE BofA / FRED BAMLH0A0HYM2"
-          />
-          <IndicatorCard
-            label="Recession Probability"
-            value={recVal}
-            unit="%"
-            change={recChange}
-            decimals={1}
-            detail="NY Fed smoothed recession probability from probit model using yield spread. Above 20% = elevated; above 40% = historically aligns with confirmed NBER recessions. Lags by ~1 quarter."
-            source="NY Fed / FRED RECPROUSM156N"
-          />
-          <IndicatorCard
-            label="S&P 500"
-            value={sp500Val}
-            unit=""
-            change={sp500Change}
-            decimals={2}
-            detail="S&P 500 composite index level. Drawdowns of 10%+ (correction) or 20%+ (bear market) alongside rising VIX and widening credit spreads indicate compounding systemic risk."
-            source="S&P / FRED SP500"
-          />
-        </div>
+      {/* ── 6 Indicator Cards (3 x 2) ───────────────────────────────────── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 12,
+        }}
+      >
+        <IndicatorCard
+          label="VIX"
+          value={vixVal}
+          unit=""
+          change={vixChg}
+          decimals={2}
+          signal={vixSignal}
+          detail="CBOE Volatility Index — 30-day implied S&P 500 volatility. Below 18 = calm markets; 18–25 = cautious; above 25 = fear; above 30 = crisis/panic. Spikes: COVID (66), GFC (80)."
+          source="CBOE / FRED VIXCLS"
+        />
+        <IndicatorCard
+          label="Consumer Confidence"
+          value={sentVal}
+          unit=""
+          change={sentChg}
+          decimals={1}
+          signal={sentSignal}
+          detail="University of Michigan Consumer Sentiment. Long-run avg ~86. Below 60 = significant pessimism historically preceding spending contractions. All-time low: 50.0 (Jun 2022)."
+          source="UMich / FRED UMCSENT"
+        />
+        <IndicatorCard
+          label="Gold (GLD)"
+          value={goldVal}
+          prefix="$"
+          unit=""
+          change={goldChg}
+          decimals={0}
+          signal={goldSignal}
+          detail="Gold spot price (USD/troy oz). Above $2,200 signals active safe-haven demand — a bearish risk signal indicating geopolitical or macro stress. All-time high driven by de-dollarization fears."
+          source="ICE / FRED GOLDAMGBD228NLBM"
+        />
+        <IndicatorCard
+          label="HY Credit Spreads"
+          value={hyVal}
+          unit="%"
+          change={hyChg}
+          decimals={2}
+          signal={hySignal}
+          detail="ICE BofA High Yield OAS over Treasuries. Below 3% = complacent; 3–5% = stress building; above 5% = bearish; above 6% = distress. Widened to 20%+ during GFC. Leading indicator for defaults."
+          source="ICE BofA / FRED BAMLH0A0HYM2"
+        />
+        <IndicatorCard
+          label="Recession Probability"
+          value={recVal}
+          unit="%"
+          change={recChg}
+          decimals={1}
+          signal={recSignal}
+          detail="NY Fed smoothed recession probability from probit model using yield spread. Above 30% = elevated risk; above 40% = historically aligns with confirmed NBER recessions. Lags by ~1 quarter."
+          source="NY Fed / FRED RECPROUSM156N"
+        />
+        <IndicatorCard
+          label="S&P 500"
+          value={sp500Val}
+          unit=""
+          change={sp500Chg}
+          decimals={2}
+          signal={sp500Signal}
+          detail="S&P 500 composite index. Drawdowns of 10%+ (correction) or 20%+ (bear market) alongside rising VIX and widening credit spreads signal compounding systemic risk."
+          source="S&P / FRED SP500"
+        />
       </div>
 
     </div>

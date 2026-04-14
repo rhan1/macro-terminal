@@ -2,16 +2,16 @@ export default function Footer() {
   return (
     <footer
       style={{
+        width: "100%",
+        padding: "16px 0",
         textAlign: "center",
-        padding: "8px 16px",
-        borderTop: "1px solid var(--color-term-border)",
-        color: "var(--color-term-dim)",
-        fontSize: 9,
-        letterSpacing: "0.05em",
-        flexShrink: 0,
+        fontSize: 12,
+        color: "hsl(220,10%,50%)",
       }}
     >
-      DATA: FRED API &middot; LIVE MACRO DASHBOARD
+      <span style={{ opacity: 0.7 }}>
+        Macro Terminal &middot; Live FRED Data
+      </span>
     </footer>
   );
 }
