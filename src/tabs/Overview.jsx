@@ -57,6 +57,14 @@ function val(data, key) {
   return l ? l.value : null;
 }
 
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtCardDate(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  const mi = parseInt(m, 10) - 1;
+  return d === "01" ? `${MONTHS[mi]} ${y}` : `${MONTHS[mi]} ${parseInt(d, 10)}, ${y}`;
+}
+
 // ── Macro Regime ──────────────────────────────────────────────────────────────
 function getMacroRegime(cpi, gdp, vix) {
   if (vix != null && vix > 30) return "CRISIS MODE";
@@ -924,6 +932,7 @@ export default function Overview() {
           }
           source="FRED / DFF"
           sourceUrl="https://fred.stlouisfed.org/series/DFF"
+          dateLabel={fmtCardDate(latest(data.FEDFUNDS)?.date)}
         />
         <IndicatorCard
           label="CPI YoY"
@@ -939,6 +948,7 @@ export default function Overview() {
           }
           source="FRED / CPIAUCSL"
           sourceUrl="https://fred.stlouisfed.org/series/CPIAUCSL"
+          dateLabel={fmtCardDate(latest(data.CPI)?.date)}
         />
         <IndicatorCard
           label="GDP Growth"
@@ -958,6 +968,7 @@ export default function Overview() {
           }
           source="FRED / A191RL1Q225SBEA"
           sourceUrl="https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
+          dateLabel={fmtCardDate(latest(data.GDP)?.date)}
         />
         <IndicatorCard
           label="Unemployment"
@@ -977,6 +988,7 @@ export default function Overview() {
           }
           source="FRED / UNRATE"
           sourceUrl="https://fred.stlouisfed.org/series/UNRATE"
+          dateLabel={fmtCardDate(latest(data.UNRATE)?.date)}
         />
         <IndicatorCard
           label="VIX"
@@ -996,6 +1008,7 @@ export default function Overview() {
           }
           source="FRED / VIXCLS"
           sourceUrl="https://fred.stlouisfed.org/series/VIXCLS"
+          dateLabel={fmtCardDate(latest(data.VIXCLS)?.date)}
         />
         <IndicatorCard
           label="30Y Mortgage"
@@ -1016,6 +1029,7 @@ export default function Overview() {
           }
           source="FRED / MORTGAGE30US"
           sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
+          dateLabel={fmtCardDate(latest(data.MORTGAGE30)?.date)}
         />
       </div>
 

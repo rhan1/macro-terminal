@@ -43,6 +43,13 @@ function fmtMonthYear(dateStr) {
   return `${MONTH_NAMES[parseInt(month, 10) - 1]} ${year.slice(2)}`;
 }
 
+function fmtCardDate(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  const mi = parseInt(m, 10) - 1;
+  return d === "01" ? `${MONTH_NAMES[mi]} ${y}` : `${MONTH_NAMES[mi]} ${parseInt(d, 10)}, ${y}`;
+}
+
 function toAsc(arr, n) {
   if (!arr || arr.length === 0) return [];
   return [...arr].slice(0, n).reverse();
@@ -642,6 +649,7 @@ export default function RealEstate() {
           detail="Case-Shiller National Home Price Index, year-over-year % change. The gold standard gauge of US home price appreciation. Readings above 10% signal bubble-like conditions fueled by excess demand or rate-driven distortions. Readings below 0% signal a correction cycle, often coinciding with rising inventory and tightening credit. A 2–5% range is healthy — tracking nominal income growth and keeping affordability stable. Shelter is typically the largest component of household wealth, so a sustained price decline has significant knock-on effects for consumer confidence and bank collateral quality."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CSUSHPINSA"
+          dateLabel={fmtCardDate(latest(csArr)?.date)}
         />
 
         <IndicatorCard
@@ -656,6 +664,7 @@ export default function RealEstate() {
           detail="30-year fixed mortgage rate. The most direct transmission channel from Fed policy to the housing market. Rates above 7% sharply reduce purchase affordability and volume, locking homeowners into existing low-rate mortgages — the 'lock-in effect' that suppresses existing home inventory. Rates below 5% historically stimulate demand, pull forward purchases, and accelerate home price appreciation. The spread between mortgage rates and the 10-year Treasury signals the degree of mortgage market stress; elevated spreads reflect lender risk aversion or MBS prepayment uncertainty."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
+          dateLabel={fmtCardDate(latest(mortgageArr)?.date)}
         />
 
         <IndicatorCard
@@ -670,6 +679,7 @@ export default function RealEstate() {
           detail="Seasonally adjusted annualized rate of existing home sales. A high-frequency proxy for housing market activity. Sustained readings below 4M SAAR reflect a highly constrained market where elevated rates and lock-in effects suppress transaction volume even if prices remain firm. Rising sales signal improving demand or inventory normalization. Falling sales, if concurrent with falling prices, are a leading indicator of broader housing credit stress. Sales volume drives commission income, mortgage origination, and consumer spending on furniture, appliances, and home improvement."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/EXHOSLUSM495S"
+          dateLabel={fmtCardDate(latest(salesArr)?.date)}
         />
 
         <IndicatorCard
@@ -684,6 +694,7 @@ export default function RealEstate() {
           detail="New residential construction starts, seasonally adjusted annualized rate (thousands). A leading indicator of construction employment, building materials demand, and future housing supply. Starts below 1,000K signal severe supply contraction — typically driven by prohibitive financing costs or collapsing demand — which reinforces long-run affordability problems. Starts above 1,500K signal supply expansion that, over 12–18 months, relieves price pressure. The gap between starts and household formation rate determines structural supply deficits, which underpin long-run price support."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/HOUST"
+          dateLabel={fmtCardDate(latest(startsArr)?.date)}
         />
 
         <IndicatorCard
@@ -702,6 +713,7 @@ export default function RealEstate() {
           detail="Months of housing supply — the ratio of homes for sale to monthly sales pace. Below 4 months is a seller's market, historically associated with rapid price appreciation and bidding wars. 4–6 months is the balanced equilibrium range. Above 6 months tilts toward a buyer's market, exerting price softening pressure. Inventory normalization from cycle lows near 1–2 months (post-2020) is structurally bearish for near-term prices but long-run healthy. The pace of normalization is more informative than the level alone — a fast rise in months of supply often precedes material price corrections."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/HOSSUPUSM673N"
+          dateLabel={fmtCardDate(latest(supplyArr)?.date)}
         />
 
         <IndicatorCard
@@ -716,6 +728,7 @@ export default function RealEstate() {
           detail="NAR Housing Affordability Index — measures whether a median-income family can qualify for a mortgage on a median-priced home, assuming 20% down and 25% income-to-payment ratio. A reading of 100 means the median family has exactly enough income to qualify; above 100 means homes are affordable, below 100 means they are not. The affordability index is a function of home prices, mortgage rates, and median household income. It is one of the strongest long-run demand predictors: sustained unaffordability suppresses household formation, demand, and ultimately prices."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/FIXHAI"
+          dateLabel={fmtCardDate(latest(affordArr)?.date)}
         />
 
       </div>
