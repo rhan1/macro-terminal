@@ -8,8 +8,9 @@ import Inflation from "./tabs/Inflation";
 import Growth from "./tabs/Growth";
 import Labor from "./tabs/Labor";
 import Risk from "./tabs/Risk";
+import RealEstate from "./tabs/RealEstate";
 
-const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk"];
+const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "realestate"];
 
 const TAB_COMPONENTS = {
   overview: Overview,
@@ -18,6 +19,7 @@ const TAB_COMPONENTS = {
   growth: Growth,
   labor: Labor,
   risk: Risk,
+  realestate: RealEstate,
 };
 
 export default function App() {
@@ -26,7 +28,7 @@ export default function App() {
   useEffect(() => {
     function handleKey(e) {
       const num = parseInt(e.key, 10);
-      if (num >= 1 && num <= 6 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (num >= 1 && num <= 7 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         setActiveTab(TAB_KEYS[num - 1]);
       }

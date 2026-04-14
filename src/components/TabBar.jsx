@@ -5,6 +5,7 @@ const TABS = [
   { key: "growth", label: "GROWTH", num: "4" },
   { key: "labor", label: "LABOR", num: "5" },
   { key: "risk", label: "RISK", num: "6" },
+  { key: "realestate", label: "REAL ESTATE", num: "7" },
 ];
 
 export default function TabBar({ active, onSelect }) {
@@ -58,7 +59,7 @@ export default function TabBar({ active, onSelect }) {
         })}
       </div>
       <span style={{ fontSize: 10, color: "hsl(220,10%,40%)", letterSpacing: "0.05em" }}>
-        KEYS [1-6] TO NAVIGATE
+        KEYS [1-7] TO NAVIGATE
       </span>
     </nav>
   );

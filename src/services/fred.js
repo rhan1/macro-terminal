@@ -128,4 +128,21 @@ export const SERIES = {
   UMCSENT: { id: "UMCSENT", frequency: "m", limit: 24 },
   HYSPREAD: { id: "BAMLH0A0HYM2", frequency: "d", limit: 60 },
   RECESSION: { id: "RECPROUSM156N", frequency: "m", limit: 12 },
+
+  // Real Estate
+  CASESHILLER: { id: "CSUSHPINSA", frequency: "m", limit: 36, units: "pc1" },
+  MEDPRICE_EXISTING: { id: "HOSMEDUSM052N", frequency: "m", limit: 36 },
+  MEDPRICE_NEW: { id: "MSPNHSUS", frequency: "m", limit: 36 },
+  MONTHS_SUPPLY: { id: "HOSSUPUSM673N", frequency: "m", limit: 36 },
+  ACTIVE_LISTINGS: { id: "ACTLISCOUUS", frequency: "m", limit: 36 },
+  DAYS_ON_MARKET: { id: "MEDDAYONMARUS", frequency: "m", limit: 36 },
+  HOUSING_STARTS: { id: "HOUST", frequency: "m", limit: 36 },
+  PERMITS: { id: "PERMIT", frequency: "m", limit: 36 },
+  UNDER_CONSTRUCTION: { id: "UNDCONTSA", frequency: "m", limit: 36 },
+  AFFORDABILITY: { id: "FIXHAI", frequency: "m", limit: 36 },
+  DELINQUENCY: { id: "DRSFRMACBS", frequency: "q", limit: 20 },
+  EXISTING_SALES: { id: "EXHOSLUSM495S", frequency: "m", limit: 36 },
+  NEW_SALES: { id: "HSN1F", frequency: "m", limit: 36 },
+  OER: { id: "CUSR0000SEHC", frequency: "m", limit: 36, units: "pc1" },
+  CPI_RENT: { id: "CUSR0000SEHA", frequency: "m", limit: 36, units: "pc1" },
 };
