@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
@@ -59,19 +60,6 @@ function sectionStyle() {
   };
 }
 
-function changeColor(val) {
-  if (val == null || isNaN(val)) return "var(--color-term-dim)";
-  if (val > 0) return "var(--color-term-green)";
-  if (val < 0) return "var(--color-term-red)";
-  return "var(--color-term-amber)";
-}
-
-function spreadColor(val) {
-  if (val == null || isNaN(val)) return "var(--color-term-dim)";
-  if (val > 0) return "var(--color-term-green)";
-  return "var(--color-term-red)";
-}
-
 function fmtDate(dateStr) {
   if (!dateStr) return "";
   const [, m, d] = dateStr.split("-");
@@ -117,7 +105,7 @@ function YieldCurveTable({ data }) {
           const bps =
             cur && prv ? ((cur.value - prv.value) * 100).toFixed(1) : null;
           const bpsNum = bps != null ? parseFloat(bps) : null;
-          const isInverted = bpsNum != null && bpsNum < 0;
+          const isNeg = bpsNum != null && bpsNum < 0;
 
           return (
             <tr
@@ -156,7 +144,7 @@ function YieldCurveTable({ data }) {
                   fontSize: 11,
                   color: bpsNum == null
                     ? "var(--color-term-dim)"
-                    : isInverted
+                    : isNeg
                     ? "var(--color-term-red)"
                     : bpsNum > 0
                     ? "var(--color-term-green)"
@@ -234,7 +222,6 @@ function YieldTimeSeriesChart({ data }) {
   const raw10Y = data.DGS10 || [];
   const raw2Y = data.DGS2 || [];
 
-  // Build merged time series (newest-first from FRED, reverse for chart oldest-first)
   const dateMap = {};
   [...raw10Y].reverse().forEach(({ date, value }) => {
     dateMap[date] = { ...dateMap[date], date, y10: value };
@@ -311,11 +298,105 @@ function ChartLegend({ items }) {
   return (
     <div style={{ display: "flex", gap: 16, marginBottom: 6 }}>
       {items.map(({ color, label }) => (
-        <div key={label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        <div
+          key={label}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            fontSize: 9,
+            color: "var(--color-term-dim)",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+          }}
+        >
           <div style={{ width: 16, height: 2, background: color, borderRadius: 1 }} />
           {label}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Spread card that colors the main value green/red based on whether spread is positive/negative
+function SpreadCard({ label, value, chg, detail, sourceUrl }) {
+  const spreadColor =
+    value == null || isNaN(value)
+      ? "var(--color-term-dim)"
+      : value > 0
+      ? "var(--color-term-green)"
+      : "var(--color-term-red)";
+
+  const changeColor =
+    chg == null
+      ? "var(--color-term-dim)"
+      : chg > 0
+      ? "var(--color-term-green)"
+      : chg < 0
+      ? "var(--color-term-red)"
+      : "var(--color-term-amber)";
+
+  const changeGlow =
+    chg == null ? "" : chg > 0 ? "glow-green" : chg < 0 ? "glow-red" : "glow-amber";
+
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="indicator-card" onClick={() => setExpanded(!expanded)}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div
+            style={{
+              fontSize: 9,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "var(--color-term-dim)",
+              marginBottom: 4,
+            }}
+          >
+            {label}
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: spreadColor }}>
+            {value != null ? `${value >= 0 ? "+" : ""}${formatNum(value, 3)}%` : "—"}
+          </div>
+        </div>
+        {chg != null && (
+          <span className={changeGlow} style={{ color: changeColor, fontSize: 11, fontWeight: 500 }}>
+            {formatPct(chg)}
+          </span>
+        )}
+      </div>
+      {expanded && detail && (
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: "1px solid var(--color-term-border)",
+            fontSize: 10,
+            color: "var(--color-term-dim)",
+            lineHeight: 1.6,
+            textAlign: "left",
+          }}
+        >
+          <p>{detail}</p>
+          <div style={{ marginTop: 6 }}>
+            <span style={{ color: "var(--color-term-cyan)", fontSize: 9 }}>SRC: </span>
+            {sourceUrl ? (
+              <a
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--color-term-cyan)", fontSize: 9, textDecoration: "none" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                FRED
+              </a>
+            ) : (
+              <span style={{ color: "var(--color-term-cyan)", fontSize: 9 }}>FRED</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -333,114 +414,60 @@ export default function Rates() {
   }
 
   // Fed Funds
-  const ffSeries  = data.FEDFUNDS || [];
-  const ffCur     = latest(ffSeries);
-  const ffPrv     = prior(ffSeries);
-  const ffChange  = ffCur && ffPrv ? ffCur.value - ffPrv.value : null;
+  const ffSeries = data.FEDFUNDS || [];
+  const ffCur    = latest(ffSeries);
+  const ffPrv    = prior(ffSeries);
 
   // 10Y
   const d10Series = data.DGS10 || [];
   const d10Cur    = latest(d10Series);
   const d10Prv    = prior(d10Series);
-  const d10Change = d10Cur && d10Prv ? d10Cur.value - d10Prv.value : null;
 
   // 2Y
-  const d2Series  = data.DGS2 || [];
-  const d2Cur     = latest(d2Series);
-  const d2Prv     = prior(d2Series);
-  const d2Change  = d2Cur && d2Prv ? d2Cur.value - d2Prv.value : null;
+  const d2Series = data.DGS2 || [];
+  const d2Cur    = latest(d2Series);
+  const d2Prv    = prior(d2Series);
 
   // 2s10s
   const t10y2ySeries = data.T10Y2Y || [];
   const t10y2yCur    = latest(t10y2ySeries);
   const t10y2yPrv    = prior(t10y2ySeries);
-  const t10y2yChange = t10y2yCur && t10y2yPrv ? t10y2yCur.value - t10y2yPrv.value : null;
 
   // 10Y-3M
   const t10y3mSeries = data.T10Y3M || [];
   const t10y3mCur    = latest(t10y3mSeries);
   const t10y3mPrv    = prior(t10y3mSeries);
-  const t10y3mChange = t10y3mCur && t10y3mPrv ? t10y3mCur.value - t10y3mPrv.value : null;
 
   // Mortgage
   const mortSeries = data.MORTGAGE30 || [];
   const mortCur    = latest(mortSeries);
   const mortPrv    = prior(mortSeries);
-  const mortChange = mortCur && mortPrv ? mortCur.value - mortPrv.value : null;
 
   return (
     <div style={{ padding: "16px 20px", maxWidth: 1200, margin: "0 auto" }}>
 
-      {/* ── Indicator Cards 3×2 ── */}
-      <div style={sectionStyle()}>
-        <div style={labelStyle()}>Key Rate Indicators</div>
+      {/* ── Section Header ── */}
+      <div style={{ marginBottom: 20 }}>
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 10,
+            fontSize: 13,
+            fontWeight: 700,
+            color: "var(--color-term-text)",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            marginBottom: 4,
           }}
         >
-          <IndicatorCard
-            label="Fed Funds Rate"
-            value={ffCur?.value}
-            unit="%"
-            change={ffChange != null ? (ffChange / Math.abs(ffPrv?.value || 1)) * 100 : null}
-            detail="The Federal Reserve's target overnight lending rate between banks. The primary monetary policy tool for controlling inflation and stimulating growth."
-            source="FRED"
-            sourceUrl="https://fred.stlouisfed.org/series/DFF"
-            decimals={2}
-          />
-          <IndicatorCard
-            label="10-Year Yield"
-            value={d10Cur?.value}
-            unit="%"
-            change={d10Change != null ? (d10Change / Math.abs(d10Prv?.value || 1)) * 100 : null}
-            detail="Yield on 10-year US Treasury notes. Widely used as the benchmark for long-term interest rates, affecting mortgages, corporate bonds, and equity valuations."
-            source="FRED"
-            sourceUrl="https://fred.stlouisfed.org/series/DGS10"
-            decimals={3}
-          />
-          <IndicatorCard
-            label="2-Year Yield"
-            value={d2Cur?.value}
-            unit="%"
-            change={d2Change != null ? (d2Change / Math.abs(d2Prv?.value || 1)) * 100 : null}
-            detail="Yield on 2-year US Treasury notes. Most sensitive to Fed policy expectations. Closely tracks the anticipated path of the federal funds rate."
-            source="FRED"
-            sourceUrl="https://fred.stlouisfed.org/series/DGS2"
-            decimals={3}
-          />
-          <IndicatorCard
-            label="2s10s Spread"
-            value={t10y2yCur?.value}
-            unit="%"
-            change={t10y2yChange != null ? (t10y2yChange / Math.abs(t10y2yPrv?.value || 0.001)) * 100 : null}
-            detail="The spread between 10-year and 2-year Treasury yields. A key recession indicator — sustained inversion (negative) has historically preceded downturns by 6–18 months."
-            source="FRED"
-            sourceUrl="https://fred.stlouisfed.org/series/T10Y2Y"
-            decimals={3}
-          />
-          <IndicatorCard
-            label="10Y–3M Spread"
-            value={t10y3mCur?.value}
-            unit="%"
-            change={t10y3mChange != null ? (t10y3mChange / Math.abs(t10y3mPrv?.value || 0.001)) * 100 : null}
-            detail="Spread between 10-year Treasury and 3-month T-bill. The NY Fed uses this to estimate recession probability. Inversion is a strong leading indicator of recession."
-            source="FRED"
-            sourceUrl="https://fred.stlouisfed.org/series/T10Y3M"
-            decimals={3}
-          />
-          <IndicatorCard
-            label="30Y Mortgage"
-            value={mortCur?.value}
-            unit="%"
-            change={mortChange != null ? (mortChange / Math.abs(mortPrv?.value || 1)) * 100 : null}
-            detail="Freddie Mac 30-year fixed mortgage rate. Directly affects housing affordability and market activity. Strongly correlated with 10-year Treasury yields."
-            source="FRED"
-            sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
-            decimals={2}
-          />
+          RATES &amp; YIELD CURVE
+        </div>
+        <div
+          style={{
+            fontSize: 10,
+            color: "var(--color-term-dim)",
+            letterSpacing: "0.04em",
+          }}
+        >
+          Treasury yields, spreads, and monetary policy indicators
         </div>
       </div>
 
@@ -483,9 +510,8 @@ export default function Rates() {
             }}
           >
             {(() => {
-              const t10 = latest(data.DGS10 || []);
-              const t2  = latest(data.DGS2  || []);
-              const t3m = latest(data.DGS3MO || []);
+              const t10  = latest(data.DGS10 || []);
+              const t2   = latest(data.DGS2  || []);
               const spread = t10 && t2 ? t10.value - t2.value : null;
               const isInverted = spread != null && spread < 0;
               return (
@@ -511,7 +537,7 @@ export default function Rates() {
       </div>
 
       {/* ── 10Y vs 2Y Time Series ── */}
-      <div className="panel" style={{ marginBottom: 0 }}>
+      <div className="panel" style={{ marginBottom: 20 }}>
         <div style={labelStyle()}>10Y &amp; 2Y Treasury Yields — Last 30 Days</div>
         <ChartLegend
           items={[
@@ -530,6 +556,73 @@ export default function Rates() {
           }}
         >
           Source: Federal Reserve / FRED · Daily · Sorted Newest-First
+        </div>
+      </div>
+
+      {/* ── Indicator Cards 3×2 ── */}
+      <div style={sectionStyle()}>
+        <div style={labelStyle()}>Key Rate Indicators</div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 10,
+          }}
+        >
+          <IndicatorCard
+            label="Fed Funds Rate"
+            value={ffCur?.value}
+            unit="%"
+            change={change(ffCur?.value, ffPrv?.value)}
+            detail={`The Federal Reserve's target overnight lending rate, currently ${ffCur ? formatNum(ffCur.value, 2) : "—"}%. Set by the FOMC to balance maximum employment and price stability. After 525 bps of hikes in 2022–2023 — the fastest tightening cycle since the 1980s — the Fed began cutting in late 2024. Rate changes transmit to the entire economy via lending costs, mortgage rates, and bond yields.`}
+            source="FRED"
+            sourceUrl="https://fred.stlouisfed.org/series/DFF"
+            decimals={2}
+          />
+          <IndicatorCard
+            label="10-Year Yield"
+            value={d10Cur?.value}
+            unit="%"
+            change={change(d10Cur?.value, d10Prv?.value)}
+            detail={`The benchmark long-term interest rate. The 10Y Treasury yield is used globally to price mortgages, corporate debt, and equity risk premiums. When yields rise sharply — as in 2022–2023 when the 10Y hit 5% for the first time since 2007 — valuations compress across assets. The yield reflects both Fed policy expectations and term premium, which markets demand to hold duration risk.`}
+            source="FRED"
+            sourceUrl="https://fred.stlouisfed.org/series/DGS10"
+            decimals={3}
+          />
+          <IndicatorCard
+            label="2-Year Yield"
+            value={d2Cur?.value}
+            unit="%"
+            change={change(d2Cur?.value, d2Prv?.value)}
+            detail={`The most policy-sensitive point on the curve. The 2Y yield closely tracks market expectations for the federal funds rate over the next two years — effectively a prediction of where the Fed will be. When the 2Y trades well above the 10Y (inversion), it signals that markets expect the Fed to cut rates ahead as growth deteriorates. The 2Y peaked above 5.1% in 2023 — its highest since 2006.`}
+            source="FRED"
+            sourceUrl="https://fred.stlouisfed.org/series/DGS2"
+            decimals={3}
+          />
+          <SpreadCard
+            label="2s10s Spread"
+            value={t10y2yCur?.value}
+            chg={change(t10y2yCur?.value, t10y2yPrv?.value)}
+            detail={`The spread between the 10-year and 2-year Treasury yields — the classic recession signal. A sustained inversion (negative reading) has preceded every US recession since the 1970s with a typical lead time of 6–18 months. The curve inverted deeply in 2022–2023, the steepest inversion since 1981. A return to positive territory (re-steepening) can signal either Fed cuts ahead or growth re-acceleration — context matters.`}
+            sourceUrl="https://fred.stlouisfed.org/series/T10Y2Y"
+          />
+          <SpreadCard
+            label="10Y–3M Spread"
+            value={t10y3mCur?.value}
+            chg={change(t10y3mCur?.value, t10y3mPrv?.value)}
+            detail={`The NY Federal Reserve's preferred recession indicator — used in its widely-cited recession probability model. Academic research (Estrella & Mishkin) shows this spread has the strongest predictive power of any yield curve measure. When inverted, it has preceded all eight US recessions since 1960 with fewer false positives than the 2s10s. An inversion here is considered a high-conviction warning signal by professional forecasters.`}
+            sourceUrl="https://fred.stlouisfed.org/series/T10Y3M"
+          />
+          <IndicatorCard
+            label="30Y Mortgage"
+            value={mortCur?.value}
+            unit="%"
+            change={change(mortCur?.value, mortPrv?.value)}
+            detail={`Freddie Mac's weekly 30-year fixed mortgage survey rate — the primary cost of homeownership for most Americans. Tightly linked to the 10Y Treasury yield plus a spread of ~170 bps on average, though that spread widened sharply during the 2022–2023 tightening cycle. Rates above 7% — last seen in the early 2000s — have caused a severe affordability crunch and locked existing homeowners out of moving (the "lock-in effect").`}
+            source="FRED"
+            sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
+            decimals={2}
+          />
         </div>
       </div>
 

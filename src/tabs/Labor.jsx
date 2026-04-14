@@ -17,12 +17,12 @@ import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
 
 const FETCH = {
-  UNRATE:   SERIES.UNRATE,
-  PAYEMS:   SERIES.PAYEMS,
-  WAGES:    SERIES.WAGES,
-  CLAIMS:   SERIES.CLAIMS,
+  UNRATE:    SERIES.UNRATE,
+  PAYEMS:    SERIES.PAYEMS,
+  WAGES:     SERIES.WAGES,
+  CLAIMS:    SERIES.CLAIMS,
   BREAKEVEN: SERIES.BREAKEVEN,
-  CPI:      SERIES.CPI,
+  CPI:       SERIES.CPI,
 };
 
 function fmtMonthYear(dateStr) {
@@ -39,88 +39,104 @@ function chartSlice(arr, n = 24) {
 function buildAnalysis(data) {
   const unrate = data.UNRATE;
   const payems = data.PAYEMS;
-  const wages = data.WAGES;
-  const cpi = data.CPI;
+  const wages  = data.WAGES;
+  const cpi    = data.CPI;
 
-  const latestUnrate = latest(unrate)?.value;
-  const priorUnrate = prior(unrate, 3)?.value;
-  const latestPayems = latest(payems)?.value;
-  const latestWages = latest(wages)?.value;
-  const latestCpi = latest(cpi)?.value;
+  const latestUnrate  = latest(unrate)?.value;
+  const priorUnrate   = prior(unrate, 3)?.value;  // 3-month trend
+  const latestPayems  = latest(payems)?.value;
+  const latestWages   = latest(wages)?.value;
+  const latestCpi     = latest(cpi)?.value;
+  const claimsVal     = latest(data.CLAIMS)?.value;
 
   const sentences = [];
+
+  // Druckenmiller context: labor is the leading indicator for earnings and Fed policy
+  sentences.push(
+    "Stanley Druckenmiller has long argued that labor market conditions are the single most important leading indicator " +
+    "for corporate earnings, credit quality, and ultimately equity markets — the direction of employment tells you more " +
+    "about the cycle than any coincident GDP print."
+  );
 
   // Unemployment trend
   if (latestUnrate != null) {
     const vsNatural = latestUnrate - 4.4;
-    const trend = priorUnrate != null
-      ? latestUnrate < priorUnrate
-        ? "tightening"
-        : latestUnrate > priorUnrate
-        ? "easing"
-        : "stable"
-      : null;
-    const trendStr = trend ? ` and trending ${trend}` : "";
+    const trend =
+      priorUnrate != null
+        ? latestUnrate < priorUnrate
+          ? "tightening"
+          : latestUnrate > priorUnrate
+          ? "easing"
+          : "stable"
+        : null;
+    const trendStr = trend ? ` and the 3-month trend is ${trend}` : "";
     const relStr =
       vsNatural < -0.3
-        ? "below the CBO natural rate of 4.4%, signaling a tight labor market"
+        ? "well below the CBO long-run natural rate of 4.4% — historically associated with an overheating labor market, " +
+          "upward wage pressure, and a Fed biased toward tightening"
         : vsNatural > 0.3
-        ? "above the CBO natural rate of 4.4%, suggesting slack in the labor market"
-        : "near the CBO estimated natural rate of 4.4%";
+        ? "above the CBO natural rate of 4.4%, implying meaningful slack — conditions that historically correspond to " +
+          "disinflation and eventual easing bias"
+        : "near the CBO estimated long-run natural rate of 4.4%, consistent with full employment by conventional metrics";
     sentences.push(
       `Unemployment stands at ${formatNum(latestUnrate, 1)}%${trendStr}, ${relStr}.`
     );
   }
 
-  // Payrolls strength
+  // Payrolls
   if (latestPayems != null) {
     const strength =
       latestPayems > 250
-        ? "well above the ~100K breakeven needed to absorb new labor force entrants, indicating robust job creation"
+        ? "well above the ~100K breakeven needed to absorb new labor force entrants. " +
+          "Readings at this level historically coincide with tightening financial conditions and Fed caution"
         : latestPayems > 100
-        ? "above the ~100K population breakeven, pointing to continued labor market expansion"
+        ? "above the ~100K population breakeven, pointing to continued expansion — but markets will scrutinize " +
+          "whether this pace is sustainable without reigniting wage inflation"
         : latestPayems > 0
-        ? "below the ~100K population breakeven, suggesting labor market momentum is slowing"
-        : "negative, indicating outright job losses";
+        ? "below the ~100K population breakeven. Momentum is softening; watch for upward drift in claims " +
+          "and downward revisions as confirming signals"
+        : "negative — outright job losses that historically precede broader earnings pressure and rising default rates";
     sentences.push(
       `Nonfarm payrolls added ${formatNum(latestPayems, 0)}K jobs last month, ${strength}.`
     );
   }
 
-  // Wage growth vs inflation
+  // Wage growth vs. inflation
   if (latestWages != null) {
     if (latestCpi != null) {
       const realWages = latestWages - latestCpi;
       const realStr =
         realWages > 0
-          ? `implying real wage growth of +${formatNum(realWages, 1)}pp above headline CPI`
-          : `implying real wage erosion of ${formatNum(realWages, 1)}pp relative to headline CPI`;
+          ? `implying real wage growth of +${formatNum(realWages, 1)}pp — positive for consumption but a sticky-inflation risk the Fed watches closely`
+          : `implying real wage erosion of ${formatNum(realWages, 1)}pp relative to headline CPI — a headwind for consumer spending that historically feeds into softer retail sales`;
       sentences.push(
-        `Average hourly earnings are up ${formatNum(latestWages, 1)}% YoY, ${realStr}.`
+        `Average hourly earnings are up ${formatNum(latestWages, 1)}% YoY, ${realStr}. ` +
+        `Pre-pandemic (2015–2019) wage growth averaged ~3%, so current readings ${latestWages > 4 ? "remain elevated above that baseline" : "are converging back toward pre-pandemic norms"}.`
       );
     } else {
       const wageStr =
         latestWages > 4.5
-          ? "elevated, keeping inflation pressure in services"
+          ? "elevated — the primary channel keeping services inflation sticky above 2% target"
           : latestWages > 3.0
-          ? "moderating but still above pre-pandemic norms"
-          : "cooling toward pre-pandemic levels";
+          ? "moderating but still above the 2015–2019 pre-pandemic norm of ~3%, sustaining services disinflation pressure"
+          : "cooling toward pre-pandemic levels, which would ease services inflation and shift Fed rhetoric toward easing";
       sentences.push(
         `Average hourly earnings growth of ${formatNum(latestWages, 1)}% YoY is ${wageStr}.`
       );
     }
   }
 
-  // Claims context
-  const claimsVal = latest(data.CLAIMS)?.value;
+  // Claims context — a true leading indicator
   if (claimsVal != null) {
     const claimsK = claimsVal / 1000;
     const claimsStr =
       claimsK < 220
-        ? "low, consistent with historically tight labor conditions"
+        ? "historically low — consistent with the tightest labor conditions since the 1960s and a Fed that has limited room to cut"
         : claimsK < 280
-        ? "within the normal range, not signaling imminent deterioration"
-        : "elevated, warranting close monitoring as a leading recession indicator";
+        ? "within the normal cyclical range. No imminent deterioration signal, but trend direction matters more than the level at this stage"
+        : claimsK < 350
+        ? "elevated and warrant monitoring. Sustained readings above 300K have historically preceded broader layoff waves within 3–6 months"
+        : "at recessionary levels — consistent with rapid labor market deterioration. Historically this range coincides with equity drawdowns exceeding 20%";
     sentences.push(
       `Initial jobless claims at ${formatNum(claimsK, 0)}K are ${claimsStr}.`
     );
@@ -147,29 +163,25 @@ export default function Labor() {
   const payemsChart = chartSlice(data.PAYEMS, 24);
 
   // Latest values
-  const latestUnrate   = latest(data.UNRATE);
-  const priorUnrate    = prior(data.UNRATE, 1);
-  const latestPayems   = latest(data.PAYEMS);
-  const priorPayems    = prior(data.PAYEMS, 1);
-  const latestWages    = latest(data.WAGES);
-  const priorWages     = prior(data.WAGES, 1);
-  const latestClaims   = latest(data.CLAIMS);
-  const priorClaims    = prior(data.CLAIMS, 1);
+  const latestUnrate    = latest(data.UNRATE);
+  const priorUnrate     = prior(data.UNRATE, 1);
+  const latestPayems    = latest(data.PAYEMS);
+  const priorPayems     = prior(data.PAYEMS, 1);
+  const latestWages     = latest(data.WAGES);
+  const priorWages      = prior(data.WAGES, 1);
+  const latestClaims    = latest(data.CLAIMS);
+  const priorClaims     = prior(data.CLAIMS, 1);
   const latestBreakeven = latest(data.BREAKEVEN);
+  const priorBreakeven  = prior(data.BREAKEVEN, 1);
 
-  // Changes (absolute pp for rates, % change for claims)
-  const unrateChange   = latestUnrate && priorUnrate
-    ? latestUnrate.value - priorUnrate.value
-    : null;
-  const payemsChange   = latestPayems && priorPayems
-    ? latestPayems.value - priorPayems.value
-    : null;
-  const wagesChange    = latestWages && priorWages
-    ? latestWages.value - priorWages.value
-    : null;
-  const claimsChangePct = latestClaims && priorClaims && priorClaims.value !== 0
-    ? ((latestClaims.value - priorClaims.value) / Math.abs(priorClaims.value)) * 100
-    : null;
+  // All change values use change() for percentage — IndicatorCard renders with formatPct()
+  // For UNRATE and WAGES (already %-valued series), change() gives % change of the rate itself,
+  // which is semantically valid (e.g., UNRATE moved from 4.0 → 4.2 = +5% change of the metric).
+  const unrateChange    = change(latestUnrate?.value, priorUnrate?.value);
+  const payemsChange    = change(latestPayems?.value, priorPayems?.value);
+  const wagesChange     = change(latestWages?.value, priorWages?.value);
+  const claimsChange    = change(latestClaims?.value, priorClaims?.value);
+  const breakevenChange = change(latestBreakeven?.value, priorBreakeven?.value);
 
   const analysisText = buildAnalysis(data);
 
@@ -187,7 +199,7 @@ export default function Labor() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
 
-      {/* ── Top charts row ── */}
+      {/* Charts row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
         {/* Unemployment Rate Chart */}
@@ -280,11 +292,7 @@ export default function Labor() {
               <Tooltip
                 content={<ChartTooltip formatter={(v) => `${formatNum(v, 0)}K`} />}
               />
-              <ReferenceLine
-                y={0}
-                stroke="var(--color-term-dim)"
-                strokeWidth={1}
-              />
+              <ReferenceLine y={0} stroke="var(--color-term-dim)" strokeWidth={1} />
               <ReferenceLine
                 y={100}
                 stroke="var(--color-term-amber)"
@@ -298,7 +306,6 @@ export default function Labor() {
                   dy: -4,
                 }}
               />
-              {/* Positive area (above 0) */}
               <Area
                 type="monotone"
                 dataKey="value"
@@ -315,26 +322,26 @@ export default function Labor() {
         </div>
       </div>
 
-      {/* ── Labor Analysis ── */}
+      {/* Labor Analysis */}
       <div className="panel">
         <div className="section-label">LABOR MARKET ANALYSIS</div>
         <p
           style={{
             fontSize: 10,
             color: "var(--color-term-text)",
-            lineHeight: 1.7,
-            opacity: 0.85,
+            lineHeight: 1.75,
+            opacity: 0.9,
           }}
         >
           {analysisText}
         </p>
       </div>
 
-      {/* ── Indicator Cards ── */}
+      {/* Indicator Cards — 3 columns row 1, 2 columns row 2 */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: "1fr 1fr 1fr",
           gap: 12,
         }}
       >
@@ -347,7 +354,10 @@ export default function Labor() {
           decimals={1}
           detail={
             latestUnrate
-              ? `Current unemployment is ${formatNum(latestUnrate.value, 1)}%. The CBO estimates the long-run natural rate at ~4.4%. Readings below this level often indicate an overheating labor market. Data: BLS via FRED UNRATE.`
+              ? `Current unemployment is ${formatNum(latestUnrate.value, 1)}%. The CBO estimates the long-run natural rate (NAIRU) at ~4.4%. ` +
+                `Readings below this threshold signal an overheating labor market that historically pressures wages and services inflation. ` +
+                `Druckenmiller views unemployment direction — not level — as the critical signal: a rising rate, even from low levels, often foreshadows a turn in the credit cycle. ` +
+                `The last time UNRATE rose >1pp from trough was 2007–2008, preceding the GFC. Data: BLS via FRED UNRATE.`
               : undefined
           }
           source="BLS / FRED"
@@ -363,7 +373,10 @@ export default function Labor() {
           decimals={0}
           detail={
             latestPayems
-              ? `The economy added ${formatNum(latestPayems.value, 0)}K jobs last month. Economists estimate ~100K/month is needed to keep up with population growth. Sustained readings above 200K signal strong labor demand. Source: BLS PAYEMS.`
+              ? `The economy added ${formatNum(latestPayems.value, 0)}K jobs last month. Economists estimate ~100K/month is needed to keep up with working-age population growth; ` +
+                `sustained readings above 200K signal robust labor demand. The change shown is the month-over-month % move in payroll growth — ` +
+                `a deceleration from strong prior months is often more important than the absolute level. ` +
+                `Note: initial payroll prints are heavily revised. Watch 3-month average for signal. Source: BLS PAYEMS.`
               : undefined
           }
           source="BLS / FRED"
@@ -379,45 +392,65 @@ export default function Labor() {
           decimals={1}
           detail={
             latestWages
-              ? `Average hourly earnings grew ${formatNum(latestWages.value, 1)}% year-over-year. Wage growth above 3.5–4% can sustain inflationary pressure via services prices. Real wage growth = wage growth minus CPI. Source: BLS CES0500000003.`
+              ? `Average hourly earnings grew ${formatNum(latestWages.value, 1)}% year-over-year. ` +
+                `Pre-pandemic (2015–2019) wage growth averaged ~3%; readings above 4% can sustain services inflation via the wage-price mechanism. ` +
+                `The Fed targets real wage growth consistent with 2% inflation + trend productivity (~1.5%), implying a sustainable nominal ceiling near 3.5%. ` +
+                `Wage growth above that level limits the Fed's ability to cut rates even if goods disinflation continues. Source: BLS CES0500000003.`
               : undefined
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CES0500000003"
         />
+      </div>
 
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 12,
+        }}
+      >
         {/* Initial Claims */}
         <IndicatorCard
           label="Initial Claims"
           value={latestClaims?.value != null ? latestClaims.value / 1000 : null}
           unit="K"
-          change={claimsChangePct}
+          change={claimsChange}
           decimals={0}
           detail={
             latestClaims
-              ? `Initial jobless claims are a leading labor market indicator. ${formatNum(latestClaims.value / 1000, 0)}K claims filed last week. Readings consistently above 300K often precede broader economic weakness. Source: DOL ICSA.`
+              ? `Initial jobless claims are the most timely leading labor market indicator — published weekly with a 5-day lag. ` +
+                `${formatNum(latestClaims.value / 1000, 0)}K claims filed last week. ` +
+                `Readings consistently below 250K signal a historically tight labor market. ` +
+                `Sustained readings above 300K have historically preceded broader economic weakness within 1–2 quarters; above 400K is recessionary. ` +
+                `Claims are also a key input to the Sahm Rule — a recession signal triggered when the 3-month average unemployment rate rises 0.5pp above its prior-year low. Source: DOL ICSA.`
               : undefined
           }
           source="DOL / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/ICSA"
         />
 
-        {/* Breakeven Rate */}
+        {/* 10Y Breakeven */}
         <IndicatorCard
-          label="10Y Breakeven"
+          label="10Y Breakeven Inflation"
           value={latestBreakeven?.value ?? null}
           unit="%"
-          change={null}
+          change={breakevenChange}
           decimals={2}
           detail={
             latestBreakeven
-              ? `The 10-year breakeven inflation rate of ${formatNum(latestBreakeven.value, 2)}% reflects bond market expectations for average inflation over the next decade. It is derived from the spread between nominal Treasuries and TIPS. A breakeven above 2.5% suggests markets doubt the Fed can deliver on its 2% target. Source: FRED T10YIE.`
+              ? `The 10-year breakeven inflation rate of ${formatNum(latestBreakeven.value, 2)}% reflects bond market expectations for average CPI over the next decade, ` +
+                `derived from the spread between nominal 10Y Treasuries and 10Y TIPS. ` +
+                `A breakeven above 2.5% signals markets doubt the Fed can sustainably deliver on its 2% mandate — historically a constraint on equity multiples. ` +
+                `Below 2.0% suggests deflationary risk or aggressive forward guidance credibility. ` +
+                `Included here because labor market tightness is the primary driver of medium-term inflation expectations. Source: FRED T10YIE.`
               : undefined
           }
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/T10YIE"
         />
       </div>
+
     </div>
   );
 }
