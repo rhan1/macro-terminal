@@ -1,4 +1,5 @@
 import { useFredData } from "../hooks/useFredData";
+import { useIsmData } from "../hooks/useIsmData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
@@ -76,6 +77,24 @@ function gdpNarrative(gdpData) {
   return `Real GDP contracted ${formatNum(v, 1)}% SAAR in ${toQuarterLabel(lat.date)}, ${trend}. Negative GDP readings historically coincide with earnings downgrades and equity drawdowns. NBER recession determination typically lags by months.`;
 }
 
+function ismNarrative(ismData) {
+  if (!ismData?.manufacturing || !ismData?.services) return "Awaiting ISM survey data.";
+  const mfg = ismData.manufacturing.value;
+  const svc = ismData.services.value;
+  const mfgLabel = mfg > 50 ? "expanding" : "contracting";
+  const svcLabel = svc > 50 ? "expanding" : "contracting";
+  const mfgStr = `Manufacturing PMI at ${mfg} (${mfgLabel})`;
+  const svcStr = `Services PMI at ${svc} (${svcLabel})`;
+
+  if (mfg > 50 && svc > 50)
+    return `${mfgStr}; ${svcStr}. Both sectors are in expansion territory — a broad-based positive signal for activity. Sustained dual-PMI expansion historically coincides with above-trend GDP growth and favorable conditions for cyclical risk assets.`;
+  if (mfg < 50 && svc > 50)
+    return `${mfgStr}; ${svcStr}. The goods economy is in contraction while services hold up — a divergence common in late-cycle environments. Services account for ~70% of U.S. GDP, limiting overall recession risk, but watch for contagion from the manufacturing downturn.`;
+  if (mfg > 50 && svc < 50)
+    return `${mfgStr}; ${svcStr}. Manufacturing is expanding but services are contracting. Services weakness is the more consequential signal given its share of economic activity. Defensive positioning is warranted until services PMI stabilizes.`;
+  return `${mfgStr}; ${svcStr}. Both sectors are below the 50 expansion threshold — a broad contraction signal. Dual-PMI sub-50 readings are historically associated with rising recession probability and have preceded NBER recession dates in multiple cycles.`;
+}
+
 function indproNarrative(indproData) {
   const lat = latest(indproData);
   const pr = prior(indproData);
@@ -92,6 +111,7 @@ function indproNarrative(indproData) {
 
 export default function Growth() {
   const { data, loading, error } = useFredData(FETCH);
+  const { data: ismData } = useIsmData();
 
   if (loading) return <Loading />;
   if (error) {
@@ -247,62 +267,260 @@ export default function Growth() {
           </div>
         </div>
 
-        {/* Right: Industrial Production YoY % */}
+        {/* Right: ISM PMI (fallback to Industrial Production) */}
         <div className="panel">
-          <div className="section-label">Industrial Production — YoY % Change</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart
-              data={indproChartData}
-              margin={{ top: 8, right: 8, bottom: 0, left: -10 }}
-              barCategoryGap="25%"
-            >
-              <CartesianGrid
-                vertical={false}
-                stroke="hsl(220,15%,14%)"
-                strokeDasharray="3 3"
-              />
-              <XAxis
-                dataKey="date"
-                tick={axisStyle}
-                tickLine={false}
-                axisLine={{ stroke: "hsl(220,15%,14%)" }}
-                interval={3}
-              />
-              <YAxis
-                tick={axisStyle}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => `${v}%`}
-              />
-              <Tooltip
-                content={<ChartTooltip formatter={(v) => `${formatNum(v, 2)}%`} />}
-                cursor={{ fill: "rgba(255,255,255,0.03)" }}
-              />
-              <ReferenceLine
-                y={0}
-                stroke="hsl(220,10%,40%)"
-                strokeDasharray="4 4"
-              />
-              <Bar
-                dataKey="value"
-                name="Ind. Production"
-                fill="hsl(185,70%,55%)"
-                fillOpacity={0.75}
-                radius={[2, 2, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-          <div
-            style={{
-              marginTop: 8,
-              fontSize: 11,
-              color: "hsl(220,10%,40%)",
-              lineHeight: 1.65,
-            }}
-          >
-            <span style={{ color: "hsl(142,70%,55%)" }}>▸ </span>
-            {indproNarrative(indproRaw)}
-          </div>
+          {ismData?.manufacturing && ismData?.services ? (
+            <>
+              <div className="section-label">ISM PMI — Manufacturing vs Services</div>
+
+              {/* 50 divider label */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  margin: "12px 0 16px",
+                }}
+              >
+                <div style={{ flex: 1, height: 1, background: "hsl(220,15%,20%)" }} />
+                <div
+                  style={{
+                    fontSize: 9,
+                    fontFamily: '"JetBrains Mono", monospace',
+                    letterSpacing: "0.08em",
+                    color: "hsl(220,10%,40%)",
+                  }}
+                >
+                  50 = EXPANSION THRESHOLD
+                </div>
+                <div style={{ flex: 1, height: 1, background: "hsl(220,15%,20%)" }} />
+              </div>
+
+              {/* Two large PMI value displays */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 16,
+                  marginBottom: 16,
+                }}
+              >
+                {/* Manufacturing */}
+                {(() => {
+                  const mfg = ismData.manufacturing;
+                  const mfgColor =
+                    mfg.value > 50 ? "hsl(142,70%,55%)" : "hsl(0,72%,55%)";
+                  const isUp = mfg.prior != null ? mfg.value > mfg.prior : null;
+                  return (
+                    <div
+                      style={{
+                        background: "hsl(220,15%,10%)",
+                        border: `1px solid ${mfgColor}33`,
+                        borderRadius: 6,
+                        padding: "16px 12px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          letterSpacing: "0.12em",
+                          color: "hsl(185,70%,55%)",
+                          marginBottom: 8,
+                        }}
+                      >
+                        MFG PMI
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 42,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          fontWeight: 700,
+                          color: mfgColor,
+                          lineHeight: 1,
+                          marginBottom: 4,
+                        }}
+                      >
+                        {formatNum(mfg.value, 1)}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          color: "hsl(220,10%,40%)",
+                          marginTop: 8,
+                        }}
+                      >
+                        {mfg.period && (
+                          <span style={{ marginRight: 6 }}>{mfg.period}</span>
+                        )}
+                        {mfg.prior != null && (
+                          <span>
+                            prior{" "}
+                            <span style={{ color: "hsl(220,10%,55%)" }}>
+                              {formatNum(mfg.prior, 1)}
+                            </span>
+                            {isUp !== null && (
+                              <span
+                                style={{
+                                  marginLeft: 4,
+                                  color: isUp ? "hsl(142,70%,55%)" : "hsl(0,72%,55%)",
+                                }}
+                              >
+                                {isUp ? "▲" : "▼"}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Services */}
+                {(() => {
+                  const svc = ismData.services;
+                  const svcColor =
+                    svc.value > 50 ? "hsl(142,70%,55%)" : "hsl(0,72%,55%)";
+                  const isUp = svc.prior != null ? svc.value > svc.prior : null;
+                  return (
+                    <div
+                      style={{
+                        background: "hsl(220,15%,10%)",
+                        border: `1px solid ${svcColor}33`,
+                        borderRadius: 6,
+                        padding: "16px 12px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          letterSpacing: "0.12em",
+                          color: "hsl(142,70%,55%)",
+                          marginBottom: 8,
+                        }}
+                      >
+                        SVC PMI
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 42,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          fontWeight: 700,
+                          color: svcColor,
+                          lineHeight: 1,
+                          marginBottom: 4,
+                        }}
+                      >
+                        {formatNum(svc.value, 1)}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontFamily: '"JetBrains Mono", monospace',
+                          color: "hsl(220,10%,40%)",
+                          marginTop: 8,
+                        }}
+                      >
+                        {svc.period && (
+                          <span style={{ marginRight: 6 }}>{svc.period}</span>
+                        )}
+                        {svc.prior != null && (
+                          <span>
+                            prior{" "}
+                            <span style={{ color: "hsl(220,10%,55%)" }}>
+                              {formatNum(svc.prior, 1)}
+                            </span>
+                            {isUp !== null && (
+                              <span
+                                style={{
+                                  marginLeft: 4,
+                                  color: isUp ? "hsl(142,70%,55%)" : "hsl(0,72%,55%)",
+                                }}
+                              >
+                                {isUp ? "▲" : "▼"}
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "hsl(220,10%,40%)",
+                  lineHeight: 1.65,
+                }}
+              >
+                <span style={{ color: "hsl(142,70%,55%)" }}>▸ </span>
+                {ismNarrative(ismData)}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="section-label">Industrial Production — YoY % Change</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart
+                  data={indproChartData}
+                  margin={{ top: 8, right: 8, bottom: 0, left: -10 }}
+                  barCategoryGap="25%"
+                >
+                  <CartesianGrid
+                    vertical={false}
+                    stroke="hsl(220,15%,14%)"
+                    strokeDasharray="3 3"
+                  />
+                  <XAxis
+                    dataKey="date"
+                    tick={axisStyle}
+                    tickLine={false}
+                    axisLine={{ stroke: "hsl(220,15%,14%)" }}
+                    interval={3}
+                  />
+                  <YAxis
+                    tick={axisStyle}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v) => `${v}%`}
+                  />
+                  <Tooltip
+                    content={<ChartTooltip formatter={(v) => `${formatNum(v, 2)}%`} />}
+                    cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                  />
+                  <ReferenceLine
+                    y={0}
+                    stroke="hsl(220,10%,40%)"
+                    strokeDasharray="4 4"
+                  />
+                  <Bar
+                    dataKey="value"
+                    name="Ind. Production"
+                    fill="hsl(185,70%,55%)"
+                    fillOpacity={0.75}
+                    radius={[2, 2, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 11,
+                  color: "hsl(220,10%,40%)",
+                  lineHeight: 1.65,
+                }}
+              >
+                <span style={{ color: "hsl(142,70%,55%)" }}>▸ </span>
+                {indproNarrative(indproRaw)}
+              </div>
+            </>
+          )}
         </div>
 
       </div>
@@ -367,28 +585,37 @@ export default function Growth() {
         />
 
         <IndicatorCard
-          label="GDP Forecast"
-          value={gdpForecast}
-          unit="%"
-          change={gdpLatest && gdpForecast != null ? gdpForecast - gdpLatest.value : null}
+          label="ISM Manufacturing"
+          value={ismData?.manufacturing?.value}
+          unit=""
+          change={
+            ismData?.manufacturing?.value != null && ismData?.manufacturing?.prior != null
+              ? ismData.manufacturing.value - ismData.manufacturing.prior
+              : null
+          }
           changeLabel={
-            gdpLatest && gdpForecast != null
-              ? `${gdpForecast >= gdpLatest.value ? "+" : ""}${formatNum(gdpForecast - gdpLatest.value, 1)}pp`
+            ismData?.manufacturing?.value != null && ismData?.manufacturing?.prior != null
+              ? `${ismData.manufacturing.value >= ismData.manufacturing.prior ? "+" : ""}${formatNum(ismData.manufacturing.value - ismData.manufacturing.prior, 1)}pts`
               : undefined
           }
           direction={
-            gdpLatest && gdpForecast != null
-              ? gdpForecast > gdpLatest.value
+            ismData?.manufacturing?.value != null && ismData?.manufacturing?.prior != null
+              ? ismData.manufacturing.value > ismData.manufacturing.prior
                 ? "up"
-                : gdpForecast < gdpLatest.value
+                : ismData.manufacturing.value < ismData.manufacturing.prior
                 ? "down"
                 : "flat"
               : "flat"
           }
-          signal="neutral"
-          detail={`Simple trend-extrapolated GDP growth forecast derived from the most recent two quarterly readings. Not a model-based projection — use as a directional heuristic only. Consensus GDP forecasts from the Philadelphia Fed Survey of Professional Forecasters and Atlanta Fed GDPNow are the authoritative sources for real-time GDP tracking.`}
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
+          signal={
+            ismData?.manufacturing?.value != null
+              ? ismData.manufacturing.value > 50
+                ? "bullish"
+                : "bearish"
+              : "neutral"
+          }
+          detail="ISM Manufacturing PMI. Readings above 50 indicate expansion in the factory sector. The ISM survey is one of the most watched leading indicators for economic activity."
+          source="ISM / Trading Economics"
           decimals={1}
         />
 
