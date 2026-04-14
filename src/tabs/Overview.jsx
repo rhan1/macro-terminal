@@ -351,47 +351,66 @@ export default function Overview() {
     .map(({ maturity, key }) => ({ maturity, value: val(data, key) }))
     .filter((p) => p.value != null);
 
-  // ── Risks / Opportunities ─────────────────────────────────────────────────
+  // ── Risks / Opportunities (always produce at least 4 each) ────────────────
   const risks = [];
   const opportunities = [];
 
-  if (t10y2yVal != null && t10y2yVal < -0.5)
-    risks.push(`Deep yield curve inversion (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — avg 12-18 month recession lead`);
-  else if (t10y2yVal != null && t10y2yVal < 0)
-    risks.push(`Yield curve inverted (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — historical recession signal`);
+  // Data-driven risks (add if conditions met)
+  if (t10y2yVal != null && t10y2yVal < 0)
+    risks.push(`Yield curve inversion (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — every recession since 1970s preceded by inversion`);
   if (t10y3mVal != null && t10y3mVal < 0)
-    risks.push(`10Y-3M spread inverted (${formatNum(t10y3mVal, 2)}%) — Fed's preferred recession indicator negative`);
+    risks.push(`10Y-3M spread inverted (${formatNum(t10y3mVal, 2)}%) — NY Fed recession model's primary input`);
   if (cpiVal != null && cpiVal > 3.0)
-    risks.push(`Elevated CPI at ${formatNum(cpiVal, 2)}% — Fed policy flexibility constrained; no easing runway`);
+    risks.push(`Elevated CPI at ${formatNum(cpiVal, 2)}% — Fed easing constrained; risk of policy error`);
   if (vixVal != null && vixVal > 25)
-    risks.push(`VIX at ${formatNum(vixVal, 1)} — elevated fear; volatility regimes compress multiples`);
-  if (mortgageVal != null && mortgageVal > 7.0)
-    risks.push(`30Y mortgage at ${formatNum(mortgageVal, 2)}% — housing affordability at multi-decade lows`);
-  if (gdpVal != null && gdpVal < 0)
-    risks.push(`GDP contracted (${formatNum(gdpVal, 1)}%) — approaching technical recession definition`);
-  if (recessionProb != null && recessionProb > 20)
-    risks.push(`FRED recession probability model at ${formatNum(recessionProb, 1)}% — above 20% alert threshold`);
-  if (fedVal != null && cpiVal != null && fedVal - cpiVal < -1)
-    risks.push(`Negative real rates (${formatNum(fedVal - cpiVal, 2)}%) — still accommodative; inflation re-ignition risk`);
-  if (risks.length === 0)
-    risks.push("No acute systemic risk signals flagged by current FRED data");
+    risks.push(`VIX at ${formatNum(vixVal, 1)} — elevated fear regime; volatility compresses equity multiples`);
+  if (mortgageVal != null && mortgageVal > 6.0)
+    risks.push(`Mortgage rates at ${formatNum(mortgageVal, 2)}% — housing affordability stressed; lock-in effect constraining mobility`);
+  if (gdpVal != null && gdpVal < 1.5)
+    risks.push(`GDP at ${formatNum(gdpVal, 1)}% — below-trend growth; stall speed risk`);
+  if (recessionProb != null && recessionProb > 15)
+    risks.push(`FRED recession probability at ${formatNum(recessionProb, 1)}% — above baseline`);
+  if (unrateVal != null && unrateVal > 4.2)
+    risks.push(`Unemployment rising to ${formatNum(unrateVal, 1)}% — labor slack emerging; consumer spending at risk`);
 
-  if (gdpVal != null && gdpVal >= 2.5)
-    opportunities.push(`Above-trend GDP (${formatNum(gdpVal, 1)}%) — supports cyclical equity overweight and credit spread compression`);
-  if (unrateVal != null && unrateVal <= 4.0)
-    opportunities.push(`Sub-4% unemployment — consumer balance sheets intact; spending resilience supports corporate revenues`);
-  if (cpiVal != null && cpiVal <= 2.5)
-    opportunities.push(`Inflation near target (${formatNum(cpiVal, 2)}%) — Fed has easing optionality; duration attractive`);
-  if (t10y2yVal != null && t10y2yVal > 0.5)
-    opportunities.push(`Steep yield curve (+${formatNum(t10y2yVal, 2)}%) — bank net interest margins expanding; financials constructive`);
-  if (vixVal != null && vixVal < 18)
-    opportunities.push(`Low volatility regime (VIX ${formatNum(vixVal, 1)}) — optimal conditions for risk-on positioning`);
+  // Always-relevant structural risks (fill to 4 minimum)
+  const structuralRisks = [
+    "Fiscal deficits -> term premium expansion -> higher long-term rates; CBO projects rising debt-to-GDP",
+    "AI-driven 'jobless growth' -> structural displacement risk for services employment",
+    "Geopolitical escalation risk -> energy supply disruption -> stagflation scenario",
+    "Consumer confidence disconnect -> eventual spending retrenchment as savings buffers deplete",
+    `Fed policy lag -> current ${fedVal != null ? formatNum(fedVal, 2) + "%" : ""} rate effects still transmitting; full impact 12-18 months`,
+  ];
+  let ri = 0;
+  while (risks.length < 4 && ri < structuralRisks.length) {
+    risks.push(structuralRisks[ri++]);
+  }
+
+  // Data-driven opportunities
+  if (gdpVal != null && gdpVal >= 2.0)
+    opportunities.push(`GDP at ${formatNum(gdpVal, 1)}% — above-trend growth supports risk assets and corporate earnings`);
+  if (unrateVal != null && unrateVal <= 4.2)
+    opportunities.push(`Tight labor market (${formatNum(unrateVal, 1)}%) — consumer spending resilience intact`);
+  if (cpiVal != null && cpiVal <= 3.0)
+    opportunities.push(`Inflation at ${formatNum(cpiVal, 2)}% — disinflation trend gives Fed eventual easing optionality`);
+  if (t10y2yVal != null && t10y2yVal > 0)
+    opportunities.push(`Positive yield curve (+${formatNum(t10y2yVal, 2)}%) — credit expansion environment; financials benefit`);
+  if (vixVal != null && vixVal < 20)
+    opportunities.push(`VIX at ${formatNum(vixVal, 1)} — low vol regime supports risk-on positioning and carry trades`);
   if (dgs10Val != null && fedVal != null && dgs10Val > fedVal)
-    opportunities.push(`10Y at ${formatNum(dgs10Val, 3)}% vs cash ${formatNum(fedVal, 2)}% — positive term premium; bonds competitive vs equities`);
-  if (pceVal != null && pceVal < 2.5 && fedVal != null && fedVal > 4)
-    opportunities.push(`Core PCE (${formatNum(pceVal, 2)}%) near target with high nominal rates — real easing cycle likely; front-end duration attractive`);
-  if (opportunities.length === 0)
-    opportunities.push("No standout opportunity signals from current FRED data configuration");
+    opportunities.push(`10Y yield (${formatNum(dgs10Val, 3)}%) above cash rate — positive term premium; bonds attractive`);
+
+  // Always-relevant structural opportunities
+  const structuralOpps = [
+    "AI productivity boom potential -> non-inflationary growth if adoption broadens to services sector",
+    "Shelter disinflation pipeline -> OER lags actual rents by 12-18 months; core CPI tailwind ahead",
+    "Fed eventually cuts -> front-end duration trade and rate-sensitive sector re-rating",
+    "Tax policy and fiscal stimulus -> potential growth acceleration in 2H from reconciliation bill",
+  ];
+  let oi = 0;
+  while (opportunities.length < 4 && oi < structuralOpps.length) {
+    opportunities.push(structuralOpps[oi++]);
+  }
 
   // ── Events Calendar ───────────────────────────────────────────────────────
   const events = getUpcomingEvents();
