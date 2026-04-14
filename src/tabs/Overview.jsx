@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { useMarketData } from "../hooks/useMarketData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
@@ -8,6 +9,8 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -39,6 +42,7 @@ const FETCH_SERIES = {
   DGS3MO:     SERIES.DGS3MO,
   DGS6MO:     SERIES.DGS6MO,
   DGS1:       SERIES.DGS1,
+  DGS3:       SERIES.DGS3,
   DGS5:       SERIES.DGS5,
   DGS7:       SERIES.DGS7,
   DGS20:      SERIES.DGS20,
@@ -92,100 +96,112 @@ function buildBullets(data) {
 
   // GROWTH
   if (gdpVal != null) {
-    const trend =
-      gdpVal >= 3.0 ? "well above long-run potential (~2%)" :
-      gdpVal >= 2.0 ? "at or above trend — expansion intact" :
-      gdpVal >= 0.5 ? "below trend — stall-speed risk elevated" :
-      gdpVal >= 0   ? "near-stall — contraction imminent if sustained" :
-                      "contraction — technical recession criteria approaching";
-    const momentum =
+    const regimeCall =
+      gdpVal >= 3.0 ? "a pace that historically sustains broad cyclical exposure" :
+      gdpVal >= 2.5 ? "above potential, which favors cyclical overweight but not indiscriminate risk-on" :
+      gdpVal >= 2.0 ? "still above trend, though the margin for error is narrowing" :
+      gdpVal >= 0.5 ? "below trend — the economy is decelerating into stall-speed territory" :
+      gdpVal >= 0   ? "near-stall, where the probability of outright contraction rises sharply" :
+                      "contraction — technical recession criteria are being met";
+    const momentumNote =
       gdpPrior != null
         ? gdpVal > gdpPrior
-          ? `Momentum accelerating from prior ${formatNum(gdpPrior, 1)}%.`
+          ? `accelerating from a prior ${formatNum(gdpPrior, 1)}%, which strengthens the expansion case`
           : gdpVal < gdpPrior
-          ? `Momentum decelerating from prior ${formatNum(gdpPrior, 1)}% — trajectory warrants close monitoring.`
-          : `Steady vs prior ${formatNum(gdpPrior, 1)}%.`
-        : "";
+          ? `decelerating from ${formatNum(gdpPrior, 1)}% — the direction of travel matters as much as the level`
+          : `unchanged from the prior ${formatNum(gdpPrior, 1)}%, offering no incremental signal`
+        : null;
+    const positionNote =
+      gdpVal < 1    ? "At sub-1%, the playbook shifts decisively to defensives and duration." :
+      gdpVal >= 2.5 ? "This pace supports selective cyclical exposure while maintaining quality discipline." :
+                      "Mid-cycle velocity argues for quality over momentum and patience over conviction.";
     bullets.push(
-      `GROWTH: Real GDP at ${formatNum(gdpVal, 1)}% annualized — ${trend}. ${momentum} ` +
-      `Druckenmiller framework: growth velocity determines the risk-asset regime; ` +
-      `${gdpVal < 1 ? "sub-1% demands underweight equities / overweight defensives." : gdpVal >= 2.5 ? "above-trend supports cyclical overweight." : "mid-cycle pace favors selective quality exposure."}`
+      `The U.S. economy grew at ${formatNum(gdpVal, 1)}% annualized, ` +
+      `${momentumNote ? `${momentumNote} — ` : ""}${regimeCall}. ` +
+      `Growth velocity sets the risk-asset regime, and the current trajectory is the primary variable to watch. ${positionNote}`
     );
   } else {
-    bullets.push("GROWTH: GDP data unavailable from FRED. Cannot assess growth regime.");
+    bullets.push("GDP data is not yet available from FRED — the growth regime cannot be assessed with confidence.");
   }
 
   // INFLATION
   if (cpiVal != null || pceVal != null) {
     const inf = cpiVal ?? pceVal;
-    const lbl = cpiVal != null ? "CPI YoY" : "Core PCE";
+    const lbl = cpiVal != null ? "CPI" : "Core PCE";
     const gap = inf - 2.0;
-    const gapStr = gap > 0 ? `+${formatNum(gap, 1)}pp above` : `${formatNum(gap, 1)}pp below`;
-    const stance =
-      inf > 4.0 ? "Fed under pressure — rate cuts off the table until material disinflation" :
-      inf > 3.0 ? "Still restrictive Fed posture required; policy pivot premature" :
-      inf > 2.5 ? "Disinflation progressing but last mile historically sticky" :
-      inf > 1.5 ? "On-target; Fed has optionality — cuts possible without credibility loss" :
-                  "Below target — disinflationary forces dominant; easing bias warranted";
+    const gapStr = gap > 0 ? `${formatNum(gap, 1)}pp above` : `${formatNum(Math.abs(gap), 1)}pp below`;
+    const lastMileNote =
+      inf > 4.0 ? "Rate cuts are off the table until the Fed sees sustained, material disinflation — the policy path is unambiguously higher for longer." :
+      inf > 3.0 ? "The last mile of disinflation is proving sticky, and a premature pivot would risk a second inflation wave. The Fed cannot afford to blink." :
+      inf > 2.5 ? "Disinflation is progressing, but the final leg back to 2% has historically been the hardest. The Fed retains a tightening bias." :
+      inf > 1.5 ? "Inflation is functionally on target, giving the Fed meaningful optionality to ease without sacrificing credibility." :
+                  "Inflation has undershot the target — disinflationary forces are dominant, and the easing case is building.";
+    const pceNote = pceVal != null
+      ? ` Core PCE at ${formatNum(pceVal, 2)}% — the Fed's preferred gauge — confirms the picture.`
+      : "";
     bullets.push(
-      `INFLATION: ${lbl} at ${formatNum(inf, 2)}% — ${gapStr} the 2% Federal Reserve target. ` +
-      `${stance}. Core PCE${pceVal != null ? ` at ${formatNum(pceVal, 2)}%` : " unavailable"} is the Fed's preferred gauge. ` +
-      `Historical context: post-GFC inflation averaged 1.7%; 2022 peak was 9.1% — current level ` +
-      `${inf > 3 ? "remains uncomfortably elevated" : "represents meaningful normalization"}.`
+      `Inflation remains the binding constraint for policy. ${lbl} is running at ${formatNum(inf, 2)}%, ` +
+      `${gapStr} the Fed's 2% target. ${lastMileNote}${pceNote}`
     );
   } else {
-    bullets.push("INFLATION: Inflation data unavailable from FRED at this time.");
+    bullets.push("Inflation data is not yet available from FRED — the policy constraint cannot be fully assessed.");
   }
 
   // LABOR
   if (unrateVal != null) {
     const nairu = 4.2;
     const gap = unrateVal - nairu;
-    const slack =
-      gap < -0.5 ? `${formatNum(Math.abs(gap), 1)}pp below NAIRU — wage pressure embedded` :
-      gap < 0.3  ? "near NAIRU — labor market in balance" :
-      gap < 1.0  ? `${formatNum(gap, 1)}pp above NAIRU — slack emerging` :
-                   `${formatNum(gap, 1)}pp above NAIRU — meaningful slack, demand weak`;
-    const payStr = payemsVal != null
-      ? ` NFP adding ~${Math.round(payemsVal)}K jobs; break-even to hold UNRATE stable ~100K.`
+    const laborRead =
+      gap < -0.5 ? `${formatNum(Math.abs(gap), 1)}pp below NAIRU, embedding wage pressure that keeps the Fed's hands tied` :
+      gap < 0.3  ? "essentially at NAIRU — labor supply and demand are in rough balance" :
+      gap < 1.0  ? `${formatNum(gap, 1)}pp above NAIRU, with slack beginning to build and wage growth softening` :
+                   `${formatNum(gap, 1)}pp above NAIRU — meaningful slack has opened up, and consumer demand is feeling the pressure`;
+    const payNote = payemsVal != null
+      ? ` Monthly payrolls are tracking around ${Math.round(payemsVal)}K — above the ~100K break-even needed to absorb new labor force entrants.`
       : "";
+    const sahmNote =
+      unrateVal > 5.5
+        ? "History shows that unemployment at this level compresses consumer spending with a 6–12 month lag — the second-order effects are worth watching."
+        : "Tight labor market conditions are the primary support for consumer resilience, but they also keep inflation from falling cleanly.";
     bullets.push(
-      `LABOR: Unemployment at ${formatNum(unrateVal, 1)}% — ${slack}.${payStr} ` +
-      `Sahm Rule threshold: 0.5pp rise from 12-month low signals recession onset. ` +
-      `${unrateVal > 5.5 ? "Rising unemployment historically compresses consumer spending 6–12 months forward." : "Tight conditions sustain consumer resilience; wage inflation risk remains a secondary concern."}`
+      `Unemployment stands at ${formatNum(unrateVal, 1)}%, ${laborRead}.${payNote} ` +
+      `The Sahm Rule — triggered by a 0.5pp rise from the 12-month low — remains the cleanest real-time recession signal. ${sahmNote}`
     );
   } else {
-    bullets.push("LABOR: Unemployment data unavailable from FRED at this time.");
+    bullets.push("Unemployment data is not yet available from FRED — labor market conditions cannot be assessed.");
   }
 
   // RATES
   if (fedVal != null) {
     const realRate = cpiVal != null ? fedVal - cpiVal : null;
-    const rateStance =
-      fedVal >= 5.0  ? "deeply restrictive" :
-      fedVal >= 3.5  ? "restrictive" :
-      fedVal >= 2.5  ? "mildly restrictive / neutral" :
-      fedVal >= 1.5  ? "accommodative" :
-                       "emergency-level accommodation";
+    const rateRead =
+      fedVal >= 5.0  ? "deeply in restrictive territory — financial conditions are meaningfully tight" :
+      fedVal >= 3.5  ? "in restrictive territory, actively restraining credit and investment" :
+      fedVal >= 2.5  ? "at the boundary of neutral — neither stimulative nor clearly restrictive" :
+      fedVal >= 1.5  ? "accommodative, providing a tailwind to risk assets and credit" :
+                       "at emergency-level accommodation — the Fed is in crisis-fighting mode";
+    const realRateNote = realRate != null
+      ? ` The real rate — Fed Funds minus CPI — sits at ${realRate > 0 ? "+" : ""}${formatNum(realRate, 2)}%, the truest measure of how tight conditions actually are.`
+      : "";
     const curveNote =
       t10y2yVal != null
         ? t10y2yVal < -0.5
-          ? `Deep inversion (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — the most reliable recession leading indicator with avg 12-18 month lead.`
+          ? ` The curve remains deeply inverted (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — historically the most reliable recession signal, with a 12–18 month average lead time.`
           : t10y2yVal < 0
-          ? `Shallow inversion (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — recessionary signal, though timing uncertain.`
+          ? ` A shallow inversion persists (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — the recessionary signal is there, but timing is uncertain.`
           : t10y2yVal < 0.5
-          ? `Curve flattening (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) — normalization, not yet expansion-confirmatory.`
-          : `Curve steepened (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) — expansion-phase structure; credit conditions supportive.`
+          ? ` The curve is normalizing (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) — disinversion is underway, but a return to expansion-phase steepness is not confirmed.`
+          : ` The curve has re-steepened (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) — an expansion-phase structure that is supportive of credit conditions.`
         : "";
+    const recNote = recVal != null
+      ? ` FRED's recession probability model is at ${formatNum(recVal, 1)}% — ${recVal > 30 ? "an elevated reading that has historically preceded recession within 12 months" : recVal > 10 ? "a moderate risk reading that warrants monitoring" : "a subdued reading, below levels that historically demand defensive repositioning"}.`
+      : "";
     bullets.push(
-      `RATES: Fed Funds at ${formatNum(fedVal, 2)}% — ${rateStance}. ` +
-      `10Y Treasury at ${t10Val != null ? `${formatNum(t10Val, 3)}%` : "—"}` +
-      `${realRate != null ? `; real rate ${realRate > 0 ? "+" : ""}${formatNum(realRate, 2)}% (nominal minus CPI).` : ". "} ` +
-      `${curveNote}` +
-      `${recVal != null ? ` FRED recession probability model: ${formatNum(recVal, 1)}% — ${recVal > 30 ? "elevated; historically signals recession within 12 months" : recVal > 10 ? "moderate risk" : "below alarm threshold"}.` : ""}`
+      `Fed Funds at ${formatNum(fedVal, 2)}% places policy ${rateRead}. ` +
+      `The 10Y Treasury is ${t10Val != null ? `at ${formatNum(t10Val, 3)}%` : "unavailable"}.${realRateNote}${curveNote}${recNote}`
     );
   } else {
-    bullets.push("RATES: Fed Funds rate data unavailable from FRED at this time.");
+    bullets.push("Fed Funds rate data is not yet available from FRED — the policy stance cannot be assessed.");
   }
 
   return bullets;
@@ -263,7 +279,20 @@ function getUpcomingEvents() {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Overview() {
   const { data, loading, error } = useFredData(FETCH_SERIES);
-  const { data: marketData, loading: marketLoading } = useMarketData();
+  const { data: marketData, spyChart, loading: marketLoading, lastUpdated } = useMarketData();
+
+  // Live refresh age display
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(id);
+  }, []);
+  const ageStr = lastUpdated
+    ? (() => {
+        const sec = Math.floor((now - lastUpdated) / 1000);
+        return sec < 5 ? "just now" : sec < 60 ? `${sec}s ago` : `${Math.floor(sec / 60)}m ago`;
+      })()
+    : null;
 
   if (loading) return <Loading />;
   if (error) {
@@ -335,29 +364,51 @@ export default function Overview() {
   // ── Bullets ───────────────────────────────────────────────────────────────
   const bullets = buildBullets(data);
 
-  // ── S&P 500 chart data ────────────────────────────────────────────────────
-  const spChartData = data.SP500
-    ? [...data.SP500].slice(0, 30).reverse().map((d) => ({
-        date: d.date.slice(5),
-        value: d.value,
+  // ── S&P 500 chart data (Yahoo Finance 1Y) ────────────────────────────────
+  const spChartData = spyChart?.points
+    ? spyChart.points.map((p) => ({
+        date: p.date.slice(5),
+        value: p.close,
       }))
     : [];
+  const spyPrice = spyChart?.meta?.price ?? marketData?.SPY?.price;
+  const spyChangePct = marketData?.SPY?.changePct ?? null;
+  const spy52WH = spyChart?.meta?.fiftyTwoWeekHigh ?? marketData?.SPY?.fiftyTwoWeekHigh;
+  const spy52WL = spyChart?.meta?.fiftyTwoWeekLow ?? marketData?.SPY?.fiftyTwoWeekLow;
 
-  // ── Yield curve chart data ────────────────────────────────────────────────
-  const yieldCurvePoints = [
+  // ── Yield curve chart data (current, 1W ago, 1M ago) ─────────────────────
+  const ycMaturities = [
     { maturity: "1M",  key: "DGS1MO" },
     { maturity: "3M",  key: "DGS3MO" },
     { maturity: "6M",  key: "DGS6MO" },
     { maturity: "1Y",  key: "DGS1" },
     { maturity: "2Y",  key: "DGS2" },
+    { maturity: "3Y",  key: "DGS3" },
     { maturity: "5Y",  key: "DGS5" },
     { maturity: "7Y",  key: "DGS7" },
     { maturity: "10Y", key: "DGS10" },
     { maturity: "20Y", key: "DGS20" },
     { maturity: "30Y", key: "DGS30" },
-  ]
-    .map(({ maturity, key }) => ({ maturity, value: val(data, key) }))
-    .filter((p) => p.value != null);
+  ];
+  const yieldCurveData = ycMaturities
+    .map(({ maturity, key }) => {
+      const arr = data[key];
+      return {
+        maturity,
+        current: arr?.[0]?.value ?? null,
+        weekAgo: arr?.[5]?.value ?? null,
+        monthAgo: (arr?.[22] ?? arr?.[arr?.length - 1])?.value ?? null,
+      };
+    })
+    .filter((p) => p.current != null);
+  const yieldCurveDate = data.DGS10?.[0]?.date;
+  const yieldCurveDateFmt = yieldCurveDate
+    ? new Date(yieldCurveDate + "T00:00:00").toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : null;
 
   // ── Risks / Opportunities (always produce at least 4 each) ────────────────
   const risks = [];
@@ -430,9 +481,31 @@ export default function Overview() {
   const vixSignal      = vixVal != null ? (vixVal > 25 ? "bearish" : vixVal < 18 ? "bullish" : "neutral") : "neutral";
   const mortgageSignal = mortgageVal != null ? (mortgageVal > 7 ? "bearish" : mortgageVal < 5 ? "bullish" : "neutral") : "neutral";
 
+  // ── Rates card signals + change labels ──────────────────────────────────
+  const dgs10Prior2 = prior(data.DGS10)?.value;
+  const dgs2Prior2  = prior(data.DGS2)?.value;
+  const t10y2yPrior = prior(data.T10Y2Y)?.value;
+  const t10y3mPrior = prior(data.T10Y3M)?.value;
+
+  const dgs10Signal = dgs10Val != null ? (dgs10Val > 4.5 ? "bearish" : dgs10Val < 3.5 ? "bullish" : "neutral") : "neutral";
+  const dgs2Signal  = dgs2Latest?.value != null ? (dgs2Latest.value > 4.5 ? "bearish" : dgs2Latest.value < 3.5 ? "bullish" : "neutral") : "neutral";
+  const t10y2ySignal = t10y2yVal != null ? (t10y2yVal < 0 ? "bearish" : t10y2yVal > 0.5 ? "bullish" : "neutral") : "neutral";
+  const t10y3mSignal = t10y3mVal != null ? (t10y3mVal < 0 ? "bearish" : t10y3mVal > 0.5 ? "bullish" : "neutral") : "neutral";
+
+  function bpsLabel(current, prev) {
+    if (current == null || prev == null) return "";
+    const bps = Math.round((current - prev) * 100);
+    return `${bps >= 0 ? "+" : ""}${bps} bps from ${formatNum(prev, 2)}%`;
+  }
+
+  function spreadDir(current, prev) {
+    if (current == null || prev == null) return "flat";
+    return current > prev ? "up" : current < prev ? "down" : "flat";
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 16px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "12px 16px" }}>
 
       {/* 1 ── REGIME SUMMARY BOX ── */}
       <div
@@ -479,9 +552,6 @@ export default function Overview() {
         {/* Analytical bullets */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {bullets.map((bullet, i) => {
-            const colonIdx = bullet.indexOf(":");
-            const label = colonIdx !== -1 ? bullet.slice(0, colonIdx) : "";
-            const body  = colonIdx !== -1 ? bullet.slice(colonIdx + 1).trim() : bullet;
             return (
               <p
                 key={i}
@@ -495,15 +565,8 @@ export default function Overview() {
                   alignItems: "flex-start",
                 }}
               >
-                <span style={{ color: "var(--color-term-green)", flexShrink: 0, marginTop: 1 }}>▸</span>
-                <span>
-                  {label && (
-                    <strong style={{ color: "var(--color-term-green)", marginRight: 4, letterSpacing: "0.04em" }}>
-                      {label}:
-                    </strong>
-                  )}
-                  {body}
-                </span>
+                <span style={{ color: "var(--color-term-green)", flexShrink: 0, marginTop: 1 }}>&gt;</span>
+                <span>{bullet}</span>
               </p>
             );
           })}
@@ -525,6 +588,12 @@ export default function Overview() {
           }}
         >
           Market Snapshot — {TODAY}
+          {ageStr && (
+            <span style={{ marginLeft: 8, color: "var(--color-term-green)", fontWeight: 400 }}>
+              <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: "var(--color-term-green)", marginRight: 4, animation: "cursor-blink 2s step-end infinite" }} />
+              {ageStr}
+            </span>
+          )}
         </div>
         <div
           style={{
@@ -567,7 +636,7 @@ export default function Overview() {
                     ? `+${changePct.toFixed(2)}%`
                     : `${changePct.toFixed(2)}%`;
                 return (
-                  <div key={key} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <div key={key} style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "center" }}>
                     <div style={{ fontSize: 10, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                       {key}
                     </div>
@@ -644,32 +713,65 @@ export default function Overview() {
       {/* 3 ── TWO CHARTS SIDE-BY-SIDE ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
-        {/* Left: S&P 500 Area Chart */}
+        {/* Left: S&P 500 Area Chart — 1 Year */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div
-              style={{
-                fontSize: 10,
-                color: "var(--color-term-dim)",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-              }}
-            >
-              S&P 500
-            </div>
-            {sp500Latest && (
-              <div style={{ fontSize: 10, color: "var(--color-term-text)" }}>
-                {formatNum(sp500Latest.value, 2)}
-                {sp500Chg != null && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--color-term-dim)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                S&P 500 (SPY) — 1 Year
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "var(--color-term-green)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {spyPrice != null ? `$${spyPrice.toFixed(2)}` : "—"}
+                </span>
+                {spyChangePct != null && (
                   <span
                     style={{
-                      marginLeft: 8,
-                      color: sp500Chg >= 0 ? "var(--color-term-green)" : "var(--color-term-red)",
+                      fontSize: 11,
+                      color: spyChangePct >= 0 ? "var(--color-term-green)" : "var(--color-term-red)",
                     }}
                   >
-                    {formatPct(sp500Chg)}
+                    {spyChangePct >= 0 ? "+" : ""}{spyChangePct.toFixed(2)}%
                   </span>
                 )}
+              </div>
+            </div>
+            {spy52WL != null && spy52WH != null && (
+              <div style={{ textAlign: "right" }}>
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: "var(--color-term-dim)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  52W Range
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--color-term-dim)",
+                    marginTop: 2,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  ${spy52WL.toFixed(2)} — ${spy52WH.toFixed(2)}
+                </div>
               </div>
             )}
           </div>
@@ -681,32 +783,31 @@ export default function Overview() {
                   <stop offset="95%" stopColor="var(--color-term-green)" stopOpacity={0.01} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="var(--color-term-border)" strokeDasharray="2 4" vertical={false} />
               <XAxis
                 dataKey="date"
                 tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
                 tickLine={false}
                 axisLine={{ stroke: "var(--color-term-border)" }}
-                interval={5}
+                interval={Math.max(1, Math.floor(spChartData.length / 5))}
               />
               <YAxis
                 tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
                 tickLine={false}
                 axisLine={false}
                 domain={["auto", "auto"]}
-                tickFormatter={(v) => v.toLocaleString()}
+                tickFormatter={(v) => `$${v.toLocaleString()}`}
               />
               <Tooltip
                 content={
                   <ChartTooltip
-                    formatter={(v) => v.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                    formatter={(v) => `$${Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 })}`}
                   />
                 }
               />
               <Area
                 type="monotone"
                 dataKey="value"
-                name="S&P 500"
+                name="SPY"
                 stroke="var(--color-term-green)"
                 strokeWidth={1.5}
                 fill="url(#spGrad)"
@@ -717,35 +818,64 @@ export default function Overview() {
           </ResponsiveContainer>
         </div>
 
-        {/* Right: Yield Curve Area Chart */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--color-term-dim)",
-              textTransform: "uppercase",
-              letterSpacing: "0.1em",
-            }}
-          >
-            Yield Curve
+        {/* Right: U.S. Treasury Yield Curve */}
+        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--color-term-dim)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                }}
+              >
+                U.S. Treasury Yield Curve
+              </div>
+              {yieldCurveDateFmt && (
+                <div style={{ fontSize: 10, color: "var(--color-term-green)", marginTop: 2 }}>
+                  As of {yieldCurveDateFmt}
+                </div>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                fontSize: 10,
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ display: "inline-block", width: 12, height: 2, background: "var(--color-term-green)" }} />
+                Current
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--color-term-dim)" }}>
+                <span style={{ display: "inline-block", width: 12, height: 2, background: "var(--color-term-amber)", opacity: 0.5 }} />
+                1W Ago
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--color-term-dim)" }}>
+                <span style={{ display: "inline-block", width: 12, height: 2, background: "var(--color-term-red)", opacity: 0.3 }} />
+                1M Ago
+              </span>
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={yieldCurvePoints} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={yieldCurveData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
               <defs>
-                <linearGradient id="ycGrad" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="ycGreenGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="var(--color-term-green)" stopOpacity={0.15} />
                   <stop offset="95%" stopColor="var(--color-term-green)" stopOpacity={0.01} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="var(--color-term-border)" strokeDasharray="2 4" vertical={false} />
               <XAxis
                 dataKey="maturity"
-                tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
+                tick={{ fontSize: 10, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
                 tickLine={false}
-                axisLine={{ stroke: "var(--color-term-border)" }}
+                axisLine={false}
               />
               <YAxis
-                tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
+                tick={{ fontSize: 10, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
                 tickLine={false}
                 axisLine={false}
                 domain={["auto", "auto"]}
@@ -758,17 +888,44 @@ export default function Overview() {
                   />
                 }
               />
-              <Area
+              {fedVal != null && (
+                <ReferenceLine
+                  y={fedVal}
+                  stroke="hsl(220, 15%, 15%)"
+                  strokeDasharray="3 3"
+                  label={{ value: "FF Rate", fontSize: 9, fill: "hsl(220, 10%, 35%)", position: "insideTopRight" }}
+                />
+              )}
+              <Line
                 type="monotone"
-                dataKey="value"
-                name="Yield"
+                dataKey="monthAgo"
+                name="1M Ago"
+                stroke="var(--color-term-red)"
+                strokeWidth={1}
+                strokeOpacity={0.3}
+                fill="none"
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="weekAgo"
+                name="1W Ago"
+                stroke="var(--color-term-amber)"
+                strokeWidth={1}
+                strokeOpacity={0.5}
+                fill="none"
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="current"
+                name="Current"
                 stroke="var(--color-term-green)"
                 strokeWidth={2}
-                fill="url(#ycGrad)"
-                dot={false}
-                activeDot={{ r: 3, fill: "var(--color-term-green)" }}
+                fill="url(#ycGreenGrad)"
+                dot={{ r: 3, fill: "hsl(142, 70%, 55%)", strokeWidth: 0 }}
               />
-            </AreaChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
@@ -787,8 +944,8 @@ export default function Overview() {
         >
           <div
             style={{
-              fontSize: 11,
-              fontWeight: 700,
+              fontSize: 10,
+              fontWeight: 600,
               color: "hsla(0,72%,55%,1)",
               letterSpacing: "0.1em",
               textTransform: "uppercase",
@@ -800,7 +957,7 @@ export default function Overview() {
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             {risks.map((r, i) => (
               <div key={i} style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
-                <span style={{ color: "hsla(0,72%,55%,1)", flexShrink: 0, fontSize: 9, marginTop: 2 }}>◆</span>
+                <span style={{ color: "hsla(0,72%,55%,1)", flexShrink: 0, fontSize: 9, marginTop: 2 }}>▸</span>
                 <span style={{ fontSize: 10, color: "var(--color-term-text)", lineHeight: 1.6 }}>{r}</span>
               </div>
             ))}
@@ -818,8 +975,8 @@ export default function Overview() {
         >
           <div
             style={{
-              fontSize: 11,
-              fontWeight: 700,
+              fontSize: 10,
+              fontWeight: 600,
               color: "var(--color-term-green)",
               letterSpacing: "0.1em",
               textTransform: "uppercase",
@@ -831,7 +988,7 @@ export default function Overview() {
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             {opportunities.map((o, i) => (
               <div key={i} style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
-                <span style={{ color: "var(--color-term-green)", flexShrink: 0, fontSize: 9, marginTop: 2 }}>◆</span>
+                <span style={{ color: "var(--color-term-green)", flexShrink: 0, fontSize: 9, marginTop: 2 }}>▸</span>
                 <span style={{ fontSize: 10, color: "var(--color-term-text)", lineHeight: 1.6 }}>{o}</span>
               </div>
             ))}
@@ -842,9 +999,9 @@ export default function Overview() {
         <div className="panel" style={{ padding: 14 }}>
           <div
             style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--color-term-text)",
+              fontSize: 10,
+              fontWeight: 600,
+              color: "hsl(185,70%,55%)",
               letterSpacing: "0.1em",
               textTransform: "uppercase",
               marginBottom: 10,
@@ -912,22 +1069,23 @@ export default function Overview() {
         </div>
       </div>
 
-      {/* 5 ── 6 INDICATOR CARDS ── */}
+      {/* 5 ── 6 INDICATOR CARDS (rates-focused) ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         <IndicatorCard
-          label="Fed Funds"
+          label="Fed Funds Rate"
           value={fedVal}
           unit="%"
-          change={fedChg}
           decimals={2}
           signal="neutral"
+          direction="flat"
+          changeLabel={bpsLabel(fedVal, fedPriorVal)}
           detail={
             fedVal != null
               ? `Effective Fed Funds rate. Policy stance: ${
                   fedVal >= 5.5 ? "severely restrictive" :
                   fedVal >= 5.0 ? "restrictive" :
                   fedVal >= 3.0 ? "neutral-to-tight" : "accommodative"
-                }. Real rate vs CPI: ${cpiVal != null ? `${formatNum(fedVal - cpiVal, 2)}%` : "—"}. Prior: ${formatNum(fedPriorVal, 2)}%.`
+                }. Real rate vs CPI: ${cpiVal != null ? `${formatNum(fedVal - cpiVal, 2)}%` : "—"}.`
               : "Fed Funds data unavailable."
           }
           source="FRED / DFF"
@@ -935,95 +1093,88 @@ export default function Overview() {
           dateLabel={fmtCardDate(latest(data.FEDFUNDS)?.date)}
         />
         <IndicatorCard
-          label="CPI YoY"
-          value={cpiVal}
+          label="10Y Treasury Yield"
+          value={dgs10Val}
           unit="%"
-          change={cpiChg}
           decimals={2}
-          signal={cpiSignal}
+          signal={dgs10Signal}
+          direction={spreadDir(dgs10Val, dgs10Prior2)}
+          changeLabel={bpsLabel(dgs10Val, dgs10Prior2)}
           detail={
-            cpiVal != null
-              ? `All-items CPI, year-over-year. Fed 2% target gap: ${cpiVal > 2 ? "+" : ""}${formatNum(cpiVal - 2.0, 2)}pp. Core PCE (Fed's preferred): ${pceVal != null ? `${formatNum(pceVal, 2)}%` : "—"}. Prior: ${formatNum(cpiPriorVal, 2)}%.`
-              : "CPI data unavailable."
+            dgs10Val != null
+              ? `10-Year Treasury yield — benchmark for mortgages, corporate bonds, and risk-free rate expectations. Real yield (vs CPI): ${cpiVal != null ? formatNum(dgs10Val - cpiVal, 2) + "%" : "—"}. Term premium signals duration risk appetite.`
+              : "10Y yield data unavailable."
           }
-          source="FRED / CPIAUCSL"
-          sourceUrl="https://fred.stlouisfed.org/series/CPIAUCSL"
-          dateLabel={fmtCardDate(latest(data.CPI)?.date)}
+          source="FRED / DGS10"
+          sourceUrl="https://fred.stlouisfed.org/series/DGS10"
+          dateLabel={fmtCardDate(latest(data.DGS10)?.date)}
         />
         <IndicatorCard
-          label="GDP Growth"
-          value={gdpVal}
+          label="2Y Treasury Yield"
+          value={dgs2Latest?.value}
           unit="%"
-          change={gdpChg}
-          decimals={1}
-          signal={gdpSignal}
-          detail={
-            gdpVal != null
-              ? `Real GDP, QoQ annualized. Prior quarter: ${formatNum(gdpPriorVal, 1)}%. Long-run potential ~2.0%. ${
-                  gdpVal < 0 ? "Contraction — monitor next print carefully." :
-                  gdpVal < 1.5 ? "Sub-trend; stall-speed risk." :
-                  gdpVal >= 3 ? "Above trend; overheating risk possible." : "Near-trend expansion."
-                }`
-              : "GDP data unavailable."
-          }
-          source="FRED / A191RL1Q225SBEA"
-          sourceUrl="https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
-          dateLabel={fmtCardDate(latest(data.GDP)?.date)}
-        />
-        <IndicatorCard
-          label="Unemployment"
-          value={unrateVal}
-          unit="%"
-          change={unrateChg}
-          decimals={1}
-          signal={unrateSignal}
-          detail={
-            unrateVal != null
-              ? `Civilian unemployment. CBO NAIRU: ~4.2%. Current gap: ${formatNum(unrateVal - 4.2, 1)}pp. ${
-                  unrateVal <= 3.8 ? "Historically tight — wage inflation embedded." :
-                  unrateVal <= 4.5 ? "Near natural rate — balanced conditions." :
-                  "Above NAIRU — Sahm Rule watch active."
-                } Prior: ${formatNum(unratePrior, 1)}%.`
-              : "Unemployment data unavailable."
-          }
-          source="FRED / UNRATE"
-          sourceUrl="https://fred.stlouisfed.org/series/UNRATE"
-          dateLabel={fmtCardDate(latest(data.UNRATE)?.date)}
-        />
-        <IndicatorCard
-          label="VIX"
-          value={vixVal}
-          unit=""
-          change={vixCardChg}
           decimals={2}
-          signal={vixSignal}
+          signal={dgs2Signal}
+          direction={spreadDir(dgs2Latest?.value, dgs2Prior2)}
+          changeLabel={bpsLabel(dgs2Latest?.value, dgs2Prior2)}
           detail={
-            vixVal != null
-              ? `CBOE 30-day implied volatility. Regimes: <15 complacent, 15–25 normal, 25–35 elevated, >35 crisis. Current: ${
-                  vixVal < 15 ? "COMPLACENT — tail risk underpriced" :
-                  vixVal < 25 ? "NORMAL — risk-on environment" :
-                  vixVal < 35 ? "ELEVATED — volatility premium expanded" : "CRISIS — forced selling / deleveraging"
-                }.`
-              : "VIX data unavailable."
+            dgs2Latest?.value != null
+              ? `2-Year Treasury yield — most sensitive to Fed policy expectations. Reflects market pricing of near-term rate path. Spread to Fed Funds: ${fedVal != null ? formatNum(dgs2Latest.value - fedVal, 0) + " bps" : "—"}.`
+              : "2Y yield data unavailable."
           }
-          source="FRED / VIXCLS"
-          sourceUrl="https://fred.stlouisfed.org/series/VIXCLS"
-          dateLabel={fmtCardDate(latest(data.VIXCLS)?.date)}
+          source="FRED / DGS2"
+          sourceUrl="https://fred.stlouisfed.org/series/DGS2"
+          dateLabel={fmtCardDate(latest(data.DGS2)?.date)}
         />
         <IndicatorCard
-          label="30Y Mortgage"
+          label="2s10s Spread"
+          value={t10y2yVal}
+          unit="%"
+          decimals={2}
+          signal={t10y2ySignal}
+          direction={spreadDir(t10y2yVal, t10y2yPrior)}
+          changeLabel={bpsLabel(t10y2yVal, t10y2yPrior)}
+          detail={
+            t10y2yVal != null
+              ? `10Y minus 2Y Treasury spread. ${t10y2yVal < 0 ? "INVERTED — every recession since 1970s preceded by sustained inversion." : "Positive slope — normal term structure."} Key recession signal for the rates market.`
+              : "Spread data unavailable."
+          }
+          source="FRED / T10Y2Y"
+          sourceUrl="https://fred.stlouisfed.org/series/T10Y2Y"
+          dateLabel={fmtCardDate(latest(data.T10Y2Y)?.date)}
+        />
+        <IndicatorCard
+          label="10Y-3M Spread"
+          value={t10y3mVal}
+          unit="%"
+          decimals={2}
+          signal={t10y3mSignal}
+          direction={spreadDir(t10y3mVal, t10y3mPrior)}
+          changeLabel={bpsLabel(t10y3mVal, t10y3mPrior)}
+          detail={
+            t10y3mVal != null
+              ? `10Y minus 3M Treasury spread — NY Fed recession probability model's primary input. ${t10y3mVal < 0 ? "INVERTED — historically the most reliable recession predictor." : "Positive — recession signal not active."}`
+              : "Spread data unavailable."
+          }
+          source="FRED / T10Y3M"
+          sourceUrl="https://fred.stlouisfed.org/series/T10Y3M"
+          dateLabel={fmtCardDate(latest(data.T10Y3M)?.date)}
+        />
+        <IndicatorCard
+          label="30Y Mortgage Rate"
           value={mortgageVal}
           unit="%"
-          change={mortgageChg}
           decimals={2}
           signal={mortgageSignal}
+          direction={spreadDir(mortgageVal, mortgagePrior)}
+          changeLabel={bpsLabel(mortgageVal, mortgagePrior)}
           detail={
             mortgageVal != null
-              ? `30-year fixed rate. Spread to 10Y Treasury: ${dgs10Val != null ? `${formatNum(mortgageVal - dgs10Val, 2)}pp` : "—"}. Prior: ${formatNum(mortgagePrior, 2)}%. ${
-                  mortgageVal > 7.5 ? "Multi-decade affordability lows — housing demand severely impaired." :
+              ? `30-year fixed mortgage rate. Spread to 10Y: ${dgs10Val != null ? formatNum(mortgageVal - dgs10Val, 0) + " bps" : "—"}. ${
+                  mortgageVal > 7.5 ? "Multi-decade affordability lows." :
                   mortgageVal > 6.5 ? "Affordability stressed; buyers sidelined." :
-                  mortgageVal > 5.0 ? "Rates normalized; qualified buyers constrained but active." :
-                  "Historically accommodative — housing demand supported."
+                  mortgageVal > 5.0 ? "Rates normalized." :
+                  "Historically accommodative."
                 }`
               : "Mortgage rate data unavailable."
           }

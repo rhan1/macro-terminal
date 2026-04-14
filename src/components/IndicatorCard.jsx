@@ -43,32 +43,41 @@ export default function IndicatorCard({
   dateLabel,
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const s = SIGNAL_STYLES[signal] || SIGNAL_STYLES.neutral;
 
   const dirIcon = direction ? DIR_ICONS[direction] || "" : "";
-  const dirColor =
-    direction === "up"
-      ? "hsl(142,70%,55%)"
-      : direction === "down"
-      ? "hsl(0,72%,55%)"
-      : "hsl(45,90%,55%)";
 
   return (
     <div
       onClick={() => setExpanded(!expanded)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        background: s.bg,
+        background: hovered ? "hsl(220,20%,7%)" : s.bg,
         border: `1px solid ${s.border}`,
-        borderRadius: 4,
         padding: 12,
         cursor: "pointer",
         transition: "all 0.15s",
       }}
     >
-      {/* Top row: label + signal badge */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,40%)" }}>
-          {label}
+      {/* Top: label+value (left) + badge (right, top-aligned) */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <div>
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,40%)", marginBottom: 2 }}>
+            {label}
+          </div>
+          <div
+            className={s.glow}
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: s.text,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {value != null ? `${prefix}${formatNum(value, decimals)}${unit}` : "—"}
+          </div>
         </div>
         <div
           style={{
@@ -77,7 +86,7 @@ export default function IndicatorCard({
             letterSpacing: "0.08em",
             color: s.text,
             background: s.badge,
-            padding: "1px 6px",
+            padding: "2px 6px",
             borderRadius: 2,
           }}
         >
@@ -85,32 +94,16 @@ export default function IndicatorCard({
         </div>
       </div>
 
-      {/* Value */}
-      <div
-        className={s.glow}
-        style={{
-          fontSize: 18,
-          fontWeight: 600,
-          color: s.text,
-          fontVariantNumeric: "tabular-nums",
-          marginBottom: 4,
-        }}
-      >
-        {value != null ? `${prefix}${formatNum(value, decimals)}${unit}` : "—"}
-      </div>
-
-      {/* Direction + change */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {dirIcon && (
-            <span style={{ fontSize: 9, color: dirColor }}>{dirIcon}</span>
-          )}
-          <span style={{ fontSize: 10, color: "hsl(220,10%,40%)", fontVariantNumeric: "tabular-nums" }}>
-            {changeLabel || (change != null ? formatPct(change) : "")}
-          </span>
-        </div>
+      {/* Direction + change + date */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+        {dirIcon && (
+          <span style={{ fontSize: 9, color: s.text }}>{dirIcon}</span>
+        )}
+        <span style={{ color: "hsl(220,10%,40%)", fontVariantNumeric: "tabular-nums" }}>
+          {changeLabel || (change != null ? formatPct(change) : "")}
+        </span>
         {dateLabel && (
-          <span style={{ fontSize: 10, color: "hsl(220,10%,40%)" }}>{dateLabel}</span>
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "hsl(220,10%,40%)" }}>{dateLabel}</span>
         )}
       </div>
 
@@ -120,28 +113,30 @@ export default function IndicatorCard({
           style={{
             marginTop: 10,
             paddingTop: 10,
-            borderTop: "1px solid hsla(220,15%,14%,0.5)",
+            borderTop: "1px solid hsl(220,15%,14%)",
             fontSize: 11,
             color: "hsl(220,10%,40%)",
             lineHeight: 1.6,
           }}
         >
-          <p>{detail}</p>
+          <p style={{ margin: 0 }}>{detail}</p>
           {source && (
             <div style={{ marginTop: 6 }}>
-              <span style={{ color: "hsl(185,70%,55%)", fontSize: 10 }}>SRC: </span>
+              <span style={{ color: "hsl(185,70%,55%)", fontSize: 9 }}>SRC: </span>
               {sourceUrl ? (
                 <a
                   href={sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: "hsl(185,70%,55%)", fontSize: 10, textDecoration: "none" }}
+                  style={{ color: "hsl(185,70%,55%)", fontSize: 9, textDecoration: "none" }}
                   onClick={(e) => e.stopPropagation()}
+                  onMouseEnter={(e) => { e.target.style.textDecoration = "underline"; }}
+                  onMouseLeave={(e) => { e.target.style.textDecoration = "none"; }}
                 >
                   {source}
                 </a>
               ) : (
-                <span style={{ color: "hsl(185,70%,55%)", fontSize: 10 }}>{source}</span>
+                <span style={{ color: "hsl(185,70%,55%)", fontSize: 9 }}>{source}</span>
               )}
             </div>
           )}

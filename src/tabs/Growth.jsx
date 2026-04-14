@@ -232,7 +232,7 @@ export default function Growth() {
             <BarChart
               data={gdpChartData}
               margin={{ top: 8, right: 8, bottom: 0, left: -10 }}
-              barCategoryGap="30%"
+              barCategoryGap="15%"
             >
               <CartesianGrid
                 vertical={false}
@@ -264,7 +264,7 @@ export default function Growth() {
                 stroke="hsl(220,10%,40%)"
                 strokeDasharray="4 4"
               />
-              <Bar dataKey="value" name="GDP Growth" radius={[2, 2, 0, 0]}>
+              <Bar dataKey="value" name="GDP Growth" radius={[2, 2, 0, 0]} maxBarSize={32}>
                 {gdpChartData.map((entry, i) => (
                   <Cell key={i} fill={gdpBarColor(entry.value)} fillOpacity={0.85} />
                 ))}
@@ -288,7 +288,14 @@ export default function Growth() {
         <div className="panel">
           {ismData?.manufacturing && ismData?.services ? (
             <>
-              <div className="section-label">ISM PMI — Manufacturing vs Services</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div className="section-label">ISM PMI — Manufacturing vs Services</div>
+                {ismData.manufacturing?.period && (
+                  <span style={{ fontSize: 9, color: "var(--color-term-dim)", letterSpacing: "0.04em" }}>
+                    Data: {ismData.manufacturing.period}
+                  </span>
+                )}
+              </div>
 
               {/* 50 divider label */}
               <div

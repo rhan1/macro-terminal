@@ -1,4 +1,50 @@
 export default async function handler(req, res) {
+  // Chart history mode: /api/market?chart=SPY&range=1y
+  if (req.query.chart) {
+    try {
+      const sym = req.query.chart;
+      const range = req.query.range || "1y";
+      const interval = req.query.interval || "1d";
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${range}`;
+      const resp = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
+      if (!resp.ok) throw new Error(`Yahoo chart ${sym}: ${resp.status}`);
+      const json = await resp.json();
+      const result = json.chart?.result?.[0];
+      if (!result) throw new Error(`No chart data for ${sym}`);
+
+      const timestamps = result.timestamp || [];
+      const closes = result.indicators?.quote?.[0]?.close || [];
+      const points = [];
+      for (let i = 0; i < timestamps.length; i++) {
+        if (closes[i] != null) {
+          points.push({
+            date: new Date(timestamps[i] * 1000).toISOString().slice(0, 10),
+            close: closes[i],
+          });
+        }
+      }
+
+      const prevClose = result.meta.chartPreviousClose;
+      const price = result.meta.regularMarketPrice;
+
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+      return res.status(200).json({
+        symbol: sym.replace("^", ""),
+        points,
+        meta: {
+          price,
+          changePct: prevClose ? ((price - prevClose) / Math.abs(prevClose)) * 100 : 0,
+          fiftyTwoWeekHigh: result.meta.fiftyTwoWeekHigh,
+          fiftyTwoWeekLow: result.meta.fiftyTwoWeekLow,
+        },
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   const symbols = (req.query.symbols || "SPY,QQQ,TLT,GLD,USO,HYG,^VIX").split(",");
 
   try {
@@ -37,7 +83,7 @@ export default async function handler(req, res) {
       }
     }
 
-    res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
     return res.status(200).json(data);
   } catch (err) {
     return res.status(500).json({ error: err.message });

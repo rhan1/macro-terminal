@@ -54,12 +54,13 @@ export default function App() {
         style={{
           flex: 1,
           overflowY: "auto",
+          overscrollBehavior: "contain",
           padding: 16,
         }}
       >
         <ActiveComponent />
+        <Footer />
       </main>
-      <Footer />
     </div>
   );
 }

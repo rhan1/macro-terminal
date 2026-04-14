@@ -1,4 +1,5 @@
 import { useFredData } from "../hooks/useFredData";
+import { useCbData } from "../hooks/useCbData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
@@ -49,71 +50,89 @@ const RISK_COLORS = {
 
 // ── heat map category derivation ──────────────────────────────────────────────
 function heatMapInfo(category, data) {
-  const goldVal = latest(data.GOLD)?.value;
-  const cpiVal  = latest(data.CPI)?.value;
-  const pceVal  = latest(data.COREPCE)?.value;
-  const unrate  = latest(data.UNRATE)?.value;
-  const payems  = latest(data.PAYEMS)?.value;
-  const hyVal   = latest(data.HYSPREAD)?.value;
-  const gdpVal  = latest(data.GDP)?.value;
+  const goldVal  = latest(data.GOLD)?.value;
+  const goldPrev = prior(data.GOLD)?.value;
+  const cpiVal   = latest(data.CPI)?.value;
+  const cpiPrev  = prior(data.CPI)?.value;
+  const pceVal   = latest(data.COREPCE)?.value;
+  const pcePrev  = prior(data.COREPCE)?.value;
+  const unrate   = latest(data.UNRATE)?.value;
+  const unratePrev = prior(data.UNRATE)?.value;
+  const payems   = latest(data.PAYEMS)?.value;
+  const payemsPrev = prior(data.PAYEMS)?.value;
+  const hyVal    = latest(data.HYSPREAD)?.value;
+  const hyPrev   = prior(data.HYSPREAD)?.value;
+  const gdpVal   = latest(data.GDP)?.value;
+  const gdpPrev  = prior(data.GDP)?.value;
 
   switch (category) {
     case "Geopolitical": {
-      if (goldVal == null) return { level: "UNKNOWN", desc: "No gold data" };
-      if (goldVal > 2500) return { level: "HIGH",     desc: `Gold $${formatNum(goldVal, 0)} — extreme safe-haven bid` };
-      if (goldVal > 2200) return { level: "ELEVATED", desc: `Gold $${formatNum(goldVal, 0)} — flight to safety` };
-      if (goldVal > 1800) return { level: "MODERATE", desc: `Gold $${formatNum(goldVal, 0)} — modest safe-haven demand` };
-      return                     { level: "LOW",      desc: `Gold $${formatNum(goldVal, 0)} — no safe-haven premium` };
+      if (goldVal == null) return { level: "UNKNOWN", desc: "No gold data", trend: "stable" };
+      const trend = goldPrev == null ? "stable" : goldVal > goldPrev ? "worsening" : goldVal < goldPrev ? "improving" : "stable";
+      if (goldVal > 2500) return { level: "HIGH",     desc: `Gold $${formatNum(goldVal, 0)} — extreme safe-haven bid`, trend };
+      if (goldVal > 2200) return { level: "ELEVATED", desc: `Gold $${formatNum(goldVal, 0)} — flight to safety`, trend };
+      if (goldVal > 1800) return { level: "MODERATE", desc: `Gold $${formatNum(goldVal, 0)} — modest safe-haven demand`, trend };
+      return                     { level: "LOW",      desc: `Gold $${formatNum(goldVal, 0)} — no safe-haven premium`, trend };
     }
 
     case "Inflation Stickiness": {
-      const inf = cpiVal ?? pceVal;
-      if (inf == null) return { level: "UNKNOWN", desc: "No inflation data" };
-      if (inf > 3)   return { level: "ELEVATED", desc: `CPI/PCE ${formatNum(inf, 1)}% — above 3%, sticky` };
-      if (inf > 2.5) return { level: "MODERATE", desc: `CPI/PCE ${formatNum(inf, 1)}% — above target` };
-      return                { level: "LOW",      desc: `CPI/PCE ${formatNum(inf, 1)}% — near target` };
+      const inf     = cpiVal ?? pceVal;
+      const infPrev = cpiVal != null ? cpiPrev : pcePrev;
+      if (inf == null) return { level: "UNKNOWN", desc: "No inflation data", trend: "stable" };
+      const trend = infPrev == null ? "stable" : inf < infPrev ? "improving" : inf > infPrev ? "worsening" : "stable";
+      if (inf > 3)   return { level: "ELEVATED", desc: `CPI/PCE ${formatNum(inf, 1)}% — above 3%, sticky`, trend };
+      if (inf > 2.5) return { level: "MODERATE", desc: `CPI/PCE ${formatNum(inf, 1)}% — above target`, trend };
+      return                { level: "LOW",      desc: `CPI/PCE ${formatNum(inf, 1)}% — near target`, trend };
     }
 
     case "Labor Deterioration": {
-      if (unrate == null && payems == null) return { level: "UNKNOWN", desc: "No labor data" };
-      if (payems != null && payems < 0)    return { level: "HIGH",     desc: `Payrolls ${formatNum(payems, 0)}K — net job losses` };
-      if (unrate != null && unrate > 4.5)  return { level: "ELEVATED", desc: `Unemployment ${formatNum(unrate, 1)}% — elevated` };
-      return                               { level: "MODERATE", desc: `Unemp ${unrate != null ? formatNum(unrate, 1) : "—"}% — holding` };
+      if (unrate == null && payems == null) return { level: "UNKNOWN", desc: "No labor data", trend: "stable" };
+      const trend = unrate != null && unratePrev != null
+        ? unrate > unratePrev ? "worsening" : unrate < unratePrev ? "improving" : "stable"
+        : payems != null && payemsPrev != null
+          ? payems < payemsPrev ? "worsening" : payems > payemsPrev ? "improving" : "stable"
+          : "stable";
+      if (payems != null && payems < 0)    return { level: "HIGH",     desc: `Payrolls ${formatNum(payems, 0)}K — net job losses`, trend };
+      if (unrate != null && unrate > 4.5)  return { level: "ELEVATED", desc: `Unemployment ${formatNum(unrate, 1)}% — elevated`, trend };
+      return                               { level: "MODERATE", desc: `Unemp ${unrate != null ? formatNum(unrate, 1) : "—"}% — holding`, trend };
     }
 
     case "Fiscal/Deficit": {
-      return { level: "ELEVATED", desc: "Deficit >$1.5T — structural concern" };
+      return { level: "ELEVATED", desc: "Deficit >$1.5T — structural concern", trend: "stable" };
     }
 
     case "Credit Stress": {
-      if (hyVal == null) return { level: "UNKNOWN", desc: "No spread data" };
-      if (hyVal > 6) return { level: "HIGH",     desc: `HY spread ${formatNum(hyVal, 2)}% — distress signals` };
-      if (hyVal > 4) return { level: "ELEVATED", desc: `HY spread ${formatNum(hyVal, 2)}% — stress building` };
-      if (hyVal > 3) return { level: "MODERATE", desc: `HY spread ${formatNum(hyVal, 2)}% — modest widening` };
-      return                { level: "LOW",      desc: `HY spread ${formatNum(hyVal, 2)}% — tight, benign` };
+      if (hyVal == null) return { level: "UNKNOWN", desc: "No spread data", trend: "stable" };
+      const trend = hyPrev == null ? "stable" : hyVal > hyPrev ? "worsening" : hyVal < hyPrev ? "improving" : "stable";
+      if (hyVal > 6) return { level: "HIGH",     desc: `HY spread ${formatNum(hyVal, 2)}% — distress signals`, trend };
+      if (hyVal > 4) return { level: "ELEVATED", desc: `HY spread ${formatNum(hyVal, 2)}% — stress building`, trend };
+      if (hyVal > 3) return { level: "MODERATE", desc: `HY spread ${formatNum(hyVal, 2)}% — modest widening`, trend };
+      return                { level: "LOW",      desc: `HY spread ${formatNum(hyVal, 2)}% — tight, benign`, trend };
     }
 
     case "Financial Conditions": {
-      if (hyVal == null) return { level: "UNKNOWN", desc: "No spread data" };
-      if (hyVal > 5)   return { level: "HIGH",     desc: `Spreads ${formatNum(hyVal, 2)}% — conditions seized` };
-      if (hyVal > 3.5) return { level: "MODERATE", desc: `Spreads ${formatNum(hyVal, 2)}% — some tightening` };
-      return                  { level: "LOW",      desc: `Spreads ${formatNum(hyVal, 2)}% — conditions loose` };
+      if (hyVal == null) return { level: "UNKNOWN", desc: "No spread data", trend: "stable" };
+      const trend = hyPrev == null ? "stable" : hyVal > hyPrev ? "worsening" : hyVal < hyPrev ? "improving" : "stable";
+      if (hyVal > 5)   return { level: "HIGH",     desc: `Spreads ${formatNum(hyVal, 2)}% — conditions seized`, trend };
+      if (hyVal > 3.5) return { level: "MODERATE", desc: `Spreads ${formatNum(hyVal, 2)}% — some tightening`, trend };
+      return                  { level: "LOW",      desc: `Spreads ${formatNum(hyVal, 2)}% — conditions loose`, trend };
     }
 
     case "Systemic Risk": {
-      return { level: "LOW", desc: "No acute systemic signals" };
+      return { level: "LOW", desc: "No acute systemic signals", trend: "stable" };
     }
 
     case "Growth Momentum": {
-      if (gdpVal == null) return { level: "UNKNOWN", desc: "No GDP data" };
-      if (gdpVal < 0)   return { level: "HIGH",     desc: `GDP ${formatNum(gdpVal, 1)}% — contraction` };
-      if (gdpVal < 1.5) return { level: "ELEVATED", desc: `GDP ${formatNum(gdpVal, 1)}% — stall speed` };
-      if (gdpVal > 2.5) return { level: "LOW",      desc: `GDP ${formatNum(gdpVal, 1)}% — solid growth` };
-      return                   { level: "MODERATE", desc: `GDP ${formatNum(gdpVal, 1)}% — below trend` };
+      if (gdpVal == null) return { level: "UNKNOWN", desc: "No GDP data", trend: "stable" };
+      const trend = gdpPrev == null ? "stable" : gdpVal > gdpPrev ? "improving" : gdpVal < gdpPrev ? "worsening" : "stable";
+      if (gdpVal < 0)   return { level: "HIGH",     desc: `GDP ${formatNum(gdpVal, 1)}% — contraction`, trend };
+      if (gdpVal < 1.5) return { level: "ELEVATED", desc: `GDP ${formatNum(gdpVal, 1)}% — stall speed`, trend };
+      if (gdpVal > 2.5) return { level: "LOW",      desc: `GDP ${formatNum(gdpVal, 1)}% — solid growth`, trend };
+      return                   { level: "MODERATE", desc: `GDP ${formatNum(gdpVal, 1)}% — below trend`, trend };
     }
 
     default:
-      return { level: "UNKNOWN", desc: "No data" };
+      return { level: "UNKNOWN", desc: "No data", trend: "stable" };
   }
 }
 
@@ -177,6 +196,19 @@ function GeopoliticalAlert({ goldVal, vixVal }) {
   );
 }
 
+// ── trend arrow helpers ───────────────────────────────────────────────────────
+const TREND_ARROW = {
+  improving: { symbol: "↓", color: "hsl(142,70%,55%)" },
+  worsening: { symbol: "↑", color: "hsl(0,72%,55%)"   },
+  stable:    { symbol: "→", color: "hsl(220,10%,40%)" },
+};
+// Growth Momentum is inverted: higher GDP = improving
+const TREND_ARROW_GROWTH = {
+  improving: { symbol: "↗", color: "hsl(142,70%,55%)" },
+  worsening: { symbol: "↘", color: "hsl(0,72%,55%)"   },
+  stable:    { symbol: "→", color: "hsl(220,10%,40%)" },
+};
+
 // ── Risk Heat Map ─────────────────────────────────────────────────────────────
 function RiskHeatMap({ data }) {
   return (
@@ -188,8 +220,10 @@ function RiskHeatMap({ data }) {
       }}
     >
       {HEAT_MAP_CATEGORIES.map((cat) => {
-        const { level, desc } = heatMapInfo(cat, data);
+        const { level, desc, trend } = heatMapInfo(cat, data);
         const colors = RISK_COLORS[level] || RISK_COLORS.UNKNOWN;
+        const arrowMap = cat === "Growth Momentum" ? TREND_ARROW_GROWTH : TREND_ARROW;
+        const arrow = arrowMap[trend] || arrowMap.stable;
         return (
           <div
             key={cat}
@@ -220,9 +254,15 @@ function RiskHeatMap({ data }) {
                 fontWeight: 600,
                 color: colors.text,
                 letterSpacing: "0.06em",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
               }}
             >
               {level}
+              <span style={{ fontSize: 12, color: arrow.color, fontWeight: 400 }}>
+                {arrow.symbol}
+              </span>
             </div>
             <div
               style={{
@@ -255,6 +295,8 @@ export default function Risk() {
     PAYEMS:    { ...SERIES.PAYEMS,    limit: 12 },
     GDP:       { ...SERIES.GDP,       limit: 8  },
   });
+  const { data: cbData, loading: cbLoading } = useCbData();
+  const cbVal = cbData?.value ?? null;
 
   if (loading) return <Loading />;
   if (error) {
@@ -401,8 +443,20 @@ export default function Risk() {
           className="panel"
           style={{ padding: "14px 16px" }}
         >
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--color-term-dim)", marginBottom: 12 }}>
-            Consumer Sentiment
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--color-term-dim)" }}>
+                Consumer Sentiment
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 2 }}>
+                <span style={{ fontSize: 11, color: "hsl(185,70%,55%)", fontVariantNumeric: "tabular-nums" }}>
+                  CB: {cbVal != null ? formatNum(cbVal, 1) : "—"}
+                </span>
+                <span style={{ fontSize: 11, color: "hsl(45,90%,55%)", fontVariantNumeric: "tabular-nums" }}>
+                  UMich: {sentVal != null ? formatNum(sentVal, 1) : "—"}
+                </span>
+              </div>
+            </div>
           </div>
 
           <ResponsiveContainer width="100%" height={180}>
@@ -423,6 +477,12 @@ export default function Risk() {
                 domain={["auto", "auto"]}
               />
               <Tooltip content={<ChartTooltip formatter={(v) => formatNum(v, 1)} />} />
+              <ReferenceLine
+                y={86}
+                stroke="hsl(220,10%,40%)"
+                strokeDasharray="4 4"
+                label={{ value: "Avg ~86", position: "right", fill: "hsl(220,10%,40%)", fontSize: 9 }}
+              />
               <Area
                 type="monotone"
                 dataKey="value"
@@ -474,15 +534,18 @@ export default function Risk() {
           dateLabel={fmtCardDate(latest(data.VIXCLS)?.date)}
         />
         <IndicatorCard
-          label="Consumer Confidence"
-          value={sentVal}
+          label={cbVal != null ? "Consumer Confidence (CB)" : "Consumer Confidence (UMich)"}
+          value={cbVal != null ? cbVal : sentVal}
           unit=""
-          change={sentChg}
+          change={cbVal != null ? (cbData?.prior != null ? ((cbVal - cbData.prior) / cbData.prior) * 100 : null) : sentChg}
           decimals={1}
-          signal={sentSignal}
-          detail="University of Michigan Consumer Sentiment. Long-run avg ~86. Below 60 = significant pessimism historically preceding spending contractions. All-time low: 50.0 (Jun 2022)."
-          source="UMich / FRED UMCSENT"
-          dateLabel={fmtCardDate(latest(data.UMCSENT)?.date)}
+          signal={cbVal != null ? (cbVal < 80 ? "bearish" : cbVal > 100 ? "bullish" : "neutral") : sentSignal}
+          detail={cbVal != null
+            ? `Conference Board Consumer Confidence. Prior: ${cbData?.prior ?? "—"}, Period: ${cbData?.period ?? "—"}. Above 100 = optimistic; below 80 = pessimism. UMich Sentiment: ${sentVal != null ? formatNum(sentVal, 1) : "—"}.`
+            : "University of Michigan Consumer Sentiment. Long-run avg ~86. Below 60 = significant pessimism historically preceding spending contractions. All-time low: 50.0 (Jun 2022)."
+          }
+          source={cbVal != null ? "Conference Board / Trading Economics" : "UMich / FRED UMCSENT"}
+          dateLabel={cbVal != null ? (cbData?.period ?? "") : fmtCardDate(latest(data.UMCSENT)?.date)}
         />
         <IndicatorCard
           label="Gold (GLD)"
