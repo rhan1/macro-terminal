@@ -1,4 +1,5 @@
 import { useFredData } from "../hooks/useFredData";
+import { useMarketData } from "../hooks/useMarketData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
@@ -254,6 +255,7 @@ function getUpcomingEvents() {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Overview() {
   const { data, loading, error } = useFredData(FETCH_SERIES);
+  const { data: marketData, loading: marketLoading } = useMarketData();
 
   if (loading) return <Loading />;
   if (error) {
@@ -504,47 +506,111 @@ export default function Overview() {
             gap: 8,
           }}
         >
-          {[
-            { symbol: "SP500",   label: "S&P 500",    value: sp500Latest?.value,  chg: sp500Chg,  decimals: 2 },
-            { symbol: "NASDAQ",  label: "NASDAQ",     value: nasdaqLatest?.value, chg: nasdaqChg, decimals: 2 },
-            { symbol: "DGS10",   label: "10Y TSRY",   value: dgs10Latest?.value,  chg: dgs10Chg,  decimals: 3 },
-            { symbol: "DGS2",    label: "2Y TSRY",    value: dgs2Latest?.value,   chg: dgs2Chg,   decimals: 3 },
-            { symbol: "VIXCLS",  label: "VIX",        value: vixLatest?.value,    chg: vixChg,    decimals: 2 },
-            { symbol: "OIL",     label: "WTI OIL",    value: oilLatest?.value,    chg: oilChg,    decimals: 2, prefix: "$" },
-            { symbol: "GOLD",    label: "GOLD",       value: goldLatest?.value,   chg: goldChg,   decimals: 2, prefix: "$" },
-          ].map(({ symbol, label, value, chg, decimals, prefix = "" }) => {
-            const chgColor =
-              chg == null ? "var(--color-term-dim)" :
-              chg > 0 ? "var(--color-term-green)" :
-              chg < 0 ? "var(--color-term-red)" :
-              "var(--color-term-dim)";
-            return (
-              <div key={symbol} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <div style={{ fontSize: 10, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  {symbol}
-                </div>
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: "var(--color-term-green)",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {value != null ? `${prefix}${formatNum(value, decimals)}` : "—"}
-                </div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: chgColor,
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {chg != null ? formatPct(chg) : "—"}
-                </div>
-              </div>
-            );
-          })}
+          {!marketLoading && marketData
+            ? [
+                { key: "SPY",  displayName: "S&P 500",        prefix: "$" },
+                { key: "QQQ",  displayName: "Nasdaq 100",     prefix: "$" },
+                { key: "TLT",  displayName: "20+ Yr Treasury", prefix: "$" },
+                { key: "GLD",  displayName: "Gold",           prefix: "$" },
+                { key: "USO",  displayName: "Crude Oil",      prefix: "$" },
+                { key: "HYG",  displayName: "High Yield Corp", prefix: "$" },
+                { key: "VIX",  displayName: "Volatility",     prefix: "" },
+              ].map(({ key, displayName, prefix }) => {
+                const ticker = marketData[key];
+                const price = ticker?.price ?? null;
+                const changePct = ticker?.changePct ?? null;
+                const fiftyTwoWeekHigh = ticker?.fiftyTwoWeekHigh ?? null;
+                const fromHigh =
+                  price != null && fiftyTwoWeekHigh != null
+                    ? ((price - fiftyTwoWeekHigh) / fiftyTwoWeekHigh * 100).toFixed(1)
+                    : null;
+                const chgColor =
+                  changePct == null ? "var(--color-term-dim)" :
+                  changePct > 0 ? "var(--color-term-green)" :
+                  changePct < 0 ? "var(--color-term-red)" :
+                  "var(--color-term-dim)";
+                const priceColor =
+                  changePct == null ? "var(--color-term-green)" :
+                  changePct > 0 ? "var(--color-term-green)" :
+                  changePct < 0 ? "var(--color-term-red)" :
+                  "var(--color-term-green)";
+                const chgStr =
+                  changePct == null ? "—" :
+                  changePct >= 0
+                    ? `+${changePct.toFixed(2)}%`
+                    : `${changePct.toFixed(2)}%`;
+                return (
+                  <div key={key} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    <div style={{ fontSize: 10, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      {key}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: priceColor,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {price != null ? `${prefix}${price.toFixed(2)}` : "—"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: chgColor,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {chgStr}
+                    </div>
+                    <div style={{ fontSize: 9, color: "var(--color-term-dim)" }}>
+                      {fromHigh != null ? `${fromHigh}% from 52WH` : "—"}
+                    </div>
+                  </div>
+                );
+              })
+            : [
+                { symbol: "SP500",   value: sp500Latest?.value,  chg: sp500Chg,  decimals: 2 },
+                { symbol: "NASDAQ",  value: nasdaqLatest?.value, chg: nasdaqChg, decimals: 2 },
+                { symbol: "DGS10",   value: dgs10Latest?.value,  chg: dgs10Chg,  decimals: 3 },
+                { symbol: "DGS2",    value: dgs2Latest?.value,   chg: dgs2Chg,   decimals: 3 },
+                { symbol: "VIXCLS",  value: vixLatest?.value,    chg: vixChg,    decimals: 2 },
+                { symbol: "OIL",     value: oilLatest?.value,    chg: oilChg,    decimals: 2, prefix: "$" },
+                { symbol: "GOLD",    value: goldLatest?.value,   chg: goldChg,   decimals: 2, prefix: "$" },
+              ].map(({ symbol, value, chg, decimals, prefix = "" }) => {
+                const chgColor =
+                  chg == null ? "var(--color-term-dim)" :
+                  chg > 0 ? "var(--color-term-green)" :
+                  chg < 0 ? "var(--color-term-red)" :
+                  "var(--color-term-dim)";
+                return (
+                  <div key={symbol} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    <div style={{ fontSize: 10, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                      {symbol}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "var(--color-term-green)",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {value != null ? `${prefix}${formatNum(value, decimals)}` : "—"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: chgColor,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {chg != null ? formatPct(chg) : "—"}
+                    </div>
+                  </div>
+                );
+              })
+          }
         </div>
       </div>
 
