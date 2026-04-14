@@ -200,7 +200,7 @@ export default function Inflation() {
       <div className="panel">
         <div className="section-label">CPI YoY Trend — Headline vs Core</div>
         <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: -8 }} barCategoryGap="20%">
+          <BarChart data={chartData} margin={{ top: 8, right: 12, bottom: 0, left: -8 }} barCategoryGap="12%">
             <CartesianGrid
               stroke="hsl(220,15%,14%)"
               strokeDasharray="2 4"
@@ -239,14 +239,14 @@ export default function Inflation() {
               name="Headline"
               fill="hsl(142,70%,55%)"
               radius={[2, 2, 0, 0]}
-              maxBarSize={14}
+              maxBarSize={24}
             />
             <Bar
               dataKey="coreCpi"
               name="Core CPI"
               fill="hsl(45,90%,55%)"
               radius={[2, 2, 0, 0]}
-              maxBarSize={14}
+              maxBarSize={24}
             />
           </BarChart>
         </ResponsiveContainer>

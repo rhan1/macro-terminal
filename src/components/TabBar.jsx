@@ -35,7 +35,7 @@ export default function TabBar({ active, onSelect }) {
                 borderBottom: isActive
                   ? "1px solid hsl(142,70%,55%)"
                   : "1px solid transparent",
-                padding: "10px 14px",
+                padding: "8px 16px",
                 cursor: "pointer",
                 color: isActive ? "hsl(142,70%,55%)" : "hsl(220,10%,40%)",
                 fontSize: 10,
@@ -52,7 +52,7 @@ export default function TabBar({ active, onSelect }) {
                 if (!isActive) e.target.style.color = "hsl(220,10%,40%)";
               }}
             >
-              <span style={{ opacity: 0.5, marginRight: 4, fontSize: 9 }}>{tab.num}</span>
+              <span style={{ color: "hsl(220,10%,40%)", marginRight: 4, fontSize: 10 }}>{tab.num}</span>
               {tab.label}
             </button>
           );

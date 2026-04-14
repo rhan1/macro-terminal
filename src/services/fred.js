@@ -94,6 +94,7 @@ export const SERIES = {
   DGS3MO: { id: "DGS3MO", frequency: "d" },
   DGS6MO: { id: "DGS6MO", frequency: "d" },
   DGS1: { id: "DGS1", frequency: "d" },
+  DGS3: { id: "DGS3", frequency: "d" },
   DGS5: { id: "DGS5", frequency: "d" },
   DGS7: { id: "DGS7", frequency: "d" },
   DGS20: { id: "DGS20", frequency: "d" },

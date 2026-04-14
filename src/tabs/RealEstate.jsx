@@ -79,6 +79,102 @@ function supplyLabel(v) {
   return "BUYER'S MARKET";
 }
 
+// ─── Narrative builder ────────────────────────────────────────────────────────
+
+function buildHousingNarrative({
+  csYoY, supplyMo, listings, listingsYoY, mortgage,
+  startsK, salesK, salesChg, existPrice, affordIdx, domDays, oer,
+}) {
+  if (csYoY == null && supplyMo == null && mortgage == null) {
+    return {
+      p1: "Insufficient data to generate housing analysis. Awaiting FRED data for Case-Shiller, inventory, and mortgage rate series.",
+      p2: "",
+    };
+  }
+
+  // Paragraph 1: Prices, inventory, and market balance
+  const parts1 = [];
+
+  if (csYoY != null) {
+    const direction = csYoY > 0 ? "rising" : csYoY < 0 ? "falling" : "flat";
+    const intensity =
+      Math.abs(csYoY) > 10 ? "rapidly " :
+      Math.abs(csYoY) > 5 ? "" :
+      "modestly ";
+    parts1.push(`Home prices are ${intensity}${direction} at ${formatNum(csYoY, 1)}% YoY (Case-Shiller National)`);
+  }
+
+  if (existPrice != null) {
+    parts1.push(`with the median existing home at $${(existPrice / 1000).toFixed(0)}K`);
+  }
+
+  if (supplyMo != null) {
+    const balance =
+      supplyMo < 3 ? "deep seller's market territory" :
+      supplyMo < 4 ? "tight seller's market conditions" :
+      supplyMo <= 5 ? "a market trending toward balance" :
+      supplyMo <= 6 ? "roughly balanced conditions" :
+      "buyer's market territory";
+    const inventoryNote = listings != null
+      ? ` with ${Math.round(listings).toLocaleString("en-US")} active listings${listingsYoY != null ? ` (${listingsYoY > 0 ? "+" : ""}${formatNum(listingsYoY, 1)}% YoY)` : ""}`
+      : "";
+    parts1.push(`Inventory at ${formatNum(supplyMo, 1)} months of supply signals ${balance}${inventoryNote}`);
+  }
+
+  if (domDays != null) {
+    const pace = domDays < 20 ? "an extremely fast-moving" : domDays < 30 ? "a brisk" : domDays < 45 ? "a moderate-pace" : domDays < 60 ? "a cooling" : "a sluggish";
+    parts1.push(`${pace} market with homes averaging ${Math.round(domDays)} days on market`);
+  }
+
+  // Paragraph 2: Mortgage rates, construction, affordability, and shelter inflation
+  const parts2 = [];
+
+  if (mortgage != null) {
+    const rateContext =
+      mortgage > 7.0 ? "near cycle highs, severely constraining affordability and creating a lock-in effect among existing homeowners" :
+      mortgage > 6.5 ? "elevated, pressuring affordability and limiting transaction volume as rate-locked homeowners resist selling" :
+      mortgage > 6.0 ? "still above the threshold that would unlock meaningful seller participation" :
+      mortgage > 5.0 ? "moderating toward levels that could begin to unlock inventory from rate-locked sellers" :
+      "at levels supportive of transaction activity and buyer demand";
+    parts2.push(`The 30Y fixed mortgage at ${formatNum(mortgage, 2)}% is ${rateContext}`);
+  }
+
+  if (startsK != null) {
+    const constructionContext =
+      startsK > 1500 ? "suggesting developers see sustained demand despite affordability headwinds" :
+      startsK > 1200 ? "indicating moderate builder confidence in forward demand" :
+      startsK > 1000 ? "reflecting cautious builder sentiment as demand signals are mixed" :
+      "signaling developers are pulling back sharply amid weak demand and financing costs";
+    parts2.push(`Construction starts at ${Math.round(startsK)}K SAAR ${constructionContext}`);
+  }
+
+  if (salesK != null) {
+    const pace = salesK / 1000;
+    const salesDir = salesChg != null
+      ? (salesChg > 0 ? `, up ${formatNum(salesChg, 1)}% MoM` : salesChg < 0 ? `, down ${formatNum(Math.abs(salesChg), 1)}% MoM` : ", flat MoM")
+      : "";
+    parts2.push(`Existing home sales are running at ${formatNum(pace, 2)}M SAAR${salesDir}`);
+  }
+
+  if (affordIdx != null) {
+    const affordContext =
+      affordIdx < 90 ? "is deeply stressed — the median household cannot afford the median home" :
+      affordIdx < 100 ? "is below the affordability threshold, indicating the median household is priced out of the median home" :
+      affordIdx < 120 ? "is marginally above the affordability threshold but historically weak" :
+      "indicates reasonable affordability for the median household";
+    parts2.push(`The HAI at ${formatNum(affordIdx, 1)} ${affordContext}`);
+  }
+
+  if (oer != null) {
+    parts2.push(`Shelter CPI (OER) at ${formatNum(oer, 1)}% YoY continues to be a key input for core inflation trajectory`);
+  }
+
+  const p1 = parts1.length > 0 ? parts1.join(". ") + "." : "";
+  const p2 = parts2.length > 0 ? parts2.join(". ") + "." : "";
+
+  return { p1, p2 };
+}
+
 // ─── Fetch config ─────────────────────────────────────────────────────────────
 
 const FETCH = {
@@ -160,6 +256,26 @@ export default function RealEstate() {
   const affordLatest    = latest(affordArr);
   const affordPrior     = prior(affordArr);
   const affordChange    = change(affordLatest?.value, affordPrior?.value);
+
+  const existPriceLatest = latest(existArr);
+  const newPriceLatest   = latest(newArr);
+  const oerLatest        = latest(oerArr);
+
+  // ── Analytical narrative ──
+  const narrative = buildHousingNarrative({
+    csYoY: csLatest?.value,
+    supplyMo: supplyLatest?.value,
+    listings: listingsLatest?.value,
+    listingsYoY,
+    mortgage: mortgageLatest?.value,
+    startsK: startsLatest?.value,
+    salesK: salesLatest?.value,
+    salesChg: salesChange,
+    existPrice: existPriceLatest?.value,
+    affordIdx: affordLatest?.value,
+    domDays: domLatest?.value,
+    oer: oerLatest?.value,
+  });
 
   // ── Chart data (oldest-first for rendering) ──
 
@@ -265,7 +381,32 @@ export default function RealEstate() {
           $ REAL ESTATE &amp; HOUSING
         </div>
         <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>
-          — Prices, Inventory, Construction, Affordability
+          — Case-Shiller, Inventory, Construction, Shelter CPI
+        </div>
+      </div>
+
+      {/* ── Analytical Summary ── */}
+      <div style={PANEL}>
+        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: DIM, marginBottom: 10 }}>
+          Housing Market Conditions
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {narrative.p1 && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <span style={{ color: GREEN, fontSize: 11, flexShrink: 0, marginTop: 1 }}>▸</span>
+              <p style={{ fontSize: 10, color: "hsl(220,10%,50%)", lineHeight: 1.7, margin: 0 }}>
+                {narrative.p1}
+              </p>
+            </div>
+          )}
+          {narrative.p2 && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <span style={{ color: AMBER, fontSize: 11, flexShrink: 0, marginTop: 1 }}>▸</span>
+              <p style={{ fontSize: 10, color: "hsl(220,10%,50%)", lineHeight: 1.7, margin: 0 }}>
+                {narrative.p2}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -523,7 +664,7 @@ export default function RealEstate() {
             CONSTRUCTION — STARTS &amp; PERMITS (SAAR, THOUSANDS)
           </div>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={constrChart} margin={{ top: 6, right: 8, left: -12, bottom: 0 }} barCategoryGap="25%">
+            <BarChart data={constrChart} margin={{ top: 6, right: 8, left: -12, bottom: 0 }} barCategoryGap="15%">
               <CartesianGrid {...GRID_PROPS} />
               <XAxis
                 dataKey="label"
@@ -542,8 +683,8 @@ export default function RealEstate() {
                 content={<ChartTooltip formatter={(v) => v != null ? `${v.toFixed(0)}K` : "—"} />}
                 cursor={{ fill: "rgba(255,255,255,0.02)" }}
               />
-              <Bar dataKey="starts"  name="Starts"  fill={GREEN} radius={[2,2,0,0]} maxBarSize={10} />
-              <Bar dataKey="permits" name="Permits" fill={CYAN}  radius={[2,2,0,0]} maxBarSize={10} />
+              <Bar dataKey="starts"  name="Starts"  fill={GREEN} radius={[2,2,0,0]} maxBarSize={18} />
+              <Bar dataKey="permits" name="Permits" fill={CYAN}  radius={[2,2,0,0]} maxBarSize={18} />
             </BarChart>
           </ResponsiveContainer>
           <div style={{ display: "flex", gap: 16, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${BORDER}` }}>
