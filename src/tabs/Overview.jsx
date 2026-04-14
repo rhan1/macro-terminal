@@ -1,3 +1,8 @@
+import { useFredData } from "../hooks/useFredData";
+import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
+import IndicatorCard from "../components/IndicatorCard";
+import ChartTooltip from "../components/ChartTooltip";
+import Loading from "../components/Loading";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -8,12 +13,8 @@ import {
   CartesianGrid,
   ReferenceLine,
 } from "recharts";
-import { useFredData } from "../hooks/useFredData";
-import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
-import IndicatorCard from "../components/IndicatorCard";
-import ChartTooltip from "../components/ChartTooltip";
-import Loading from "../components/Loading";
 
+// ── Series to fetch ───────────────────────────────────────────────────────────
 const FETCH_SERIES = {
   SP500:      SERIES.SP500,
   NASDAQ:     SERIES.NASDAQ,
@@ -32,8 +33,18 @@ const FETCH_SERIES = {
   T10Y2Y:     SERIES.T10Y2Y,
   T10Y3M:     SERIES.T10Y3M,
   RECESSION:  SERIES.RECESSION,
+  // Yield curve maturities
+  DGS1MO:     SERIES.DGS1MO,
+  DGS3MO:     SERIES.DGS3MO,
+  DGS6MO:     SERIES.DGS6MO,
+  DGS1:       SERIES.DGS1,
+  DGS5:       SERIES.DGS5,
+  DGS7:       SERIES.DGS7,
+  DGS20:      SERIES.DGS20,
+  DGS30:      SERIES.DGS30,
 };
 
+// ── Date helper ───────────────────────────────────────────────────────────────
 const TODAY = new Date().toLocaleDateString("en-US", {
   year: "numeric",
   month: "long",
@@ -45,105 +56,16 @@ function val(data, key) {
   return l ? l.value : null;
 }
 
-// ── Macro Regime Determination ──────────────────────────────────────────────
+// ── Macro Regime ──────────────────────────────────────────────────────────────
 function getMacroRegime(cpi, gdp, vix) {
-  if (vix != null && vix > 30) return { label: "CRISIS MODE", color: "var(--color-term-red)" };
-  if (gdp != null && gdp < 0) return { label: "RECESSION", color: "var(--color-term-red)" };
-  if (cpi != null && gdp != null && cpi > 3 && gdp < 1.5) return { label: "STAGFLATION RISK", color: "var(--color-term-amber)" };
-  if (cpi != null && gdp != null && cpi > 3 && gdp > 2) return { label: "OVERHEATING", color: "var(--color-term-amber)" };
-  if (cpi != null && gdp != null && cpi < 2.5 && gdp > 2) return { label: "GOLDILOCKS", color: "var(--color-term-green)" };
-  return { label: "LATE CYCLE EXPANSION", color: "var(--color-term-cyan)" };
+  if (vix != null && vix > 30) return "CRISIS MODE";
+  if (gdp != null && gdp < 0) return "RECESSION";
+  if (cpi != null && gdp != null && cpi > 3 && gdp < 1.5) return "STAGFLATION RISK";
+  if (cpi != null && gdp != null && cpi < 2.5 && gdp > 2) return "GOLDILOCKS";
+  return "LATE CYCLE EXPANSION";
 }
 
-// ── Upcoming Events Calendar ─────────────────────────────────────────────────
-function getUpcomingEvents() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth(); // 0-indexed
-
-  // Compute next occurrence of a day-of-month target, jumping to next month if already past + offset
-  function nextOccurrence(dayOfMonth, offsetDays = 0) {
-    let d = new Date(y, m, dayOfMonth);
-    d.setDate(d.getDate() + offsetDays);
-    if (d <= now) {
-      d = new Date(y, m + 1, dayOfMonth);
-      d.setDate(d.getDate() + offsetDays);
-    }
-    return d;
-  }
-
-  // First Friday of a given month/year
-  function firstFriday(yr, mo) {
-    const d = new Date(yr, mo, 1);
-    const dow = d.getDay(); // 0=Sun
-    const daysUntilFri = (5 - dow + 7) % 7;
-    d.setDate(1 + daysUntilFri);
-    return d;
-  }
-
-  function nextFirstFriday() {
-    let d = firstFriday(y, m);
-    if (d <= now) d = firstFriday(y, m + 1);
-    return d;
-  }
-
-  // FOMC meetings: roughly every 6 weeks, approximate next from known 2025 schedule
-  // We'll derive from a known base date and step forward by 42 days until > now
-  function nextFOMC() {
-    const base = new Date(2025, 0, 29); // Jan 29 2025
-    let d = new Date(base);
-    while (d <= now) d.setDate(d.getDate() + 42);
-    return d;
-  }
-
-  // GDP estimate: last week of month/quarter (end-of-quarter months: Mar=2, Jun=5, Sep=8, Dec=11)
-  function nextGDP() {
-    const quarterEnds = [2, 5, 8, 11]; // 0-indexed months
-    for (const mo of quarterEnds) {
-      // Advance release ~28th of month following quarter end (advance estimate)
-      const releaseMonth = (mo + 1) % 12;
-      const releaseYear = mo === 11 ? y + 1 : y;
-      const d = new Date(releaseYear, releaseMonth, 28);
-      if (d > now) return d;
-    }
-    return new Date(y + 1, 1, 28);
-  }
-
-  // PCE: released last Friday of month (approximate as 28th–31st, use 28th)
-  function nextPCE() {
-    let d = new Date(y, m, 28);
-    if (d <= now) d = new Date(y, m + 1, 28);
-    return d;
-  }
-
-  const fmt = (d) =>
-    d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-
-  const cpiDate   = nextOccurrence(12);      // ~10th–13th; use 12
-  const ppiDate   = nextOccurrence(13);      // day after CPI
-  const fomcDate  = nextFOMC();
-  const jobsDate  = nextFirstFriday();
-  const gdpDate   = nextGDP();
-  const pceDate   = nextPCE();
-
-  // Sort by date
-  const events = [
-    { name: "CPI Report",        date: cpiDate,  desc: "Consumer Price Index, all items YoY" },
-    { name: "PPI Release",       date: ppiDate,  desc: "Producer Price Index, final demand" },
-    { name: "FOMC Decision",     date: fomcDate, desc: "Federal Open Market Committee rate decision" },
-    { name: "Jobs Report",       date: jobsDate, desc: "Nonfarm Payrolls + Unemployment Rate" },
-    { name: "GDP Advance Est.",  date: gdpDate,  desc: "Real GDP QoQ annualized, advance release" },
-    { name: "PCE Deflator",      date: pceDate,  desc: "Personal Consumption Expenditures price index" },
-  ].sort((a, b) => a.date - b.date);
-
-  return events.map((e) => ({
-    ...e,
-    dateStr: fmt(e.date),
-    daysOut: Math.ceil((e.date - now) / 86400000),
-  }));
-}
-
-// ── Analytical Bullets ───────────────────────────────────────────────────────
+// ── Analytical Bullets ────────────────────────────────────────────────────────
 function buildBullets(data) {
   const gdpVal    = val(data, "GDP");
   const gdpPrior  = prior(data.GDP)?.value;
@@ -156,7 +78,6 @@ function buildBullets(data) {
   const t10y2yVal = val(data, "T10Y2Y");
   const t10y3mVal = val(data, "T10Y3M");
   const recVal    = val(data, "RECESSION");
-  const vixVal    = val(data, "VIXCLS");
 
   const bullets = [];
 
@@ -187,9 +108,9 @@ function buildBullets(data) {
 
   // INFLATION
   if (cpiVal != null || pceVal != null) {
-    const inf   = cpiVal ?? pceVal;
-    const lbl   = cpiVal != null ? "CPI YoY" : "Core PCE";
-    const gap   = inf - 2.0;
+    const inf = cpiVal ?? pceVal;
+    const lbl = cpiVal != null ? "CPI YoY" : "Core PCE";
+    const gap = inf - 2.0;
     const gapStr = gap > 0 ? `+${formatNum(gap, 1)}pp above` : `${formatNum(gap, 1)}pp below`;
     const stance =
       inf > 4.0 ? "Fed under pressure — rate cuts off the table until material disinflation" :
@@ -209,14 +130,14 @@ function buildBullets(data) {
 
   // LABOR
   if (unrateVal != null) {
-    const nairu   = 4.2; // CBO natural rate estimate
-    const gap     = unrateVal - nairu;
-    const slack   =
+    const nairu = 4.2;
+    const gap = unrateVal - nairu;
+    const slack =
       gap < -0.5 ? `${formatNum(Math.abs(gap), 1)}pp below NAIRU — wage pressure embedded` :
       gap < 0.3  ? "near NAIRU — labor market in balance" :
       gap < 1.0  ? `${formatNum(gap, 1)}pp above NAIRU — slack emerging` :
                    `${formatNum(gap, 1)}pp above NAIRU — meaningful slack, demand weak`;
-    const payStr  = payemsVal != null
+    const payStr = payemsVal != null
       ? ` NFP adding ~${Math.round(payemsVal)}K jobs; break-even to hold UNRATE stable ~100K.`
       : "";
     bullets.push(
@@ -261,112 +182,73 @@ function buildBullets(data) {
   return bullets;
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-function MarketTicker({ label, value, chg, decimals = 2, prefix = "" }) {
-  const isPos = chg > 0;
-  const isNeg = chg < 0;
-  const color = isPos
-    ? "var(--color-term-green)"
-    : isNeg
-    ? "var(--color-term-red)"
-    : "var(--color-term-dim)";
-  const glowClass = isPos ? "glow-green" : isNeg ? "glow-red" : "";
+// ── Upcoming Events ───────────────────────────────────────────────────────────
+function getUpcomingEvents() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 80 }}>
-      <div
-        style={{
-          fontSize: 8,
-          textTransform: "uppercase",
-          letterSpacing: "0.12em",
-          color: "var(--color-term-dim)",
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          color: "var(--color-term-text)",
-          letterSpacing: "0.02em",
-        }}
-      >
-        {value != null ? `${prefix}${formatNum(value, decimals)}` : "—"}
-      </div>
-      <div className={glowClass} style={{ fontSize: 9, color, fontWeight: 500 }}>
-        {chg != null ? formatPct(chg) : "—"}
-      </div>
-    </div>
-  );
-}
+  function nextOccurrence(dayOfMonth) {
+    let d = new Date(y, m, dayOfMonth);
+    if (d <= now) d = new Date(y, m + 1, dayOfMonth);
+    return d;
+  }
 
-function SpreadPill({ value }) {
-  if (value == null) return <span style={{ color: "var(--color-term-dim)" }}>—</span>;
-  const pos = value >= 0;
-  return (
-    <span
-      className={pos ? "glow-green" : "glow-red"}
-      style={{ color: pos ? "var(--color-term-green)" : "var(--color-term-red)", fontWeight: 600 }}
-    >
-      {pos ? "+" : ""}{formatNum(value, 2)}%
-    </span>
-  );
-}
+  function firstFriday(yr, mo) {
+    const d = new Date(yr, mo, 1);
+    const dow = d.getDay();
+    const daysUntilFri = (5 - dow + 7) % 7;
+    d.setDate(1 + daysUntilFri);
+    return d;
+  }
 
-function EventRow({ name, dateStr, daysOut, desc }) {
-  const urgent = daysOut <= 7;
-  const soon   = daysOut <= 14;
-  const dotColor = urgent
-    ? "var(--color-term-amber)"
-    : soon
-    ? "var(--color-term-cyan)"
-    : "var(--color-term-dim)";
+  function nextFirstFriday() {
+    let d = firstFriday(y, m);
+    if (d <= now) d = firstFriday(y, m + 1);
+    return d;
+  }
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 8,
-        paddingBottom: 7,
-        borderBottom: "1px solid var(--color-term-border)",
-      }}
-    >
-      <div
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: dotColor,
-          flexShrink: 0,
-          marginTop: 4,
-          boxShadow: urgent ? `0 0 6px ${dotColor}` : "none",
-        }}
-      />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span style={{ fontSize: 10, fontWeight: 600, color: "var(--color-term-text)" }}>
-            {name}
-          </span>
-          <span
-            style={{
-              fontSize: 9,
-              color: urgent ? "var(--color-term-amber)" : soon ? "var(--color-term-cyan)" : "var(--color-term-dim)",
-              fontWeight: urgent ? 700 : 400,
-              whiteSpace: "nowrap",
-              marginLeft: 8,
-            }}
-          >
-            {dateStr} · T{daysOut <= 0 ? "+0" : `-${daysOut}`}d
-          </span>
-        </div>
-        <div style={{ fontSize: 9, color: "var(--color-term-dim)", marginTop: 2, lineHeight: 1.4 }}>
-          {desc}
-        </div>
-      </div>
-    </div>
-  );
+  function nextFOMC() {
+    const base = new Date(2025, 0, 29);
+    let d = new Date(base);
+    while (d <= now) d.setDate(d.getDate() + 42);
+    return d;
+  }
+
+  function nextGDP() {
+    const quarterEnds = [2, 5, 8, 11];
+    for (const mo of quarterEnds) {
+      const releaseMonth = (mo + 1) % 12;
+      const releaseYear = mo === 11 ? y + 1 : y;
+      const d = new Date(releaseYear, releaseMonth, 28);
+      if (d > now) return d;
+    }
+    return new Date(y + 1, 1, 28);
+  }
+
+  function nextPCE() {
+    let d = new Date(y, m, 28);
+    if (d <= now) d = new Date(y, m + 1, 28);
+    return d;
+  }
+
+  const fmt = (d) =>
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  const events = [
+    { name: "CPI Report",       date: nextOccurrence(12), desc: "Consumer Price Index, all items YoY" },
+    { name: "PPI Release",      date: nextOccurrence(13), desc: "Producer Price Index, final demand" },
+    { name: "FOMC Decision",    date: nextFOMC(),          desc: "Federal Open Market Committee rate decision" },
+    { name: "Jobs Report",      date: nextFirstFriday(),   desc: "Nonfarm Payrolls + Unemployment Rate" },
+    { name: "GDP Advance Est.", date: nextGDP(),            desc: "Real GDP QoQ annualized, advance release" },
+    { name: "PCE Deflator",     date: nextPCE(),            desc: "Personal Consumption Expenditures price index" },
+  ].sort((a, b) => a.date - b.date);
+
+  return events.map((e) => ({
+    ...e,
+    dateStr: fmt(e.date),
+    daysOut: Math.ceil((e.date - now) / 86400000),
+  }));
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -382,7 +264,7 @@ export default function Overview() {
     );
   }
 
-  // ── Market snapshot ──────────────────────────────────────────────────────
+  // ── Market snapshot values ────────────────────────────────────────────────
   const sp500Latest  = latest(data.SP500);
   const sp500Prior   = prior(data.SP500);
   const nasdaqLatest = latest(data.NASDAQ);
@@ -406,21 +288,7 @@ export default function Overview() {
   const oilChg    = change(oilLatest?.value,    oilPrior?.value);
   const goldChg   = change(goldLatest?.value,   goldPrior?.value);
 
-  // ── S&P chart ────────────────────────────────────────────────────────────
-  const spChartData = data.SP500
-    ? [...data.SP500].slice(0, 30).reverse().map((d) => ({
-        date: d.date.slice(5),
-        value: d.value,
-      }))
-    : [];
-
-  // ── Yield curve values ───────────────────────────────────────────────────
-  const t10y2yVal = val(data, "T10Y2Y");
-  const t10y3mVal = val(data, "T10Y3M");
-  const dgs10Val  = val(data, "DGS10");
-  const dgs2Val   = val(data, "DGS2");
-
-  // ── IndicatorCard values ─────────────────────────────────────────────────
+  // ── Indicator card values ─────────────────────────────────────────────────
   const fedVal       = val(data, "FEDFUNDS");
   const fedPriorVal  = prior(data.FEDFUNDS)?.value;
   const fedChg       = change(fedVal, fedPriorVal);
@@ -444,17 +312,44 @@ export default function Overview() {
   const mortgagePrior = prior(data.MORTGAGE30)?.value;
   const mortgageChg  = change(mortgageVal, mortgagePrior);
 
-  const pceVal       = val(data, "COREPCE");
+  const pceVal        = val(data, "COREPCE");
   const recessionProb = val(data, "RECESSION");
-  const payemsVal    = val(data, "PAYEMS");
+  const payemsVal     = val(data, "PAYEMS");
+  const t10y2yVal     = val(data, "T10Y2Y");
+  const t10y3mVal     = val(data, "T10Y3M");
+  const dgs10Val      = val(data, "DGS10");
 
-  // ── Regime ───────────────────────────────────────────────────────────────
-  const regime = getMacroRegime(cpiVal, gdpVal, vixVal);
+  // ── Regime ────────────────────────────────────────────────────────────────
+  const regimeLabel = getMacroRegime(cpiVal, gdpVal, vixVal);
 
-  // ── Bullets ──────────────────────────────────────────────────────────────
+  // ── Bullets ───────────────────────────────────────────────────────────────
   const bullets = buildBullets(data);
 
-  // ── Risks / Opportunities ────────────────────────────────────────────────
+  // ── S&P 500 chart data ────────────────────────────────────────────────────
+  const spChartData = data.SP500
+    ? [...data.SP500].slice(0, 30).reverse().map((d) => ({
+        date: d.date.slice(5),
+        value: d.value,
+      }))
+    : [];
+
+  // ── Yield curve chart data ────────────────────────────────────────────────
+  const yieldCurvePoints = [
+    { maturity: "1M",  key: "DGS1MO" },
+    { maturity: "3M",  key: "DGS3MO" },
+    { maturity: "6M",  key: "DGS6MO" },
+    { maturity: "1Y",  key: "DGS1" },
+    { maturity: "2Y",  key: "DGS2" },
+    { maturity: "5Y",  key: "DGS5" },
+    { maturity: "7Y",  key: "DGS7" },
+    { maturity: "10Y", key: "DGS10" },
+    { maturity: "20Y", key: "DGS20" },
+    { maturity: "30Y", key: "DGS30" },
+  ]
+    .map(({ maturity, key }) => ({ maturity, value: val(data, key) }))
+    .filter((p) => p.value != null);
+
+  // ── Risks / Opportunities ─────────────────────────────────────────────────
   const risks = [];
   const opportunities = [];
 
@@ -496,135 +391,184 @@ export default function Overview() {
   if (opportunities.length === 0)
     opportunities.push("No standout opportunity signals from current FRED data configuration");
 
-  // ── Events Calendar ──────────────────────────────────────────────────────
+  // ── Events Calendar ───────────────────────────────────────────────────────
   const events = getUpcomingEvents();
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Signal helpers ────────────────────────────────────────────────────────
+  const cpiSignal      = cpiVal != null ? (cpiVal > 3 ? "bearish" : cpiVal < 2.5 ? "bullish" : "neutral") : "neutral";
+  const gdpSignal      = gdpVal != null ? (gdpVal < 0 ? "bearish" : gdpVal > 2.5 ? "bullish" : "neutral") : "neutral";
+  const unrateSignal   = unrateVal != null ? (unrateVal > 4.5 ? "bearish" : unrateVal < 4 ? "bullish" : "neutral") : "neutral";
+  const vixSignal      = vixVal != null ? (vixVal > 25 ? "bearish" : vixVal < 18 ? "bullish" : "neutral") : "neutral";
+  const mortgageSignal = mortgageVal != null ? (mortgageVal > 7 ? "bearish" : mortgageVal < 5 ? "bullish" : "neutral") : "neutral";
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 16px" }}>
 
-      {/* ── MARKET SNAPSHOT BAR ── */}
+      {/* 1 ── REGIME SUMMARY BOX ── */}
+      <div
+        style={{
+          border: "1px solid hsla(45,90%,55%,0.3)",
+          background: "hsla(45,90%,55%,0.04)",
+          padding: 16,
+          borderRadius: 4,
+        }}
+      >
+        {/* Icon + Title row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <span
+            className="glow-amber"
+            style={{ fontSize: 18, color: "hsla(45,90%,55%,1)", lineHeight: 1 }}
+          >
+            ⚠
+          </span>
+          <span
+            className="glow-amber"
+            style={{
+              fontSize: 14,
+              fontWeight: "bold",
+              color: "hsla(45,90%,55%,1)",
+              letterSpacing: "0.08em",
+            }}
+          >
+            MACRO REGIME: {regimeLabel}
+          </span>
+        </div>
+
+        {/* Subtitle */}
+        <div
+          style={{
+            fontSize: 10,
+            color: "var(--color-term-dim)",
+            letterSpacing: "0.08em",
+            marginBottom: 12,
+          }}
+        >
+          {TODAY} — The Druckenmiller View
+        </div>
+
+        {/* Analytical bullets */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {bullets.map((bullet, i) => {
+            const colonIdx = bullet.indexOf(":");
+            const label = colonIdx !== -1 ? bullet.slice(0, colonIdx) : "";
+            const body  = colonIdx !== -1 ? bullet.slice(colonIdx + 1).trim() : bullet;
+            return (
+              <p
+                key={i}
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  color: "var(--color-term-dim)",
+                  lineHeight: 1.65,
+                  display: "flex",
+                  gap: 7,
+                  alignItems: "flex-start",
+                }}
+              >
+                <span style={{ color: "var(--color-term-green)", flexShrink: 0, marginTop: 1 }}>▸</span>
+                <span>
+                  {label && (
+                    <strong style={{ color: "var(--color-term-green)", marginRight: 4, letterSpacing: "0.04em" }}>
+                      {label}:
+                    </strong>
+                  )}
+                  {body}
+                </span>
+              </p>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2 ── MARKET SNAPSHOT BAR ── */}
       <div
         className="panel"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "10px 22px",
-          alignItems: "flex-start",
-          padding: "10px 14px",
-        }}
+        style={{ padding: "10px 14px" }}
       >
         <div
           style={{
-            fontSize: 8,
+            fontSize: 10,
+            color: "var(--color-term-dim)",
             textTransform: "uppercase",
-            letterSpacing: "0.14em",
-            color: "var(--color-term-cyan)",
-            alignSelf: "center",
-            minWidth: 80,
-            fontWeight: 700,
+            letterSpacing: "0.12em",
+            marginBottom: 10,
           }}
         >
-          MARKET<br />SNAPSHOT
+          Market Snapshot — {TODAY}
         </div>
-        <div style={{ width: 1, alignSelf: "stretch", background: "var(--color-term-border)" }} />
-        <MarketTicker label="S&P 500"  value={sp500Latest?.value}  chg={sp500Chg}  decimals={2} />
-        <MarketTicker label="NASDAQ"   value={nasdaqLatest?.value} chg={nasdaqChg} decimals={2} />
-        <MarketTicker label="10Y TSRY" value={dgs10Latest?.value}  chg={dgs10Chg}  decimals={3} />
-        <MarketTicker label="2Y TSRY"  value={dgs2Latest?.value}   chg={dgs2Chg}   decimals={3} />
-        <MarketTicker label="VIX"      value={vixLatest?.value}    chg={vixChg}    decimals={2} />
-        <MarketTicker label="WTI OIL"  value={oilLatest?.value}    chg={oilChg}    decimals={2} prefix="$" />
-        <MarketTicker label="GOLD"     value={goldLatest?.value}   chg={goldChg}   decimals={2} prefix="$" />
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, 1fr)",
+            gap: 8,
+          }}
+        >
+          {[
+            { symbol: "SP500",   label: "S&P 500",    value: sp500Latest?.value,  chg: sp500Chg,  decimals: 2 },
+            { symbol: "NASDAQ",  label: "NASDAQ",     value: nasdaqLatest?.value, chg: nasdaqChg, decimals: 2 },
+            { symbol: "DGS10",   label: "10Y TSRY",   value: dgs10Latest?.value,  chg: dgs10Chg,  decimals: 3 },
+            { symbol: "DGS2",    label: "2Y TSRY",    value: dgs2Latest?.value,   chg: dgs2Chg,   decimals: 3 },
+            { symbol: "VIXCLS",  label: "VIX",        value: vixLatest?.value,    chg: vixChg,    decimals: 2 },
+            { symbol: "OIL",     label: "WTI OIL",    value: oilLatest?.value,    chg: oilChg,    decimals: 2, prefix: "$" },
+            { symbol: "GOLD",    label: "GOLD",       value: goldLatest?.value,   chg: goldChg,   decimals: 2, prefix: "$" },
+          ].map(({ symbol, label, value, chg, decimals, prefix = "" }) => {
+            const chgColor =
+              chg == null ? "var(--color-term-dim)" :
+              chg > 0 ? "var(--color-term-green)" :
+              chg < 0 ? "var(--color-term-red)" :
+              "var(--color-term-dim)";
+            return (
+              <div key={symbol} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ fontSize: 10, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  {symbol}
+                </div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "var(--color-term-green)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {value != null ? `${prefix}${formatNum(value, decimals)}` : "—"}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: chgColor,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {chg != null ? formatPct(chg) : "—"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* ── TOP ROW: Executive Summary + S&P Chart ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      {/* 3 ── TWO CHARTS SIDE-BY-SIDE ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
-        {/* Executive Summary */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Header */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: regime.color,
-                    letterSpacing: "0.08em",
-                    textShadow: `0 0 12px ${regime.color}80`,
-                  }}
-                >
-                  MACRO REGIME: {regime.label}
-                </div>
-                <div
-                  style={{
-                    fontSize: 9,
-                    color: "var(--color-term-dim)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.16em",
-                    marginTop: 2,
-                  }}
-                >
-                  The Druckenmiller View
-                </div>
-              </div>
-              <div
-                style={{
-                  fontSize: 9,
-                  color: "var(--color-term-dim)",
-                  textAlign: "right",
-                  lineHeight: 1.5,
-                }}
-              >
-                {TODAY}
-              </div>
-            </div>
-            <div style={{ height: 1, background: "var(--color-term-border)", marginTop: 4 }} />
-          </div>
-
-          {/* Bullets */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-            {bullets.map((bullet, i) => {
-              const colonIdx = bullet.indexOf(":");
-              const label  = colonIdx !== -1 ? bullet.slice(0, colonIdx) : "";
-              const body   = colonIdx !== -1 ? bullet.slice(colonIdx + 1).trim() : bullet;
-              return (
-                <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                  <span style={{ color: "var(--color-term-cyan)", flexShrink: 0, marginTop: 1 }}>▸</span>
-                  <span style={{ fontSize: 10, color: "var(--color-term-text)", lineHeight: 1.65 }}>
-                    {label && (
-                      <span
-                        style={{
-                          color: "var(--color-term-cyan)",
-                          fontWeight: 700,
-                          letterSpacing: "0.06em",
-                          marginRight: 4,
-                        }}
-                      >
-                        {label}:
-                      </span>
-                    )}
-                    {body}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* S&P 500 Chart */}
+        {/* Left: S&P 500 Area Chart */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div className="section-label" style={{ marginBottom: 0 }}>
-              S&P 500 — LAST 30 SESSIONS
+            <div
+              style={{
+                fontSize: 10,
+                color: "var(--color-term-dim)",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+              }}
+            >
+              S&P 500
             </div>
             {sp500Latest && (
               <div style={{ fontSize: 10, color: "var(--color-term-text)" }}>
                 {formatNum(sp500Latest.value, 2)}
                 {sp500Chg != null && (
                   <span
-                    className={sp500Chg >= 0 ? "glow-green" : "glow-red"}
                     style={{
                       marginLeft: 8,
                       color: sp500Chg >= 0 ? "var(--color-term-green)" : "var(--color-term-red)",
@@ -636,355 +580,358 @@ export default function Overview() {
               </div>
             )}
           </div>
-          <div style={{ flex: 1, minHeight: 160 }}>
-            <ResponsiveContainer width="100%" height={170}>
-              <AreaChart data={spChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="spGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="var(--color-term-green)" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="var(--color-term-green)" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  stroke="var(--color-term-border)"
-                  strokeDasharray="2 4"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
-                  tickLine={false}
-                  axisLine={{ stroke: "var(--color-term-border)" }}
-                  interval={5}
-                />
-                <YAxis
-                  tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
-                  tickLine={false}
-                  axisLine={false}
-                  domain={["auto", "auto"]}
-                  tickFormatter={(v) => v.toLocaleString()}
-                />
-                <Tooltip
-                  content={
-                    <ChartTooltip
-                      formatter={(v) =>
-                        v.toLocaleString("en-US", { maximumFractionDigits: 2 })
-                      }
-                    />
-                  }
-                />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  name="S&P 500"
-                  stroke="var(--color-term-green)"
-                  strokeWidth={1.5}
-                  fill="url(#spGrad)"
-                  dot={false}
-                  activeDot={{ r: 3, fill: "var(--color-term-green)" }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={spChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="spGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="var(--color-term-green)" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="var(--color-term-green)" stopOpacity={0.01} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="var(--color-term-border)" strokeDasharray="2 4" vertical={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
+                tickLine={false}
+                axisLine={{ stroke: "var(--color-term-border)" }}
+                interval={5}
+              />
+              <YAxis
+                tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
+                tickLine={false}
+                axisLine={false}
+                domain={["auto", "auto"]}
+                tickFormatter={(v) => v.toLocaleString()}
+              />
+              <Tooltip
+                content={
+                  <ChartTooltip
+                    formatter={(v) => v.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                  />
+                }
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                name="S&P 500"
+                stroke="var(--color-term-green)"
+                strokeWidth={1.5}
+                fill="url(#spGrad)"
+                dot={false}
+                activeDot={{ r: 3, fill: "var(--color-term-green)" }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Right: Yield Curve Area Chart */}
+        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--color-term-dim)",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+            }}
+          >
+            Yield Curve
           </div>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={yieldCurvePoints} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="ycGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor="var(--color-term-green)" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="var(--color-term-green)" stopOpacity={0.01} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="var(--color-term-border)" strokeDasharray="2 4" vertical={false} />
+              <XAxis
+                dataKey="maturity"
+                tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
+                tickLine={false}
+                axisLine={{ stroke: "var(--color-term-border)" }}
+              />
+              <YAxis
+                tick={{ fontSize: 8, fill: "var(--color-term-dim)", fontFamily: "inherit" }}
+                tickLine={false}
+                axisLine={false}
+                domain={["auto", "auto"]}
+                tickFormatter={(v) => `${v.toFixed(1)}%`}
+              />
+              <Tooltip
+                content={
+                  <ChartTooltip
+                    formatter={(v) => `${Number(v).toFixed(3)}%`}
+                  />
+                }
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                name="Yield"
+                stroke="var(--color-term-green)"
+                strokeWidth={2}
+                fill="url(#ycGrad)"
+                dot={false}
+                activeDot={{ r: 3, fill: "var(--color-term-green)" }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* ── SECOND ROW: Yield Curve + Risks + Opportunities ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-
-        {/* Yield Curve */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div className="section-label">YIELD CURVE SNAPSHOT</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {/* Yields row */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                paddingBottom: 8,
-                borderBottom: "1px solid var(--color-term-border)",
-              }}
-            >
-              {[
-                { label: "2Y", value: dgs2Val },
-                { label: "10Y", value: dgs10Val },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <div
-                    style={{
-                      fontSize: 9,
-                      color: "var(--color-term-dim)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                    }}
-                  >
-                    {label}
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-term-text)" }}>
-                    {value != null ? `${formatNum(value, 3)}%` : "—"}
-                  </div>
-                </div>
-              ))}
-              <div style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "right" }}>
-                <div style={{ fontSize: 9, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  FED FUNDS
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--color-term-text)" }}>
-                  {fedVal != null ? `${formatNum(fedVal, 2)}%` : "—"}
-                </div>
-              </div>
-            </div>
-
-            {/* Spreads */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 10, color: "var(--color-term-dim)" }}>10Y − 2Y SPREAD</span>
-                <SpreadPill value={t10y2yVal} />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 10, color: "var(--color-term-dim)" }}>10Y − 3M SPREAD</span>
-                <SpreadPill value={t10y3mVal} />
-              </div>
-            </div>
-
-            {/* Curve status */}
-            <div
-              style={{
-                paddingTop: 8,
-                borderTop: "1px solid var(--color-term-border)",
-                fontSize: 10,
-                lineHeight: 1.6,
-              }}
-            >
-              {t10y2yVal != null ? (
-                t10y2yVal < -0.5 ? (
-                  <span style={{ color: "var(--color-term-red)" }}>
-                    DEEPLY INVERTED — highest-confidence recession signal. Historical avg lead: 12-18 months. Prioritize capital preservation.
-                  </span>
-                ) : t10y2yVal < 0 ? (
-                  <span style={{ color: "var(--color-term-red)" }}>
-                    INVERTED — established recession leading indicator. Timing uncertain but risk-off bias warranted.
-                  </span>
-                ) : t10y2yVal < 0.5 ? (
-                  <span style={{ color: "var(--color-term-amber)" }}>
-                    FLAT / NORMALIZING — post-inversion steepening often precedes late-cycle peak. Watch closely.
-                  </span>
-                ) : (
-                  <span style={{ color: "var(--color-term-green)" }}>
-                    NORMAL — positive slope supports bank credit creation and risk-asset expansion.
-                  </span>
-                )
-              ) : (
-                <span style={{ color: "var(--color-term-dim)" }}>Spread data unavailable.</span>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* 4 ── THREE-COLUMN PANELS ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
 
         {/* Key Risks */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div
+          style={{
+            border: "1px solid hsla(0,72%,55%,0.3)",
+            background: "hsla(0,72%,55%,0.04)",
+            padding: 14,
+            borderRadius: 4,
+          }}
+        >
           <div
-            className="section-label"
-            style={{ color: "var(--color-term-red)", marginBottom: 2 }}
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "hsla(0,72%,55%,1)",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: 10,
+            }}
           >
             KEY RISKS
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             {risks.map((r, i) => (
               <div key={i} style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
-                <span
-                  style={{
-                    color: "var(--color-term-red)",
-                    flexShrink: 0,
-                    fontSize: 9,
-                    marginTop: 2,
-                  }}
-                >
-                  ◆
-                </span>
-                <span style={{ fontSize: 10, color: "var(--color-term-text)", lineHeight: 1.6 }}>
-                  {r}
-                </span>
+                <span style={{ color: "hsla(0,72%,55%,1)", flexShrink: 0, fontSize: 9, marginTop: 2 }}>◆</span>
+                <span style={{ fontSize: 10, color: "var(--color-term-text)", lineHeight: 1.6 }}>{r}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Opportunities */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {/* Key Opportunities */}
+        <div
+          style={{
+            border: "1px solid hsla(142,72%,45%,0.3)",
+            background: "hsla(142,72%,45%,0.04)",
+            padding: 14,
+            borderRadius: 4,
+          }}
+        >
           <div
-            className="section-label"
-            style={{ color: "var(--color-term-green)", marginBottom: 2 }}
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--color-term-green)",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: 10,
+            }}
           >
-            OPPORTUNITIES
+            KEY OPPORTUNITIES
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
             {opportunities.map((o, i) => (
               <div key={i} style={{ display: "flex", gap: 7, alignItems: "flex-start" }}>
-                <span
-                  style={{
-                    color: "var(--color-term-green)",
-                    flexShrink: 0,
-                    fontSize: 9,
-                    marginTop: 2,
-                  }}
-                >
-                  ◆
-                </span>
-                <span style={{ fontSize: 10, color: "var(--color-term-text)", lineHeight: 1.6 }}>
-                  {o}
-                </span>
+                <span style={{ color: "var(--color-term-green)", flexShrink: 0, fontSize: 9, marginTop: 2 }}>◆</span>
+                <span style={{ fontSize: 10, color: "var(--color-term-text)", lineHeight: 1.6 }}>{o}</span>
               </div>
             ))}
           </div>
         </div>
-      </div>
-
-      {/* ── BOTTOM ROW: Upcoming Events + Indicator Cards ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 12, alignItems: "start" }}>
 
         {/* Upcoming Events */}
-        <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <div className="section-label" style={{ marginBottom: 0 }}>UPCOMING EVENTS</div>
-            <div style={{ fontSize: 8, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-              APPROX. DATES
-            </div>
-          </div>
-          <div style={{ height: 1, background: "var(--color-term-border)" }} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-            {events.map((e, i) => (
-              <EventRow
-                key={i}
-                name={e.name}
-                dateStr={e.dateStr}
-                daysOut={e.daysOut}
-                desc={e.desc}
-              />
-            ))}
-          </div>
+        <div className="panel" style={{ padding: 14 }}>
           <div
             style={{
-              fontSize: 8,
-              color: "var(--color-term-dim)",
-              lineHeight: 1.5,
-              paddingTop: 4,
-              borderTop: "1px solid var(--color-term-border)",
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--color-term-text)",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: 10,
             }}
           >
-            Dates are algorithmically approximated based on historical release patterns.
-            Verify with the BLS, BEA, and Federal Reserve calendars.
+            UPCOMING EVENTS
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {events.map((e, i) => {
+              const urgent = e.daysOut <= 7;
+              const soon   = e.daysOut <= 14;
+              const dotColor = urgent
+                ? "var(--color-term-red)"
+                : soon
+                ? "var(--color-term-amber)"
+                : "var(--color-term-dim)";
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                    paddingBottom: 7,
+                    paddingTop: i > 0 ? 7 : 0,
+                    borderBottom: i < events.length - 1 ? "1px solid var(--color-term-border)" : "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: "50%",
+                      background: dotColor,
+                      flexShrink: 0,
+                      marginTop: 3,
+                      boxShadow: urgent ? `0 0 6px ${dotColor}` : "none",
+                    }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: "var(--color-term-text)" }}>
+                        {e.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          color: urgent ? "var(--color-term-red)" : soon ? "var(--color-term-amber)" : "var(--color-term-dim)",
+                          fontWeight: urgent ? 700 : 400,
+                          whiteSpace: "nowrap",
+                          marginLeft: 6,
+                        }}
+                      >
+                        {e.dateStr}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 9, color: "var(--color-term-dim)", marginTop: 1, lineHeight: 1.4 }}>
+                      {e.desc}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
+      </div>
 
-        {/* Indicator Cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          <IndicatorCard
-            label="Fed Funds"
-            value={fedVal}
-            unit="%"
-            change={fedChg}
-            decimals={2}
-            detail={
-              fedVal != null
-                ? `Effective Fed Funds rate. Policy stance: ${
-                    fedVal >= 5.5 ? "severely restrictive" :
-                    fedVal >= 5.0 ? "restrictive" :
-                    fedVal >= 3.0 ? "neutral-to-tight" : "accommodative"
-                  }. Real rate vs CPI: ${cpiVal != null ? `${formatNum(fedVal - cpiVal, 2)}%` : "—"}. Prior: ${formatNum(fedPriorVal, 2)}%. Post-GFC avg: 0.5%; 2006 peak: 5.25%.`
-                : "Fed Funds data unavailable."
-            }
-            source="FRED / DFF"
-            sourceUrl="https://fred.stlouisfed.org/series/DFF"
-          />
-          <IndicatorCard
-            label="CPI YoY"
-            value={cpiVal}
-            unit="%"
-            change={cpiChg}
-            decimals={2}
-            detail={
-              cpiVal != null
-                ? `All-items CPI, year-over-year. Fed 2% target gap: ${cpiVal > 2 ? "+" : ""}${formatNum(cpiVal - 2.0, 2)}pp. Core PCE (Fed's preferred): ${pceVal != null ? `${formatNum(pceVal, 2)}%` : "—"}. Prior: ${formatNum(cpiPriorVal, 2)}%. 2022 cycle peak: 9.1%; 1980s avg >6%.`
-                : "CPI data unavailable."
-            }
-            source="FRED / CPIAUCSL"
-            sourceUrl="https://fred.stlouisfed.org/series/CPIAUCSL"
-          />
-          <IndicatorCard
-            label="GDP Growth"
-            value={gdpVal}
-            unit="%"
-            change={gdpChg}
-            decimals={1}
-            detail={
-              gdpVal != null
-                ? `Real GDP, QoQ annualized. Prior quarter: ${formatNum(gdpPriorVal, 1)}%. Long-run potential ~2.0%. Two consecutive negative quarters = technical recession. ${
-                    gdpVal < 0 ? "Contraction — monitor next print carefully." :
-                    gdpVal < 1.5 ? "Sub-trend; stall-speed risk." :
-                    gdpVal >= 3 ? "Above trend; overheating risk possible." : "Near-trend expansion."
-                  }`
-                : "GDP data unavailable."
-            }
-            source="FRED / A191RL1Q225SBEA"
-            sourceUrl="https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
-          />
-          <IndicatorCard
-            label="Unemployment"
-            value={unrateVal}
-            unit="%"
-            change={unrateChg}
-            decimals={1}
-            detail={
-              unrateVal != null
-                ? `Civilian unemployment. CBO NAIRU: ~4.2%. Current gap: ${formatNum(unrateVal - 4.2, 1)}pp. ${
-                    unrateVal <= 3.8 ? "Historically tight — wage inflation embedded." :
-                    unrateVal <= 4.5 ? "Near natural rate — balanced conditions." :
-                    "Above NAIRU — Sahm Rule watch active."
-                  } Prior: ${formatNum(unratePrior, 1)}%. GFC peak: 10%; COVID peak: 14.7%.`
-                : "Unemployment data unavailable."
-            }
-            source="FRED / UNRATE"
-            sourceUrl="https://fred.stlouisfed.org/series/UNRATE"
-          />
-          <IndicatorCard
-            label="VIX"
-            value={vixVal}
-            unit=""
-            change={vixCardChg}
-            decimals={2}
-            detail={
-              vixVal != null
-                ? `CBOE 30-day implied volatility. Regimes: <15 complacent, 15–25 normal, 25–35 elevated, >35 crisis. Current: ${
-                    vixVal < 15 ? "COMPLACENT — tail risk underpriced" :
-                    vixVal < 25 ? "NORMAL — risk-on environment" :
-                    vixVal < 35 ? "ELEVATED — volatility premium expanded" : "CRISIS — forced selling / deleveraging"
-                  }. COVID peak: 82.7; GFC peak: 80.9.`
-                : "VIX data unavailable."
-            }
-            source="FRED / VIXCLS"
-            sourceUrl="https://fred.stlouisfed.org/series/VIXCLS"
-          />
-          <IndicatorCard
-            label="30Y Mortgage"
-            value={mortgageVal}
-            unit="%"
-            change={mortgageChg}
-            decimals={2}
-            detail={
-              mortgageVal != null
-                ? `30-year fixed rate. Spread to 10Y Treasury: ${dgs10Val != null ? `${formatNum(mortgageVal - dgs10Val, 2)}pp` : "—"}. Prior: ${formatNum(mortgagePrior, 2)}%. ${
-                    mortgageVal > 7.5 ? "Multi-decade affordability lows — housing demand severely impaired." :
-                    mortgageVal > 6.5 ? "Affordability stressed; buyers sidelined." :
-                    mortgageVal > 5.0 ? "Rates normalized; qualified buyers constrained but active." :
-                    "Historically accommodative — housing demand supported."
-                  } 2021 low: ~2.7%.`
-                : "Mortgage rate data unavailable."
-            }
-            source="FRED / MORTGAGE30US"
-            sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
-          />
-        </div>
+      {/* 5 ── 6 INDICATOR CARDS ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <IndicatorCard
+          label="Fed Funds"
+          value={fedVal}
+          unit="%"
+          change={fedChg}
+          decimals={2}
+          signal="neutral"
+          detail={
+            fedVal != null
+              ? `Effective Fed Funds rate. Policy stance: ${
+                  fedVal >= 5.5 ? "severely restrictive" :
+                  fedVal >= 5.0 ? "restrictive" :
+                  fedVal >= 3.0 ? "neutral-to-tight" : "accommodative"
+                }. Real rate vs CPI: ${cpiVal != null ? `${formatNum(fedVal - cpiVal, 2)}%` : "—"}. Prior: ${formatNum(fedPriorVal, 2)}%.`
+              : "Fed Funds data unavailable."
+          }
+          source="FRED / DFF"
+          sourceUrl="https://fred.stlouisfed.org/series/DFF"
+        />
+        <IndicatorCard
+          label="CPI YoY"
+          value={cpiVal}
+          unit="%"
+          change={cpiChg}
+          decimals={2}
+          signal={cpiSignal}
+          detail={
+            cpiVal != null
+              ? `All-items CPI, year-over-year. Fed 2% target gap: ${cpiVal > 2 ? "+" : ""}${formatNum(cpiVal - 2.0, 2)}pp. Core PCE (Fed's preferred): ${pceVal != null ? `${formatNum(pceVal, 2)}%` : "—"}. Prior: ${formatNum(cpiPriorVal, 2)}%.`
+              : "CPI data unavailable."
+          }
+          source="FRED / CPIAUCSL"
+          sourceUrl="https://fred.stlouisfed.org/series/CPIAUCSL"
+        />
+        <IndicatorCard
+          label="GDP Growth"
+          value={gdpVal}
+          unit="%"
+          change={gdpChg}
+          decimals={1}
+          signal={gdpSignal}
+          detail={
+            gdpVal != null
+              ? `Real GDP, QoQ annualized. Prior quarter: ${formatNum(gdpPriorVal, 1)}%. Long-run potential ~2.0%. ${
+                  gdpVal < 0 ? "Contraction — monitor next print carefully." :
+                  gdpVal < 1.5 ? "Sub-trend; stall-speed risk." :
+                  gdpVal >= 3 ? "Above trend; overheating risk possible." : "Near-trend expansion."
+                }`
+              : "GDP data unavailable."
+          }
+          source="FRED / A191RL1Q225SBEA"
+          sourceUrl="https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
+        />
+        <IndicatorCard
+          label="Unemployment"
+          value={unrateVal}
+          unit="%"
+          change={unrateChg}
+          decimals={1}
+          signal={unrateSignal}
+          detail={
+            unrateVal != null
+              ? `Civilian unemployment. CBO NAIRU: ~4.2%. Current gap: ${formatNum(unrateVal - 4.2, 1)}pp. ${
+                  unrateVal <= 3.8 ? "Historically tight — wage inflation embedded." :
+                  unrateVal <= 4.5 ? "Near natural rate — balanced conditions." :
+                  "Above NAIRU — Sahm Rule watch active."
+                } Prior: ${formatNum(unratePrior, 1)}%.`
+              : "Unemployment data unavailable."
+          }
+          source="FRED / UNRATE"
+          sourceUrl="https://fred.stlouisfed.org/series/UNRATE"
+        />
+        <IndicatorCard
+          label="VIX"
+          value={vixVal}
+          unit=""
+          change={vixCardChg}
+          decimals={2}
+          signal={vixSignal}
+          detail={
+            vixVal != null
+              ? `CBOE 30-day implied volatility. Regimes: <15 complacent, 15–25 normal, 25–35 elevated, >35 crisis. Current: ${
+                  vixVal < 15 ? "COMPLACENT — tail risk underpriced" :
+                  vixVal < 25 ? "NORMAL — risk-on environment" :
+                  vixVal < 35 ? "ELEVATED — volatility premium expanded" : "CRISIS — forced selling / deleveraging"
+                }.`
+              : "VIX data unavailable."
+          }
+          source="FRED / VIXCLS"
+          sourceUrl="https://fred.stlouisfed.org/series/VIXCLS"
+        />
+        <IndicatorCard
+          label="30Y Mortgage"
+          value={mortgageVal}
+          unit="%"
+          change={mortgageChg}
+          decimals={2}
+          signal={mortgageSignal}
+          detail={
+            mortgageVal != null
+              ? `30-year fixed rate. Spread to 10Y Treasury: ${dgs10Val != null ? `${formatNum(mortgageVal - dgs10Val, 2)}pp` : "—"}. Prior: ${formatNum(mortgagePrior, 2)}%. ${
+                  mortgageVal > 7.5 ? "Multi-decade affordability lows — housing demand severely impaired." :
+                  mortgageVal > 6.5 ? "Affordability stressed; buyers sidelined." :
+                  mortgageVal > 5.0 ? "Rates normalized; qualified buyers constrained but active." :
+                  "Historically accommodative — housing demand supported."
+                }`
+              : "Mortgage rate data unavailable."
+          }
+          source="FRED / MORTGAGE30US"
+          sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
+        />
       </div>
 
     </div>

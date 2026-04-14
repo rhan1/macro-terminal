@@ -1,28 +1,23 @@
+import { useFredData } from "../hooks/useFredData";
+import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
+import IndicatorCard from "../components/IndicatorCard";
+import ChartTooltip from "../components/ChartTooltip";
+import Loading from "../components/Loading";
 import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
   ReferenceLine,
 } from "recharts";
-import { useFredData } from "../hooks/useFredData";
-import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
-import IndicatorCard from "../components/IndicatorCard";
-import ChartTooltip from "../components/ChartTooltip";
-import Loading from "../components/Loading";
 
 const FETCH = {
-  UNRATE:    SERIES.UNRATE,
-  PAYEMS:    SERIES.PAYEMS,
-  WAGES:     SERIES.WAGES,
-  CLAIMS:    SERIES.CLAIMS,
-  BREAKEVEN: SERIES.BREAKEVEN,
-  CPI:       SERIES.CPI,
+  UNRATE: SERIES.UNRATE,
+  PAYEMS: SERIES.PAYEMS,
+  WAGES:  SERIES.WAGES,
 };
 
 function fmtMonthYear(dateStr) {
@@ -36,115 +31,6 @@ function chartSlice(arr, n = 24) {
   return [...arr].slice(0, n).reverse();
 }
 
-function buildAnalysis(data) {
-  const unrate = data.UNRATE;
-  const payems = data.PAYEMS;
-  const wages  = data.WAGES;
-  const cpi    = data.CPI;
-
-  const latestUnrate  = latest(unrate)?.value;
-  const priorUnrate   = prior(unrate, 3)?.value;  // 3-month trend
-  const latestPayems  = latest(payems)?.value;
-  const latestWages   = latest(wages)?.value;
-  const latestCpi     = latest(cpi)?.value;
-  const claimsVal     = latest(data.CLAIMS)?.value;
-
-  const sentences = [];
-
-  // Druckenmiller context: labor is the leading indicator for earnings and Fed policy
-  sentences.push(
-    "Stanley Druckenmiller has long argued that labor market conditions are the single most important leading indicator " +
-    "for corporate earnings, credit quality, and ultimately equity markets — the direction of employment tells you more " +
-    "about the cycle than any coincident GDP print."
-  );
-
-  // Unemployment trend
-  if (latestUnrate != null) {
-    const vsNatural = latestUnrate - 4.4;
-    const trend =
-      priorUnrate != null
-        ? latestUnrate < priorUnrate
-          ? "tightening"
-          : latestUnrate > priorUnrate
-          ? "easing"
-          : "stable"
-        : null;
-    const trendStr = trend ? ` and the 3-month trend is ${trend}` : "";
-    const relStr =
-      vsNatural < -0.3
-        ? "well below the CBO long-run natural rate of 4.4% — historically associated with an overheating labor market, " +
-          "upward wage pressure, and a Fed biased toward tightening"
-        : vsNatural > 0.3
-        ? "above the CBO natural rate of 4.4%, implying meaningful slack — conditions that historically correspond to " +
-          "disinflation and eventual easing bias"
-        : "near the CBO estimated long-run natural rate of 4.4%, consistent with full employment by conventional metrics";
-    sentences.push(
-      `Unemployment stands at ${formatNum(latestUnrate, 1)}%${trendStr}, ${relStr}.`
-    );
-  }
-
-  // Payrolls
-  if (latestPayems != null) {
-    const strength =
-      latestPayems > 250
-        ? "well above the ~100K breakeven needed to absorb new labor force entrants. " +
-          "Readings at this level historically coincide with tightening financial conditions and Fed caution"
-        : latestPayems > 100
-        ? "above the ~100K population breakeven, pointing to continued expansion — but markets will scrutinize " +
-          "whether this pace is sustainable without reigniting wage inflation"
-        : latestPayems > 0
-        ? "below the ~100K population breakeven. Momentum is softening; watch for upward drift in claims " +
-          "and downward revisions as confirming signals"
-        : "negative — outright job losses that historically precede broader earnings pressure and rising default rates";
-    sentences.push(
-      `Nonfarm payrolls added ${formatNum(latestPayems, 0)}K jobs last month, ${strength}.`
-    );
-  }
-
-  // Wage growth vs. inflation
-  if (latestWages != null) {
-    if (latestCpi != null) {
-      const realWages = latestWages - latestCpi;
-      const realStr =
-        realWages > 0
-          ? `implying real wage growth of +${formatNum(realWages, 1)}pp — positive for consumption but a sticky-inflation risk the Fed watches closely`
-          : `implying real wage erosion of ${formatNum(realWages, 1)}pp relative to headline CPI — a headwind for consumer spending that historically feeds into softer retail sales`;
-      sentences.push(
-        `Average hourly earnings are up ${formatNum(latestWages, 1)}% YoY, ${realStr}. ` +
-        `Pre-pandemic (2015–2019) wage growth averaged ~3%, so current readings ${latestWages > 4 ? "remain elevated above that baseline" : "are converging back toward pre-pandemic norms"}.`
-      );
-    } else {
-      const wageStr =
-        latestWages > 4.5
-          ? "elevated — the primary channel keeping services inflation sticky above 2% target"
-          : latestWages > 3.0
-          ? "moderating but still above the 2015–2019 pre-pandemic norm of ~3%, sustaining services disinflation pressure"
-          : "cooling toward pre-pandemic levels, which would ease services inflation and shift Fed rhetoric toward easing";
-      sentences.push(
-        `Average hourly earnings growth of ${formatNum(latestWages, 1)}% YoY is ${wageStr}.`
-      );
-    }
-  }
-
-  // Claims context — a true leading indicator
-  if (claimsVal != null) {
-    const claimsK = claimsVal / 1000;
-    const claimsStr =
-      claimsK < 220
-        ? "historically low — consistent with the tightest labor conditions since the 1960s and a Fed that has limited room to cut"
-        : claimsK < 280
-        ? "within the normal cyclical range. No imminent deterioration signal, but trend direction matters more than the level at this stage"
-        : claimsK < 350
-        ? "elevated and warrant monitoring. Sustained readings above 300K have historically preceded broader layoff waves within 3–6 months"
-        : "at recessionary levels — consistent with rapid labor market deterioration. Historically this range coincides with equity drawdowns exceeding 20%";
-    sentences.push(
-      `Initial jobless claims at ${formatNum(claimsK, 0)}K are ${claimsStr}.`
-    );
-  }
-
-  return sentences.join(" ") || "Insufficient data to generate analysis.";
-}
-
 export default function Labor() {
   const { data, loading, error } = useFredData(FETCH);
 
@@ -152,65 +38,191 @@ export default function Labor() {
 
   if (error) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "var(--color-term-red)", fontSize: 11 }}>
+      <div style={{ padding: 40, textAlign: "center", color: "hsl(0,72%,55%)", fontSize: 11 }}>
         ERROR: {error}
       </div>
     );
   }
 
-  // Chart data
-  const unrateChart = chartSlice(data.UNRATE, 24);
-  const payemsChart = chartSlice(data.PAYEMS, 24);
+  const unrateArr = data.UNRATE || [];
+  const payemsArr = data.PAYEMS || [];
+  const wagesArr  = data.WAGES  || [];
 
-  // Latest values
-  const latestUnrate    = latest(data.UNRATE);
-  const priorUnrate     = prior(data.UNRATE, 1);
-  const latestPayems    = latest(data.PAYEMS);
-  const priorPayems     = prior(data.PAYEMS, 1);
-  const latestWages     = latest(data.WAGES);
-  const priorWages      = prior(data.WAGES, 1);
-  const latestClaims    = latest(data.CLAIMS);
-  const priorClaims     = prior(data.CLAIMS, 1);
-  const latestBreakeven = latest(data.BREAKEVEN);
-  const priorBreakeven  = prior(data.BREAKEVEN, 1);
+  const latestUnrate = latest(unrateArr);
+  const priorUnrate  = prior(unrateArr, 1);
+  const latestPayems = latest(payemsArr);
+  const priorPayems  = prior(payemsArr, 1);
+  const latestWages  = latest(wagesArr);
+  const priorWages   = prior(wagesArr, 1);
 
-  // All change values use change() for percentage — IndicatorCard renders with formatPct()
-  // For UNRATE and WAGES (already %-valued series), change() gives % change of the rate itself,
-  // which is semantically valid (e.g., UNRATE moved from 4.0 → 4.2 = +5% change of the metric).
-  const unrateChange    = change(latestUnrate?.value, priorUnrate?.value);
-  const payemsChange    = change(latestPayems?.value, priorPayems?.value);
-  const wagesChange     = change(latestWages?.value, priorWages?.value);
-  const claimsChange    = change(latestClaims?.value, priorClaims?.value);
-  const breakevenChange = change(latestBreakeven?.value, priorBreakeven?.value);
+  const unrateVal = latestUnrate?.value ?? null;
+  const payemsVal = latestPayems?.value ?? null;
+  const wagesVal  = latestWages?.value  ?? null;
 
-  const analysisText = buildAnalysis(data);
+  const unrateChange = change(unrateVal, priorUnrate?.value);
+  const payemsChange = change(payemsVal, priorPayems?.value);
+  const wagesChange  = change(wagesVal,  priorWages?.value);
+
+  // Unrate chart header: current + change in pp
+  const unratePpChange = unrateVal != null && priorUnrate?.value != null
+    ? unrateVal - priorUnrate.value
+    : null;
+  const unrateDir = unratePpChange == null ? "" : unratePpChange > 0 ? "▲" : "▼";
+  const unrateHeaderChange = unratePpChange != null
+    ? ` ${unrateDir} ${unratePpChange >= 0 ? "+" : ""}${formatNum(unratePpChange, 1)}pp`
+    : "";
+  const unrateHeaderColor = unratePpChange == null
+    ? "hsl(220,10%,40%)"
+    : unratePpChange > 0
+    ? "hsl(0,72%,55%)"
+    : "hsl(142,70%,55%)";
+
+  // Payems chart header
+  const payemsHeaderLabel = payemsVal != null
+    ? `${formatNum(payemsVal, 0)}K — ${
+        payemsVal < 0
+          ? "Job losses — recessionary"
+          : payemsVal < 70
+          ? "Below breakeven pace"
+          : payemsVal < 150
+          ? "Solid expansion"
+          : "Strong job growth"
+      }`
+    : "—";
+
+  // Alert banner condition
+  const showAlert = (payemsVal != null && payemsVal < 50) || (unrateVal != null && unrateVal > 4.3);
+  const alertTitle =
+    unrateVal != null && unrateVal > 4.5
+      ? "LABOR MARKET DETERIORATION"
+      : "LABOR MARKET WEAKENING";
+  const alertBody =
+    showAlert
+      ? `${
+          payemsVal != null && payemsVal < 50
+            ? `Nonfarm payrolls of ${formatNum(payemsVal, 0)}K are below the ~70K breakeven threshold needed to absorb new entrants to the labor force. `
+            : ""
+        }${
+          unrateVal != null && unrateVal > 4.3
+            ? `Unemployment at ${formatNum(unrateVal, 1)}% is above the CBO's long-run natural rate estimate of 4.4%, signaling rising slack in the labor market.`
+            : ""
+        }`
+      : "";
+
+  // Trend job growth estimate from last 3 months
+  const recentPayems = payemsArr.slice(0, 3).map((d) => d.value);
+  const trendPayems =
+    recentPayems.length > 0
+      ? recentPayems.reduce((a, b) => a + b, 0) / recentPayems.length
+      : null;
+
+  // Narrative paragraphs (dynamic)
+  const para1 =
+    unrateVal != null && payemsVal != null
+      ? `The labor market remains a key source of uncertainty for the macro outlook. With nonfarm payrolls at ${formatNum(payemsVal, 0)}K and the breakeven absorption rate near 70K/month, trend job creation of ${trendPayems != null ? formatNum(trendPayems, 0) + "K" : "~70–100K"} per month is required to keep unemployment from drifting higher. Current readings ${payemsVal >= 70 ? "are tracking above breakeven — consistent with steady employment expansion" : "are tracking below breakeven — a signal of softening labor demand that warrants close monitoring"}.`
+      : "Labor market data is currently unavailable. Monitor nonfarm payrolls and unemployment for leading cycle signals.";
+
+  const para2 =
+    wagesVal != null
+      ? `A key structural risk is the emergence of "jobless growth" — a scenario where AI-driven productivity gains allow firms to grow output without proportional headcount expansion. With AI adoption accelerating across white-collar sectors, labor displacement risk is rising. Average hourly earnings of ${formatNum(wagesVal, 1)}% YoY remain above the ~3% pre-pandemic baseline, but if AI-driven displacement suppresses hiring, wage growth could decelerate sharply even before unemployment rises — making payrolls an early-warning indicator worth watching closely.`
+      : `A key structural risk is the emergence of "jobless growth" — a scenario where AI-driven productivity gains allow firms to grow output without proportional headcount expansion. With AI adoption accelerating across white-collar sectors, labor displacement risk is rising even before it is fully visible in aggregate payrolls data.`;
+
+  const para3 =
+    wagesVal != null
+      ? `Wage growth at ${formatNum(wagesVal, 1)}% YoY is the leading indicator for services inflation. Services CPI — which is 60%+ of core inflation — is largely driven by labor costs. Pre-pandemic wage growth averaged ~3%; the Fed's sustainable ceiling given 2% inflation + ~1.5% productivity growth is approximately 3.5%. ${wagesVal > 3.5 ? "Current wage readings remain above that ceiling, limiting the Fed's ability to ease even if goods disinflation continues." : "Wage growth is converging toward that ceiling, providing the Fed increasing room to adjust policy if labor conditions soften."}`
+      : "Wage growth is the leading indicator for services inflation. The Fed monitors average hourly earnings closely, as sustained above-trend wage growth limits its ability to cut rates even if goods disinflation progresses.";
 
   const axisStyle = {
     fontSize: 9,
-    fill: "var(--color-term-dim)",
+    fill: "hsl(220,10%,35%)",
     fontFamily: "JetBrains Mono, monospace",
   };
 
   const gridStyle = {
-    stroke: "var(--color-term-border)",
+    stroke: "hsla(220,15%,20%,0.6)",
     strokeDasharray: "3 3",
+    vertical: false,
   };
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
+  // Signal logic for cards
+  const unrateSignal =
+    unrateVal == null ? "neutral" : unrateVal > 4.5 ? "bearish" : unrateVal < 4.0 ? "bullish" : "neutral";
+  const payemsSignal =
+    payemsVal == null ? "neutral" : payemsVal < 0 ? "bearish" : payemsVal > 150 ? "bullish" : "neutral";
+  const wagesSignal =
+    wagesVal == null ? "neutral" : wagesVal > 4.5 ? "bearish" : wagesVal < 3.0 ? "bullish" : "neutral";
 
-      {/* Charts row */}
+  const unrateChart = chartSlice(unrateArr, 24);
+  const payemsChart = chartSlice(payemsArr, 24);
+
+  return (
+    <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* ── Section Header ── */}
+      <div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: "hsl(142,70%,55%)",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            marginBottom: 3,
+          }}
+        >
+          $ LABOR MARKET
+        </div>
+        <div style={{ fontSize: 10, color: "hsl(220,10%,35%)" }}>
+          — Employment, Wages, AI Displacement
+        </div>
+      </div>
+
+      {/* ── Alert Banner ── */}
+      {showAlert && (
+        <div
+          style={{
+            border: "1px solid hsla(0,72%,55%,0.4)",
+            background: "hsla(0,72%,55%,0.06)",
+            padding: 12,
+            borderRadius: 4,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 13, color: "hsl(0,72%,55%)" }}>⚠</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "hsl(0,72%,55%)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              {alertTitle}
+            </span>
+          </div>
+          <div style={{ fontSize: 10, color: "hsl(220,10%,50%)", lineHeight: 1.6 }}>
+            {alertBody}
+          </div>
+        </div>
+      )}
+
+      {/* ── Charts Side-by-Side ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
 
-        {/* Unemployment Rate Chart */}
+        {/* Left: Unemployment Rate */}
         <div className="panel">
-          <div className="section-label">UNEMPLOYMENT RATE (UNRATE) — LAST 24 MONTHS</div>
-          <ResponsiveContainer width="100%" height={200}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,35%)", marginBottom: 4 }}>
+              Unemployment Rate (%)
+            </div>
+            {unrateVal != null && (
+              <div style={{ fontSize: 14, fontWeight: 600, color: unrateHeaderColor, fontVariantNumeric: "tabular-nums" }}>
+                {formatNum(unrateVal, 1)}%
+                <span style={{ fontSize: 11, marginLeft: 6, color: unrateHeaderColor }}>
+                  {unrateHeaderChange}
+                </span>
+              </div>
+            )}
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={unrateChart} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="unrateGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="var(--color-term-green)" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="var(--color-term-green)" stopOpacity={0.03} />
+                  <stop offset="20%" stopColor="hsl(0,72%,55%)" stopOpacity={0.20} />
+                  <stop offset="100%" stopColor="hsl(0,72%,55%)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid {...gridStyle} />
@@ -219,7 +231,7 @@ export default function Labor() {
                 tickFormatter={fmtMonthYear}
                 tick={axisStyle}
                 tickLine={false}
-                axisLine={{ stroke: "var(--color-term-border)" }}
+                axisLine={{ stroke: "hsla(220,15%,20%,0.6)" }}
                 interval="preserveStartEnd"
               />
               <YAxis
@@ -228,18 +240,19 @@ export default function Labor() {
                 axisLine={false}
                 domain={["auto", "auto"]}
                 tickFormatter={(v) => `${v}%`}
+                padding={{ top: 8, bottom: 8 }}
               />
               <Tooltip
                 content={<ChartTooltip formatter={(v) => `${formatNum(v, 1)}%`} />}
               />
               <ReferenceLine
                 y={4.4}
-                stroke="var(--color-term-amber)"
+                stroke="hsl(45,90%,55%)"
                 strokeDasharray="5 3"
                 label={{
-                  value: "NATURAL RATE ~4.4%",
+                  value: "CBO ~4.4%",
                   position: "insideTopRight",
-                  fill: "var(--color-term-amber)",
+                  fill: "hsl(45,90%,55%)",
                   fontSize: 8,
                   fontFamily: "JetBrains Mono, monospace",
                   dy: -4,
@@ -249,29 +262,34 @@ export default function Labor() {
                 type="monotone"
                 dataKey="value"
                 name="UNRATE"
-                stroke="var(--color-term-green)"
-                strokeWidth={1.5}
+                stroke="hsl(0,72%,55%)"
+                strokeWidth={2}
                 fill="url(#unrateGrad)"
                 dot={false}
-                activeDot={{ r: 3, fill: "var(--color-term-green)" }}
+                activeDot={{ r: 3, fill: "hsl(0,72%,55%)" }}
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Nonfarm Payrolls Chart */}
+        {/* Right: Nonfarm Payrolls */}
         <div className="panel">
-          <div className="section-label">NONFARM PAYROLLS MOM CHANGE (PAYEMS) — LAST 24 MONTHS</div>
-          <ResponsiveContainer width="100%" height={200}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,35%)", marginBottom: 4 }}>
+              Nonfarm Payrolls (K/month)
+            </div>
+            {payemsVal != null && (
+              <div style={{ fontSize: 14, fontWeight: 600, color: "hsl(142,70%,55%)", fontVariantNumeric: "tabular-nums" }}>
+                {payemsHeaderLabel}
+              </div>
+            )}
+          </div>
+          <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={payemsChart} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
               <defs>
-                <linearGradient id="payemsGreenGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="var(--color-term-green)" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="var(--color-term-green)" stopOpacity={0.03} />
-                </linearGradient>
-                <linearGradient id="payemsRedGrad" x1="0" y1="1" x2="0" y2="0">
-                  <stop offset="5%"  stopColor="var(--color-term-red)" stopOpacity={0.28} />
-                  <stop offset="95%" stopColor="var(--color-term-red)" stopOpacity={0.03} />
+                <linearGradient id="payemsGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="15%" stopColor="hsl(142,70%,55%)" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="hsl(142,70%,55%)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid {...gridStyle} />
@@ -280,7 +298,7 @@ export default function Labor() {
                 tickFormatter={fmtMonthYear}
                 tick={axisStyle}
                 tickLine={false}
-                axisLine={{ stroke: "var(--color-term-border)" }}
+                axisLine={{ stroke: "hsla(220,15%,20%,0.6)" }}
                 interval="preserveStartEnd"
               />
               <YAxis
@@ -288,19 +306,24 @@ export default function Labor() {
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => `${v}K`}
+                padding={{ top: 8, bottom: 8 }}
               />
               <Tooltip
                 content={<ChartTooltip formatter={(v) => `${formatNum(v, 0)}K`} />}
               />
-              <ReferenceLine y={0} stroke="var(--color-term-dim)" strokeWidth={1} />
               <ReferenceLine
-                y={100}
-                stroke="var(--color-term-amber)"
+                y={0}
+                stroke="hsl(0,72%,55%)"
+                strokeWidth={1}
+              />
+              <ReferenceLine
+                y={70}
+                stroke="hsl(45,90%,55%)"
                 strokeDasharray="5 3"
                 label={{
-                  value: "BREAKEVEN ~100K",
+                  value: "Breakeven ~70K",
                   position: "insideTopRight",
-                  fill: "var(--color-term-amber)",
+                  fill: "hsl(45,90%,55%)",
                   fontSize: 8,
                   fontFamily: "JetBrains Mono, monospace",
                   dy: -4,
@@ -310,11 +333,11 @@ export default function Labor() {
                 type="monotone"
                 dataKey="value"
                 name="PAYEMS"
-                stroke="var(--color-term-green)"
-                strokeWidth={1.5}
-                fill="url(#payemsGreenGrad)"
+                stroke="hsl(142,70%,55%)"
+                strokeWidth={2}
+                fill="url(#payemsGrad)"
                 dot={false}
-                activeDot={{ r: 3, fill: "var(--color-term-green)" }}
+                activeDot={{ r: 3, fill: "hsl(142,70%,55%)" }}
                 baseValue={0}
               />
             </AreaChart>
@@ -322,80 +345,86 @@ export default function Labor() {
         </div>
       </div>
 
-      {/* Labor Analysis */}
+      {/* ── Narrative Panel ── */}
       <div className="panel">
-        <div className="section-label">LABOR MARKET ANALYSIS</div>
-        <p
-          style={{
-            fontSize: 10,
-            color: "var(--color-term-text)",
-            lineHeight: 1.75,
-            opacity: 0.9,
-          }}
-        >
-          {analysisText}
-        </p>
+        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,35%)", marginBottom: 10 }}>
+          Labor Market Structure — The Druckenmiller View
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <span style={{ color: "hsl(142,70%,55%)", fontSize: 11, flexShrink: 0, marginTop: 1 }}>▸</span>
+            <p style={{ fontSize: 10, color: "hsl(220,10%,50%)", lineHeight: 1.7, margin: 0 }}>
+              {para1}
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <span style={{ color: "hsl(45,90%,55%)", fontSize: 11, flexShrink: 0, marginTop: 1 }}>▸</span>
+            <p style={{ fontSize: 10, color: "hsl(220,10%,50%)", lineHeight: 1.7, margin: 0 }}>
+              {para2}
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <span style={{ color: "hsl(185,70%,55%)", fontSize: 11, flexShrink: 0, marginTop: 1 }}>▸</span>
+            <p style={{ fontSize: 10, color: "hsl(220,10%,50%)", lineHeight: 1.7, margin: 0 }}>
+              {para3}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Indicator Cards — 3 columns row 1, 2 columns row 2 */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gap: 12,
-        }}
-      >
-        {/* Unemployment Rate */}
+      {/* ── Indicator Cards — row 1: 3 cols ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+
         <IndicatorCard
           label="Unemployment Rate"
-          value={latestUnrate?.value ?? null}
+          value={unrateVal}
           unit="%"
           change={unrateChange}
           decimals={1}
+          signal={unrateSignal}
           detail={
-            latestUnrate
-              ? `Current unemployment is ${formatNum(latestUnrate.value, 1)}%. The CBO estimates the long-run natural rate (NAIRU) at ~4.4%. ` +
-                `Readings below this threshold signal an overheating labor market that historically pressures wages and services inflation. ` +
-                `Druckenmiller views unemployment direction — not level — as the critical signal: a rising rate, even from low levels, often foreshadows a turn in the credit cycle. ` +
-                `The last time UNRATE rose >1pp from trough was 2007–2008, preceding the GFC. Data: BLS via FRED UNRATE.`
+            unrateVal != null
+              ? `Current unemployment is ${formatNum(unrateVal, 1)}%. The CBO estimates the long-run natural rate (NAIRU) at ~4.4%. ` +
+                `${unrateVal > 4.5 ? "Readings above this threshold signal rising slack — historically associated with softening earnings and eventual Fed easing bias." : unrateVal < 4.0 ? "Readings below this threshold signal an overheating labor market that pressures wages and services inflation." : "Current readings are near the NAIRU, consistent with full employment by conventional metrics."} ` +
+                `Druckenmiller views the direction of unemployment — not just the level — as the critical cycle signal. Source: BLS via FRED UNRATE.`
               : undefined
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/UNRATE"
         />
 
-        {/* Nonfarm Payrolls */}
         <IndicatorCard
           label="Nonfarm Payrolls"
-          value={latestPayems?.value != null ? latestPayems.value : null}
+          value={payemsVal}
           unit="K"
           change={payemsChange}
           decimals={0}
+          signal={payemsSignal}
           detail={
-            latestPayems
-              ? `The economy added ${formatNum(latestPayems.value, 0)}K jobs last month. Economists estimate ~100K/month is needed to keep up with working-age population growth; ` +
-                `sustained readings above 200K signal robust labor demand. The change shown is the month-over-month % move in payroll growth — ` +
-                `a deceleration from strong prior months is often more important than the absolute level. ` +
-                `Note: initial payroll prints are heavily revised. Watch 3-month average for signal. Source: BLS PAYEMS.`
+            payemsVal != null
+              ? `The economy added ${formatNum(payemsVal, 0)}K jobs last month. Economists estimate ~70K/month is needed to keep up with working-age population growth; sustained readings above 150K signal robust labor demand. ` +
+                `${payemsVal < 0 ? "Negative payrolls signal outright job losses — historically a precursor to broader earnings pressure and rising default rates." : payemsVal < 70 ? "Readings below the ~70K breakeven suggest the labor market is absorbing workers slower than the population is growing." : "The current pace is comfortably above the breakeven rate."} ` +
+                `Note: initial payroll prints are subject to significant revision. Watch the 3-month average for signal. Source: BLS PAYEMS.`
               : undefined
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/PAYEMS"
         />
 
-        {/* Wage Growth */}
         <IndicatorCard
           label="Wage Growth"
-          value={latestWages?.value ?? null}
+          value={wagesVal}
           unit="% YoY"
           change={wagesChange}
           decimals={1}
+          signal={wagesSignal}
           detail={
-            latestWages
-              ? `Average hourly earnings grew ${formatNum(latestWages.value, 1)}% year-over-year. ` +
-                `Pre-pandemic (2015–2019) wage growth averaged ~3%; readings above 4% can sustain services inflation via the wage-price mechanism. ` +
-                `The Fed targets real wage growth consistent with 2% inflation + trend productivity (~1.5%), implying a sustainable nominal ceiling near 3.5%. ` +
-                `Wage growth above that level limits the Fed's ability to cut rates even if goods disinflation continues. Source: BLS CES0500000003.`
+            wagesVal != null
+              ? `Average hourly earnings grew ${formatNum(wagesVal, 1)}% year-over-year. ` +
+                `Pre-pandemic (2015–2019) wage growth averaged ~3%; readings above 4.5% can sustain services inflation via the wage-price mechanism. ` +
+                `The Fed's sustainable nominal wage ceiling given 2% inflation + ~1.5% productivity growth is approximately 3.5%. ` +
+                `${wagesVal > 4.5 ? "Current wage growth is inflationary — the primary channel keeping services inflation sticky above the 2% target." : wagesVal < 3.0 ? "Wage growth is cooling toward pre-pandemic levels, easing services inflation pressure and opening room for Fed easing." : "Wage growth is above pre-pandemic norms but moderating — a key variable for the Fed's last-mile inflation battle."} ` +
+                `Source: BLS CES0500000003.`
               : undefined
           }
           source="BLS / FRED"
@@ -403,51 +432,38 @@ export default function Labor() {
         />
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
-        }}
-      >
-        {/* Initial Claims */}
+      {/* ── Indicator Cards — row 2: 2 cols ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+
         <IndicatorCard
-          label="Initial Claims"
-          value={latestClaims?.value != null ? latestClaims.value / 1000 : null}
-          unit="K"
-          change={claimsChange}
-          decimals={0}
+          label="AI Labor Displacement"
+          value={null}
+          unit=""
+          changeLabel="Rising Risk"
+          signal="bearish"
           detail={
-            latestClaims
-              ? `Initial jobless claims are the most timely leading labor market indicator — published weekly with a 5-day lag. ` +
-                `${formatNum(latestClaims.value / 1000, 0)}K claims filed last week. ` +
-                `Readings consistently below 250K signal a historically tight labor market. ` +
-                `Sustained readings above 300K have historically preceded broader economic weakness within 1–2 quarters; above 400K is recessionary. ` +
-                `Claims are also a key input to the Sahm Rule — a recession signal triggered when the 3-month average unemployment rate rises 0.5pp above its prior-year low. Source: DOL ICSA.`
-              : undefined
+            "AI-driven automation is increasingly displacing white-collar and knowledge-worker roles across technology, finance, legal, and administrative sectors. " +
+            "Unlike prior waves of automation (which displaced routine manual labor), generative AI threatens highly-compensated cognitive tasks — " +
+            "compressing headcount needs even as economic output grows. This 'jobless growth' dynamic could suppress payrolls and wage growth simultaneously, " +
+            "undermining traditional labor market signals used by the Fed. The displacement risk is emerging and not yet fully captured in aggregate employment data."
           }
-          source="DOL / FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/ICSA"
+          source="Structural / Derived"
         />
 
-        {/* 10Y Breakeven */}
         <IndicatorCard
-          label="10Y Breakeven Inflation"
-          value={latestBreakeven?.value ?? null}
-          unit="%"
-          change={breakevenChange}
-          decimals={2}
+          label="Breakeven Rate"
+          value={null}
+          unit=""
+          changeLabel={trendPayems != null ? `~${formatNum(trendPayems, 0)}K/mo trend` : "<70K/mo"}
+          signal="neutral"
           detail={
-            latestBreakeven
-              ? `The 10-year breakeven inflation rate of ${formatNum(latestBreakeven.value, 2)}% reflects bond market expectations for average CPI over the next decade, ` +
-                `derived from the spread between nominal 10Y Treasuries and 10Y TIPS. ` +
-                `A breakeven above 2.5% signals markets doubt the Fed can sustainably deliver on its 2% mandate — historically a constraint on equity multiples. ` +
-                `Below 2.0% suggests deflationary risk or aggressive forward guidance credibility. ` +
-                `Included here because labor market tightness is the primary driver of medium-term inflation expectations. Source: FRED T10YIE.`
-              : undefined
+            "The labor market breakeven rate — estimated at approximately 70K–100K jobs per month — represents the pace of job creation required to absorb new entrants to the labor force and hold unemployment steady. " +
+            "This estimate is derived from BLS labor force participation trends and civilian population growth. " +
+            "Monthly payroll readings below this threshold imply rising unemployment over time; readings above it imply continued tightening. " +
+            "Note the breakeven shifts with demographic trends: an aging population reduces it; increased immigration raises it."
           }
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/T10YIE"
+          source="Derived / BLS"
+          sourceUrl="https://fred.stlouisfed.org/series/PAYEMS"
         />
       </div>
 
