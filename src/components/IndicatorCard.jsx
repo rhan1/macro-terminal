@@ -27,6 +27,32 @@ const SIGNAL_STYLES = {
 
 const DIR_ICONS = { up: "▲", down: "▼", flat: "◆" };
 
+function Sparkline({ data, color, width = 48, height = 20 }) {
+  if (!data || data.length < 2) return null;
+  const vals = data.map((d) => (typeof d === "number" ? d : d.value)).filter((v) => v != null);
+  if (vals.length < 2) return null;
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min || 1;
+  const points = vals.map((v, i) => {
+    const x = (i / (vals.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 2) - 1;
+    return `${x},${y}`;
+  });
+  return (
+    <svg width={width} height={height} style={{ display: "block", opacity: 0.7 }}>
+      <polyline
+        points={points.join(" ")}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export default function IndicatorCard({
   label,
   value,
@@ -41,6 +67,7 @@ export default function IndicatorCard({
   decimals = 2,
   prefix = "",
   dateLabel,
+  sparkData,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -67,16 +94,19 @@ export default function IndicatorCard({
           <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,40%)", marginBottom: 2 }}>
             {label}
           </div>
-          <div
-            className={s.glow}
-            style={{
-              fontSize: 18,
-              fontWeight: 600,
-              color: s.text,
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {value != null ? `${prefix}${formatNum(value, decimals)}${unit}` : "—"}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              className={s.glow}
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                color: s.text,
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {value != null ? `${prefix}${formatNum(value, decimals)}${unit}` : "—"}
+            </span>
+            {sparkData && <Sparkline data={sparkData} color={s.text} />}
           </div>
         </div>
         <div

@@ -24,26 +24,41 @@ export async function fetchSeries(seriesId, { limit = 30, frequency = "d", units
   });
   if (units) params.set("units", units);
 
-  const res = await fetch(`/api/fred?${params}`);
-  if (!res.ok) throw new Error(`FRED ${seriesId}: ${res.status}`);
-  const json = await res.json();
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 300 * Math.pow(2, attempt)));
+    try {
+      const res = await fetch(`/api/fred?${params}`);
+      if (res.status === 429 || res.status >= 500) {
+        lastError = new Error(`FRED ${seriesId}: ${res.status}`);
+        continue;
+      }
+      if (!res.ok) throw new Error(`FRED ${seriesId}: ${res.status}`);
+      const json = await res.json();
 
-  const data = (json.observations || [])
-    .filter((o) => o.value !== ".")
-    .map((o) => ({
-      date: o.date,
-      value: parseFloat(o.value),
-    }));
+      const data = (json.observations || [])
+        .filter((o) => o.value !== ".")
+        .map((o) => ({
+          date: o.date,
+          value: parseFloat(o.value),
+        }));
 
-  cache.set(key, { data, ts: Date.now() });
-  return data;
+      cache.set(key, { data, ts: Date.now() });
+      return data;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError;
 }
 
 export async function fetchMultiple(seriesMap) {
   const entries = Object.entries(seriesMap);
   const results = await Promise.allSettled(
-    entries.map(([key, opts]) =>
-      fetchSeries(opts.id, opts).then((data) => [key, data])
+    entries.map(([key, opts], i) =>
+      new Promise(resolve => setTimeout(resolve, i * 50))
+        .then(() => fetchSeries(opts.id, opts))
+        .then((data) => [key, data])
     )
   );
   const out = {};
@@ -83,6 +98,7 @@ export const SERIES = {
   // Market snapshot
   SP500: { id: "SP500", frequency: "d" },
   NASDAQ: { id: "NASDAQCOM", frequency: "d" },
+  DXY: { id: "DTWEXBGS", frequency: "d", limit: 30 },
   DGS10: { id: "DGS10", frequency: "d" },
   DGS2: { id: "DGS2", frequency: "d" },
   VIXCLS: { id: "VIXCLS", frequency: "d" },
@@ -111,6 +127,16 @@ export const SERIES = {
   CORECPI: { id: "CPILFESL", frequency: "m", limit: 24, units: "pc1" },
   COREPCE: { id: "PCEPILFE", frequency: "m", limit: 24, units: "pc1" },
   PPI: { id: "PPIACO", frequency: "m", limit: 24, units: "pc1" },
+
+  // Inflation components (SA indexes, YoY via pc1)
+  CPI_SHELTER:    { id: "CUSR0000SAH1",   frequency: "m", limit: 12, units: "pc1" },
+  CPI_FOOD:       { id: "CPIUFDSL",       frequency: "m", limit: 12, units: "pc1" },
+  CPI_ENERGY:     { id: "CPIENGSL",       frequency: "m", limit: 12, units: "pc1" },
+  CPI_MEDICAL:    { id: "CPIMEDSL",       frequency: "m", limit: 12, units: "pc1" },
+  CPI_APPAREL:    { id: "CPIAPPSL",       frequency: "m", limit: 12, units: "pc1" },
+  CPI_TRANSPORT:  { id: "CPITRNSL",       frequency: "m", limit: 12, units: "pc1" },
+  CPI_RECREATION: { id: "CPIRECSL",       frequency: "m", limit: 12, units: "pc1" },
+  CPI_USED_CARS:  { id: "CUSR0000SETA02", frequency: "m", limit: 12, units: "pc1" },
 
   // Growth
   GDP: { id: "A191RL1Q225SBEA", frequency: "q", limit: 12 },

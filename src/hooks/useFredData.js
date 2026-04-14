@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { fetchMultiple } from "../services/fred";
+import { useState, useEffect, useRef } from "react";
+import { fetchSeries } from "../services/fred";
 
 export function useFredData(seriesMap) {
   const [data, setData] = useState({});
@@ -13,19 +13,29 @@ export function useFredData(seriesMap) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchMultiple(seriesMap)
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(err.message);
-          setLoading(false);
-        }
-      });
+    setData({});
+
+    const entries = Object.entries(seriesMap);
+    let settled = 0;
+
+    entries.forEach(([k, opts], i) => {
+      setTimeout(() => {
+        fetchSeries(opts.id, opts)
+          .then((result) => {
+            if (!cancelled) {
+              setData((prev) => ({ ...prev, [k]: result }));
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            settled++;
+            if (settled === entries.length && !cancelled) {
+              setLoading(false);
+            }
+          });
+      }, i * 50);
+    });
+
     return () => { cancelled = true; };
   }, [key]);
 

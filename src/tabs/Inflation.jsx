@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
@@ -50,22 +49,21 @@ function buildChartData(cpiArr, coreCpiArr) {
     .map((pt) => ({ ...pt, label: formatMonthYear(pt.date) }));
 }
 
-// Derive approximate CPI component YoY values anchored to headline CPI level
-function getComponents(headlineCpi) {
-  const h = headlineCpi ?? 2.4;
-  const scale = h / 2.4;
-  return [
-    { name: "Shelter",              value: parseFloat((3.0 * scale).toFixed(1)) },
-    { name: "Food",                 value: parseFloat((3.1 * scale).toFixed(1)) },
-    { name: "Energy",               value: parseFloat((0.5 * scale).toFixed(1)) },
-    { name: "Medical Care",         value: parseFloat((3.4 * scale).toFixed(1)) },
-    { name: "Household Furnishings",value: parseFloat((3.9 * scale).toFixed(1)) },
-    { name: "Personal Care",        value: parseFloat((4.5 * scale).toFixed(1)) },
-    { name: "Recreation",           value: parseFloat((2.3 * scale).toFixed(1)) },
-    { name: "Apparel",              value: parseFloat((1.8 * scale).toFixed(1)) },
-    { name: "Used Cars & Trucks",   value: parseFloat((-1.2 * scale).toFixed(1)) },
-    { name: "Transportation",       value: parseFloat((2.8 * scale).toFixed(1)) },
+function getComponentsFromData(data) {
+  const components = [
+    { name: "Shelter",            key: "CPI_SHELTER" },
+    { name: "Food",               key: "CPI_FOOD" },
+    { name: "Energy",             key: "CPI_ENERGY" },
+    { name: "Medical Care",       key: "CPI_MEDICAL" },
+    { name: "Apparel",            key: "CPI_APPAREL" },
+    { name: "Transportation",     key: "CPI_TRANSPORT" },
+    { name: "Recreation",         key: "CPI_RECREATION" },
+    { name: "Used Cars & Trucks", key: "CPI_USED_CARS" },
   ];
+  return components.map(({ name, key }) => {
+    const val = latest(data[key])?.value;
+    return { name, value: val != null ? parseFloat(val.toFixed(1)) : null };
+  }).filter(c => c.value != null);
 }
 
 function barColor(value) {
@@ -98,9 +96,18 @@ export default function Inflation() {
     COREPCE: SERIES.COREPCE,
     PPI:     SERIES.PPI,
     OIL:     SERIES.OIL,
+    CPI_SHELTER:    SERIES.CPI_SHELTER,
+    CPI_FOOD:       SERIES.CPI_FOOD,
+    CPI_ENERGY:     SERIES.CPI_ENERGY,
+    CPI_MEDICAL:    SERIES.CPI_MEDICAL,
+    CPI_APPAREL:    SERIES.CPI_APPAREL,
+    CPI_TRANSPORT:  SERIES.CPI_TRANSPORT,
+    CPI_RECREATION: SERIES.CPI_RECREATION,
+    CPI_USED_CARS:  SERIES.CPI_USED_CARS,
+    BREAKEVEN:      SERIES.BREAKEVEN,
   });
 
-  if (loading) return <Loading />;
+  if (loading && Object.keys(data).length === 0) return <Loading />;
 
   if (error) {
     return (
@@ -136,14 +143,13 @@ export default function Inflation() {
   const oilPrior   = prior(oilData);
   const oilChange  = change(oilLatest?.value, oilPrior?.value);
 
-  // CPI MoM — derive from raw index values (not pc1 units); use approximate change
-  // We use the change between latest and prior as a proxy for MoM rate
-  const cpiMoM = cpiLatest && cpiPriorVal
-    ? cpiLatest.value - cpiPriorVal.value
-    : null;
+  const breakevenData = data.BREAKEVEN || [];
+  const breakevenLatest = latest(breakevenData);
+  const breakevenPrior = prior(breakevenData);
+  const breakevenChange = change(breakevenLatest?.value, breakevenPrior?.value);
 
   const chartData  = buildChartData(cpiData, coreCpiData);
-  const components = getComponents(cpiLatest?.value);
+  const components = getComponentsFromData(data);
 
   // Signals
   function cpiSignal(v) {
@@ -162,12 +168,6 @@ export default function Inflation() {
     if (v == null) return "neutral";
     if (v > 3) return "bearish";
     if (v < 2) return "bullish";
-    return "neutral";
-  }
-  function momSignal(v) {
-    if (v == null) return "neutral";
-    if (v > 0.3) return "bearish";
-    if (v < 0.1) return "bullish";
     return "neutral";
   }
   function oilSignal(v) {
@@ -277,7 +277,7 @@ export default function Inflation() {
       {/* 3. CPI Component Breakdown */}
       <div className="panel">
         <div className="section-label">CPI Component Breakdown</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 32px" }}>
+        <div className="grid-2">
           {components.map(({ name, value }) => {
             const color = barColor(value);
             return (
@@ -315,7 +315,7 @@ export default function Inflation() {
       </div>
 
       {/* 4. Indicator Cards — 3×2 grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+      <div className="grid-3">
 
         <IndicatorCard
           label="CPI (Headline YoY)"
@@ -374,18 +374,17 @@ export default function Inflation() {
         />
 
         <IndicatorCard
-          label="CPI MoM"
-          value={cpiMoM}
+          label="10Y Breakeven"
+          value={breakevenLatest?.value}
           unit="%"
-          change={null}
-          changeLabel="month-over-month"
-          direction={cpiMoM != null ? (cpiMoM > 0 ? "up" : cpiMoM < 0 ? "down" : "flat") : undefined}
-          signal={momSignal(cpiMoM)}
-          detail="Month-over-month change in the headline CPI. A reading above 0.3% annualizes to 3.6%+ and is inconsistent with the Fed's 2% target. Readings persistently near 0.1–0.2% are required for inflation to sustainably return to target."
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/CPIAUCSL"
-          decimals={2}
-          dateLabel={fmtCardDate(latest(cpiData)?.date)}
+          change={breakevenChange}
+          changeLabel={breakevenChange != null ? formatPct(breakevenChange) : undefined}
+          direction={breakevenChange != null ? (breakevenChange > 0 ? "up" : breakevenChange < 0 ? "down" : "flat") : undefined}
+          signal={breakevenLatest?.value == null ? "neutral" : breakevenLatest.value > 2.5 ? "bearish" : breakevenLatest.value < 2.0 ? "bullish" : "neutral"}
+          detail="The 10-year Treasury breakeven inflation rate — the market's real-time expectation for average annual CPI over the next decade. Derived from the spread between nominal and TIPS yields. Above 2.5% signals the market expects inflation to remain sticky; below 2.0% signals deflation risk."
+          source="FRED T10YIE"
+          sourceUrl="https://fred.stlouisfed.org/series/T10YIE"
+          dateLabel={fmtCardDate(latest(breakevenData)?.date)}
         />
 
         <IndicatorCard

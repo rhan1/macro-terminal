@@ -18,6 +18,7 @@ const FETCH = {
   UNRATE: SERIES.UNRATE,
   PAYEMS: SERIES.PAYEMS,
   WAGES:  SERIES.WAGES,
+  CLAIMS: SERIES.CLAIMS,
 };
 
 function fmtMonthYear(dateStr) {
@@ -42,7 +43,7 @@ function chartSlice(arr, n = 24) {
 export default function Labor() {
   const { data, loading, error } = useFredData(FETCH);
 
-  if (loading) return <Loading />;
+  if (loading && Object.keys(data).length === 0) return <Loading />;
 
   if (error) {
     return (
@@ -55,6 +56,7 @@ export default function Labor() {
   const unrateArr = data.UNRATE || [];
   const payemsArr = data.PAYEMS || [];
   const wagesArr  = data.WAGES  || [];
+  const claimsArr = data.CLAIMS || [];
 
   const latestUnrate = latest(unrateArr);
   const priorUnrate  = prior(unrateArr, 1);
@@ -63,13 +65,19 @@ export default function Labor() {
   const latestWages  = latest(wagesArr);
   const priorWages   = prior(wagesArr, 1);
 
+  const latestClaims = latest(claimsArr);
+  const priorClaims  = prior(claimsArr, 1);
+
   const unrateVal = latestUnrate?.value ?? null;
   const payemsVal = latestPayems?.value ?? null;
   const wagesVal  = latestWages?.value  ?? null;
+  const claimsValRaw = latestClaims?.value ?? null;
+  const claimsVal = claimsValRaw != null ? claimsValRaw / 1000 : null;
 
   const unrateChange = change(unrateVal, priorUnrate?.value);
   const payemsChange = change(payemsVal, priorPayems?.value);
   const wagesChange  = change(wagesVal,  priorWages?.value);
+  const claimsChange = change(claimsVal, priorClaims?.value != null ? priorClaims.value / 1000 : null);
 
   // Unrate chart header: current + change in pp
   const unratePpChange = unrateVal != null && priorUnrate?.value != null
@@ -162,6 +170,7 @@ export default function Labor() {
 
   const unrateChart = chartSlice(unrateArr, 24);
   const payemsChart = chartSlice(payemsArr, 24);
+  const claimsChart = chartSlice(claimsArr, 30).map(d => ({ ...d, value: d.value / 1000 }));
 
   return (
     <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -208,7 +217,7 @@ export default function Labor() {
       )}
 
       {/* ── Charts Side-by-Side ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-2">
 
         {/* Left: Unemployment Rate */}
         <div className="panel">
@@ -226,7 +235,7 @@ export default function Labor() {
             )}
           </div>
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={unrateChart} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+            <AreaChart data={unrateChart} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} syncId="labor">
               <defs>
                 <linearGradient id="unrateGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="20%" stopColor="hsl(0,72%,55%)" stopOpacity={0.20} />
@@ -293,7 +302,7 @@ export default function Labor() {
             )}
           </div>
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={payemsChart} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+            <AreaChart data={payemsChart} margin={{ top: 8, right: 8, left: -10, bottom: 0 }} syncId="labor">
               <defs>
                 <linearGradient id="payemsGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="15%" stopColor="hsl(142,70%,55%)" stopOpacity={0.15} />
@@ -353,6 +362,94 @@ export default function Labor() {
         </div>
       </div>
 
+      {/* ── Claims Chart (full-width) ── */}
+      <div className="panel">
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,35%)", marginBottom: 4 }}>
+            Initial Jobless Claims (Weekly)
+          </div>
+          {claimsVal != null && (() => {
+            const priorClaimsK = priorClaims?.value != null ? priorClaims.value / 1000 : null;
+            const claimsDiff = priorClaimsK != null ? claimsVal - priorClaimsK : null;
+            return (
+              <div style={{ fontSize: 14, fontWeight: 600, color: "hsl(185,70%,55%)", fontVariantNumeric: "tabular-nums" }}>
+                {formatNum(claimsVal, 0)}K
+                {claimsDiff != null && (
+                  <span style={{ fontSize: 11, marginLeft: 6, color: claimsDiff > 0 ? "hsl(0,72%,55%)" : "hsl(142,70%,55%)" }}>
+                    {claimsDiff > 0 ? "▲" : "▼"} {claimsDiff >= 0 ? "+" : ""}{formatNum(claimsDiff, 0)}K
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+        <ResponsiveContainer width="100%" height={160}>
+          <AreaChart data={claimsChart} margin={{ top: 8, right: 8, left: -10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="claimsGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="20%" stopColor="hsl(185,70%,55%)" stopOpacity={0.20} />
+                <stop offset="100%" stopColor="hsl(185,70%,55%)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid {...gridStyle} />
+            <XAxis
+              dataKey="date"
+              tickFormatter={fmtMonthYear}
+              tick={axisStyle}
+              tickLine={false}
+              axisLine={{ stroke: "hsla(220,15%,20%,0.6)" }}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              tick={axisStyle}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v) => `${v}K`}
+              padding={{ top: 8, bottom: 8 }}
+            />
+            <Tooltip
+              content={<ChartTooltip formatter={(v) => `${formatNum(v, 0)}K`} />}
+            />
+            <ReferenceLine
+              y={300}
+              stroke="hsl(0,72%,55%)"
+              strokeDasharray="5 3"
+              label={{
+                value: "Recession ~300K",
+                position: "insideTopRight",
+                fill: "hsl(0,72%,55%)",
+                fontSize: 8,
+                fontFamily: "JetBrains Mono, monospace",
+                dy: -4,
+              }}
+            />
+            <ReferenceLine
+              y={225}
+              stroke="hsl(142,70%,55%)"
+              strokeDasharray="5 3"
+              label={{
+                value: "Healthy <225K",
+                position: "insideBottomRight",
+                fill: "hsl(142,70%,55%)",
+                fontSize: 8,
+                fontFamily: "JetBrains Mono, monospace",
+                dy: 4,
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              name="CLAIMS"
+              stroke="hsl(185,70%,55%)"
+              strokeWidth={2}
+              fill="url(#claimsGrad)"
+              dot={false}
+              activeDot={{ r: 3, fill: "hsl(185,70%,55%)" }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
       {/* ── Narrative Panel ── */}
       <div className="panel">
         <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,35%)", marginBottom: 10 }}>
@@ -381,7 +478,7 @@ export default function Labor() {
       </div>
 
       {/* ── Indicator Cards — row 1: 3 cols ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+      <div className="grid-3">
 
         <IndicatorCard
           label="Unemployment Rate"
@@ -444,22 +541,19 @@ export default function Labor() {
       </div>
 
       {/* ── Indicator Cards — row 2: 2 cols ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="grid-2">
 
         <IndicatorCard
-          label="AI Labor Displacement"
-          value={null}
-          unit=""
-          changeLabel="Rising Risk"
-          signal="bearish"
-          detail={
-            "AI-driven automation is increasingly displacing white-collar and knowledge-worker roles across technology, finance, legal, and administrative sectors. " +
-            "Unlike prior waves of automation (which displaced routine manual labor), generative AI threatens highly-compensated cognitive tasks — " +
-            "compressing headcount needs even as economic output grows. This 'jobless growth' dynamic could suppress payrolls and wage growth simultaneously, " +
-            "undermining traditional labor market signals used by the Fed. The displacement risk is emerging and not yet fully captured in aggregate employment data."
-          }
-          source="Structural / Derived"
-          dateLabel="Ongoing"
+          label="Initial Claims"
+          value={claimsVal}
+          unit="K"
+          change={claimsChange}
+          decimals={0}
+          signal={claimsVal == null ? "neutral" : claimsVal > 300 ? "bearish" : claimsVal < 225 ? "bullish" : "neutral"}
+          detail="Weekly initial unemployment claims. Below 225K = tight labor market; above 300K historically coincides with recession. The highest-frequency labor market indicator available."
+          source="DOL / FRED ICSA"
+          sourceUrl="https://fred.stlouisfed.org/series/ICSA"
+          dateLabel={fmtCardDate(latest(claimsArr)?.date)}
         />
 
         <IndicatorCard
