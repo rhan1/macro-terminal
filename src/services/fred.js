@@ -87,7 +87,7 @@ export const SERIES = {
   DGS2: { id: "DGS2", frequency: "d" },
   VIXCLS: { id: "VIXCLS", frequency: "d" },
   OIL: { id: "DCOILWTICO", frequency: "d" },
-  GOLD: { id: "GOLDAMGBD228NLBM", frequency: "d" },
+  GOLD: { id: "NASDAQQGLDI", frequency: "d" },
 
   // Yield curve
   DGS1MO: { id: "DGS1MO", frequency: "d" },
