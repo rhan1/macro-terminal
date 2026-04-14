@@ -1,9 +1,5 @@
 {
+  "framework": "vite",
   "buildCommand": "npx vite build",
-  "outputDirectory": "dist",
-  "functions": {
-    "api/*.js": {
-      "runtime": "@vercel/node@4"
-    }
-  }
+  "outputDirectory": "dist"
 }
