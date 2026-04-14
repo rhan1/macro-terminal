@@ -22,6 +22,13 @@ function formatMonthYear(dateStr) {
   return `${MONTH_NAMES[parseInt(month, 10) - 1]} ${year.slice(2)}`;
 }
 
+function fmtCardDate(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  const mi = parseInt(m, 10) - 1;
+  return d === "01" ? `${MONTH_NAMES[mi]} ${y}` : `${MONTH_NAMES[mi]} ${parseInt(d, 10)}, ${y}`;
+}
+
 function buildChartData(cpiArr, coreCpiArr) {
   if (!cpiArr || !coreCpiArr) return [];
   const cpiAsc = [...cpiArr].reverse();
@@ -321,6 +328,7 @@ export default function Inflation() {
           detail="Headline Consumer Price Index, year-over-year. Measures price changes across the full CPI basket including food, energy, and shelter. The broadest measure of US consumer inflation."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CPIAUCSL"
+          dateLabel={fmtCardDate(latest(cpiData)?.date)}
         />
 
         <IndicatorCard
@@ -334,6 +342,7 @@ export default function Inflation() {
           detail="CPI excluding food and energy. Strips volatile components to show the underlying inflation trend. When core remains sticky while headline falls, disinflation may stall without further restrictive policy."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CPILFESL"
+          dateLabel={fmtCardDate(latest(coreCpiData)?.date)}
         />
 
         <IndicatorCard
@@ -347,6 +356,7 @@ export default function Inflation() {
           detail="The Federal Reserve's preferred inflation measure. Uses a broader spending basket than CPI and adjusts for consumer substitution behavior. The FOMC's official 2% inflation target is expressed in Core PCE terms."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/PCEPILFE"
+          dateLabel={fmtCardDate(latest(corePceData)?.date)}
         />
 
         <IndicatorCard
@@ -360,6 +370,7 @@ export default function Inflation() {
           detail="Producer Price Index for all commodities. Measures price changes at the wholesale level. PPI leads CPI by 3–6 months — upstream cost pressures flow through to consumer prices. Negative PPI is a disinflationary tailwind."
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/PPIACO"
+          dateLabel={fmtCardDate(latest(ppiData)?.date)}
         />
 
         <IndicatorCard
@@ -374,6 +385,7 @@ export default function Inflation() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CPIAUCSL"
           decimals={2}
+          dateLabel={fmtCardDate(latest(cpiData)?.date)}
         />
 
         <IndicatorCard
@@ -389,6 +401,7 @@ export default function Inflation() {
           source="FRED / EIA"
           sourceUrl="https://fred.stlouisfed.org/series/DCOILWTICO"
           decimals={2}
+          dateLabel={fmtCardDate(latest(oilData)?.date)}
         />
 
       </div>

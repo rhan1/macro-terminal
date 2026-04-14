@@ -31,6 +31,13 @@ function fmtMonthly(dateStr) {
   return `${MONTHS[parseInt(m, 10) - 1]} ${y.slice(2)}`;
 }
 
+function fmtCardDate(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  const mi = parseInt(m, 10) - 1;
+  return d === "01" ? `${MONTHS[mi]} ${y}` : `${MONTHS[mi]} ${parseInt(d, 10)}, ${y}`;
+}
+
 // ── risk level colors ─────────────────────────────────────────────────────────
 const RISK_COLORS = {
   HIGH:     { bg: "hsla(0,72%,55%,0.12)",   border: "hsla(0,72%,55%,0.3)",   text: "hsl(0,72%,55%)"   },
@@ -464,6 +471,7 @@ export default function Risk() {
           signal={vixSignal}
           detail="CBOE Volatility Index — 30-day implied S&P 500 volatility. Below 18 = calm markets; 18–25 = cautious; above 25 = fear; above 30 = crisis/panic. Spikes: COVID (66), GFC (80)."
           source="CBOE / FRED VIXCLS"
+          dateLabel={fmtCardDate(latest(data.VIXCLS)?.date)}
         />
         <IndicatorCard
           label="Consumer Confidence"
@@ -474,6 +482,7 @@ export default function Risk() {
           signal={sentSignal}
           detail="University of Michigan Consumer Sentiment. Long-run avg ~86. Below 60 = significant pessimism historically preceding spending contractions. All-time low: 50.0 (Jun 2022)."
           source="UMich / FRED UMCSENT"
+          dateLabel={fmtCardDate(latest(data.UMCSENT)?.date)}
         />
         <IndicatorCard
           label="Gold (GLD)"
@@ -485,6 +494,7 @@ export default function Risk() {
           signal={goldSignal}
           detail="Gold spot price (USD/troy oz). Above $2,200 signals active safe-haven demand — a bearish risk signal indicating geopolitical or macro stress. All-time high driven by de-dollarization fears."
           source="ICE / FRED GOLDAMGBD228NLBM"
+          dateLabel={fmtCardDate(latest(data.GOLD)?.date)}
         />
         <IndicatorCard
           label="HY Credit Spreads"
@@ -495,6 +505,7 @@ export default function Risk() {
           signal={hySignal}
           detail="ICE BofA High Yield OAS over Treasuries. Below 3% = complacent; 3–5% = stress building; above 5% = bearish; above 6% = distress. Widened to 20%+ during GFC. Leading indicator for defaults."
           source="ICE BofA / FRED BAMLH0A0HYM2"
+          dateLabel={fmtCardDate(latest(data.HYSPREAD)?.date)}
         />
         <IndicatorCard
           label="Recession Probability"
@@ -505,6 +516,7 @@ export default function Risk() {
           signal={recSignal}
           detail="NY Fed smoothed recession probability from probit model using yield spread. Above 30% = elevated risk; above 40% = historically aligns with confirmed NBER recessions. Lags by ~1 quarter."
           source="NY Fed / FRED RECPROUSM156N"
+          dateLabel={fmtCardDate(latest(data.RECESSION)?.date)}
         />
         <IndicatorCard
           label="S&P 500"
@@ -515,6 +527,7 @@ export default function Risk() {
           signal={sp500Signal}
           detail="S&P 500 composite index. Drawdowns of 10%+ (correction) or 20%+ (bear market) alongside rising VIX and widening credit spreads signal compounding systemic risk."
           source="S&P / FRED SP500"
+          dateLabel={fmtCardDate(latest(data.SP500)?.date)}
         />
       </div>
 

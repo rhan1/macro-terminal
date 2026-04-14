@@ -26,6 +26,14 @@ function fmtMonthYear(dateStr) {
   return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
 }
 
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtCardDate(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  const mi = parseInt(m, 10) - 1;
+  return d === "01" ? `${MONTHS[mi]} ${y}` : `${MONTHS[mi]} ${parseInt(d, 10)}, ${y}`;
+}
+
 function chartSlice(arr, n = 24) {
   if (!arr || arr.length === 0) return [];
   return [...arr].slice(0, n).reverse();
@@ -391,6 +399,7 @@ export default function Labor() {
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/UNRATE"
+          dateLabel={fmtCardDate(latest(unrateArr)?.date)}
         />
 
         <IndicatorCard
@@ -409,6 +418,7 @@ export default function Labor() {
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/PAYEMS"
+          dateLabel={fmtCardDate(latest(payemsArr)?.date)}
         />
 
         <IndicatorCard
@@ -429,6 +439,7 @@ export default function Labor() {
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CES0500000003"
+          dateLabel={fmtCardDate(latest(wagesArr)?.date)}
         />
       </div>
 
@@ -448,6 +459,7 @@ export default function Labor() {
             "undermining traditional labor market signals used by the Fed. The displacement risk is emerging and not yet fully captured in aggregate employment data."
           }
           source="Structural / Derived"
+          dateLabel="Ongoing"
         />
 
         <IndicatorCard
@@ -464,6 +476,7 @@ export default function Labor() {
           }
           source="Derived / BLS"
           sourceUrl="https://fred.stlouisfed.org/series/PAYEMS"
+          dateLabel={fmtCardDate(latest(payemsArr)?.date)}
         />
       </div>
 

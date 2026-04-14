@@ -32,6 +32,23 @@ function toQuarterLabel(dateStr) {
   return `${q} ${year}`;
 }
 
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtCardDate(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  const mi = parseInt(m, 10) - 1;
+  return d === "01" ? `${MONTHS[mi]} ${y}` : `${MONTHS[mi]} ${parseInt(d, 10)}, ${y}`;
+}
+
+function fmtCardQuarter(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  const month = d.getMonth() + 1;
+  const year = d.getFullYear();
+  const q = month <= 3 ? "Q1" : month <= 6 ? "Q2" : month <= 9 ? "Q3" : "Q4";
+  return `${q} ${year}`;
+}
+
 function buildGdpChartData(raw) {
   if (!raw || raw.length === 0) return [];
   return [...raw].slice(0, 12).reverse().map((pt) => ({
@@ -540,6 +557,7 @@ export default function Growth() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
           decimals={1}
+          dateLabel={fmtCardQuarter(latest(gdpRaw)?.date)}
         />
 
         <IndicatorCard
@@ -554,6 +572,7 @@ export default function Growth() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/INDPRO"
           decimals={2}
+          dateLabel={fmtCardDate(latest(indproRaw)?.date)}
         />
 
         <IndicatorCard
@@ -568,6 +587,7 @@ export default function Growth() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/M2SL"
           decimals={2}
+          dateLabel={fmtCardDate(latest(m2Raw)?.date)}
         />
 
         <IndicatorCard
@@ -582,6 +602,7 @@ export default function Growth() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/HOUST"
           decimals={0}
+          dateLabel={fmtCardDate(latest(housingRaw)?.date)}
         />
 
         <IndicatorCard
@@ -631,6 +652,7 @@ export default function Growth() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/DFF"
           decimals={2}
+          dateLabel={fmtCardDate(latest(fedfundsRaw)?.date)}
         />
 
       </div>
