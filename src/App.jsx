@@ -58,7 +58,9 @@ export default function App() {
           padding: 16,
         }}
       >
-        <ActiveComponent />
+        <div className="tab-content" key={activeTab}>
+          <ActiveComponent />
+        </div>
         <Footer />
       </main>
     </div>

@@ -330,7 +330,7 @@ function bpsLabel(cur, prv) {
 export default function Rates() {
   const { data, loading, error } = useFredData(SERIES_MAP);
 
-  if (loading) return <Loading />;
+  if (loading && Object.keys(data).length === 0) return <Loading />;
   if (error) return <div style={{ padding: 24, color: RED, fontSize: 11 }}>ERROR: {error}</div>;
 
   const ffCur = latest(data.FEDFUNDS || []);
@@ -382,7 +382,7 @@ export default function Rates() {
       </div>
 
       {/* Two charts side-by-side */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+      <div className="grid-2" style={{ marginBottom: 16 }}>
         {/* Left: U.S. Treasury Yield Curve */}
         <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: 12 }}>
           <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: DIM, marginBottom: 8 }}>
@@ -401,7 +401,7 @@ export default function Rates() {
       </div>
 
       {/* 6 Indicator Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+      <div className="grid-3">
         <IndicatorCard
           label="Fed Funds Rate"
           value={ffCur?.value}

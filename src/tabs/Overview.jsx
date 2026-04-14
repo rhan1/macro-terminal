@@ -47,6 +47,7 @@ const FETCH_SERIES = {
   DGS7:       SERIES.DGS7,
   DGS20:      SERIES.DGS20,
   DGS30:      SERIES.DGS30,
+  DXY:        SERIES.DXY,
 };
 
 // ── Date helper ───────────────────────────────────────────────────────────────
@@ -234,10 +235,21 @@ function getUpcomingEvents() {
   }
 
   function nextFOMC() {
-    const base = new Date(2025, 0, 29);
-    let d = new Date(base);
-    while (d <= now) d.setDate(d.getDate() + 42);
-    return d;
+    const dates = [
+      new Date(2026, 0, 28),
+      new Date(2026, 2, 18),
+      new Date(2026, 4, 6),
+      new Date(2026, 5, 17),
+      new Date(2026, 6, 29),
+      new Date(2026, 8, 16),
+      new Date(2026, 10, 4),
+      new Date(2026, 11, 16),
+    ];
+    const now = new Date();
+    for (const d of dates) {
+      if (d > now) return d;
+    }
+    return dates[dates.length - 1];
   }
 
   function nextGDP() {
@@ -294,7 +306,7 @@ export default function Overview() {
       })()
     : null;
 
-  if (loading) return <Loading />;
+  if (loading && Object.keys(data).length === 0) return <Loading />;
   if (error) {
     return (
       <div style={{ padding: 40, color: "var(--color-term-red)", fontSize: 11 }}>
@@ -318,6 +330,8 @@ export default function Overview() {
   const oilPrior     = prior(data.OIL);
   const goldLatest   = latest(data.GOLD);
   const goldPrior    = prior(data.GOLD);
+  const dxyLatest    = latest(data.DXY);
+  const dxyPrior     = prior(data.DXY);
 
   const sp500Chg  = change(sp500Latest?.value,  sp500Prior?.value);
   const nasdaqChg = change(nasdaqLatest?.value, nasdaqPrior?.value);
@@ -326,6 +340,7 @@ export default function Overview() {
   const vixChg    = change(vixLatest?.value,    vixPrior?.value);
   const oilChg    = change(oilLatest?.value,    oilPrior?.value);
   const goldChg   = change(goldLatest?.value,   goldPrior?.value);
+  const dxyChg    = change(dxyLatest?.value,    dxyPrior?.value);
 
   // ── Indicator card values ─────────────────────────────────────────────────
   const fedVal       = val(data, "FEDFUNDS");
@@ -598,7 +613,7 @@ export default function Overview() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(7, 1fr)",
+            gridTemplateColumns: "repeat(8, 1fr)",
             gap: 8,
           }}
         >
@@ -707,11 +722,36 @@ export default function Overview() {
                 );
               })
           }
+          {/* DXY from FRED (no Yahoo data) */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "center" }}>
+            <div style={{ fontSize: 10, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              DXY
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                color: dxyChg == null ? "var(--color-term-green)" : dxyChg > 0 ? "var(--color-term-green)" : dxyChg < 0 ? "var(--color-term-red)" : "var(--color-term-green)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {dxyLatest?.value != null ? formatNum(dxyLatest.value, 2) : "—"}
+            </div>
+            <div
+              style={{
+                fontSize: 10,
+                color: dxyChg == null ? "var(--color-term-dim)" : dxyChg > 0 ? "var(--color-term-green)" : dxyChg < 0 ? "var(--color-term-red)" : "var(--color-term-dim)",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {dxyChg != null ? formatPct(dxyChg) : "—"}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 3 ── TWO CHARTS SIDE-BY-SIDE ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-2">
 
         {/* Left: S&P 500 Area Chart — 1 Year */}
         <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -931,7 +971,7 @@ export default function Overview() {
       </div>
 
       {/* 4 ── THREE-COLUMN PANELS ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+      <div className="grid-3">
 
         {/* Key Risks */}
         <div
@@ -1070,7 +1110,7 @@ export default function Overview() {
       </div>
 
       {/* 5 ── 6 INDICATOR CARDS (rates-focused) ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+      <div className="grid-3">
         <IndicatorCard
           label="Fed Funds Rate"
           value={fedVal}
@@ -1091,6 +1131,7 @@ export default function Overview() {
           source="FRED / DFF"
           sourceUrl="https://fred.stlouisfed.org/series/DFF"
           dateLabel={fmtCardDate(latest(data.FEDFUNDS)?.date)}
+          sparkData={data.FEDFUNDS?.slice(0, 7)}
         />
         <IndicatorCard
           label="10Y Treasury Yield"
@@ -1108,6 +1149,7 @@ export default function Overview() {
           source="FRED / DGS10"
           sourceUrl="https://fred.stlouisfed.org/series/DGS10"
           dateLabel={fmtCardDate(latest(data.DGS10)?.date)}
+          sparkData={data.DGS10?.slice(0, 7)}
         />
         <IndicatorCard
           label="2Y Treasury Yield"
@@ -1125,6 +1167,7 @@ export default function Overview() {
           source="FRED / DGS2"
           sourceUrl="https://fred.stlouisfed.org/series/DGS2"
           dateLabel={fmtCardDate(latest(data.DGS2)?.date)}
+          sparkData={data.DGS2?.slice(0, 7)}
         />
         <IndicatorCard
           label="2s10s Spread"
@@ -1142,6 +1185,7 @@ export default function Overview() {
           source="FRED / T10Y2Y"
           sourceUrl="https://fred.stlouisfed.org/series/T10Y2Y"
           dateLabel={fmtCardDate(latest(data.T10Y2Y)?.date)}
+          sparkData={data.T10Y2Y?.slice(0, 7)}
         />
         <IndicatorCard
           label="10Y-3M Spread"
@@ -1159,6 +1203,7 @@ export default function Overview() {
           source="FRED / T10Y3M"
           sourceUrl="https://fred.stlouisfed.org/series/T10Y3M"
           dateLabel={fmtCardDate(latest(data.T10Y3M)?.date)}
+          sparkData={data.T10Y3M?.slice(0, 7)}
         />
         <IndicatorCard
           label="30Y Mortgage Rate"
@@ -1181,6 +1226,7 @@ export default function Overview() {
           source="FRED / MORTGAGE30US"
           sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
           dateLabel={fmtCardDate(latest(data.MORTGAGE30)?.date)}
+          sparkData={data.MORTGAGE30?.slice(0, 7)}
         />
       </div>
 

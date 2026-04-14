@@ -198,7 +198,7 @@ const FETCH = {
 export default function RealEstate() {
   const { data, loading, error } = useFredData(FETCH);
 
-  if (loading) return <Loading />;
+  if (loading && Object.keys(data).length === 0) return <Loading />;
 
   if (error) {
     return (
@@ -411,7 +411,7 @@ export default function RealEstate() {
       </div>
 
       {/* ── 2. Two charts side-by-side ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-2">
 
         {/* Left: Case-Shiller HPI YoY */}
         <div style={PANEL}>
@@ -524,7 +524,7 @@ export default function RealEstate() {
       </div>
 
       {/* ── 3. Three-panel market health row ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+      <div className="grid-3">
 
         {/* Left: Months of Supply */}
         <div style={PANEL}>
@@ -656,7 +656,7 @@ export default function RealEstate() {
       </div>
 
       {/* ── 4. Two charts side-by-side ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-2">
 
         {/* Left: Construction Pipeline */}
         <div style={PANEL}>
@@ -776,7 +776,7 @@ export default function RealEstate() {
       </div>
 
       {/* ── 5. Indicator Cards (3×2) ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+      <div className="grid-3">
 
         <IndicatorCard
           label="Case-Shiller YoY"

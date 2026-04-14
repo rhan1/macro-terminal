@@ -130,7 +130,7 @@ export default function Growth() {
   const { data, loading, error } = useFredData(FETCH);
   const { data: ismData } = useIsmData();
 
-  if (loading) return <Loading />;
+  if (loading && Object.keys(data).length === 0) return <Loading />;
   if (error) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "hsl(0,72%,55%)", fontSize: 11 }}>
@@ -223,7 +223,7 @@ export default function Growth() {
       </div>
 
       {/* Row 1: Two charts side by side */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-2">
 
         {/* Left: Real GDP Growth */}
         <div className="panel">
@@ -550,7 +550,7 @@ export default function Growth() {
       </div>
 
       {/* Row 2: 6 Indicator Cards in 3-column grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+      <div className="grid-3">
 
         <IndicatorCard
           label="Real GDP"

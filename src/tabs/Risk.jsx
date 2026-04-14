@@ -98,7 +98,13 @@ function heatMapInfo(category, data) {
     }
 
     case "Fiscal/Deficit": {
-      return { level: "ELEVATED", desc: "Deficit >$1.5T — structural concern", trend: "stable" };
+      const vixV = latest(data.VIXCLS)?.value;
+      const vixP = prior(data.VIXCLS)?.value;
+      const goldV = latest(data.GOLD)?.value;
+      const trend = vixV != null && vixP != null ? (vixV > vixP ? "worsening" : vixV < vixP ? "improving" : "stable") : "stable";
+      if (vixV != null && vixV > 25 && goldV != null && goldV > 2300) return { level: "HIGH", desc: "VIX + gold signal fiscal stress", trend };
+      if ((vixV != null && vixV > 25) || (goldV != null && goldV > 2300)) return { level: "ELEVATED", desc: `Deficit >$1.5T — structural concern`, trend };
+      return { level: "MODERATE", desc: "Fiscal deficits persistent but contained", trend };
     }
 
     case "Credit Stress": {
@@ -119,7 +125,14 @@ function heatMapInfo(category, data) {
     }
 
     case "Systemic Risk": {
-      return { level: "LOW", desc: "No acute systemic signals", trend: "stable" };
+      const vixV = latest(data.VIXCLS)?.value;
+      const hyV = latest(data.HYSPREAD)?.value;
+      const hyP = prior(data.HYSPREAD)?.value;
+      const trend = hyV != null && hyP != null ? (hyV > hyP ? "worsening" : hyV < hyP ? "improving" : "stable") : "stable";
+      if ((hyV != null && hyV > 5) || (vixV != null && vixV > 30)) return { level: "HIGH", desc: `Spreads/VIX at crisis levels`, trend };
+      if ((hyV != null && hyV > 4) || (vixV != null && vixV > 25)) return { level: "ELEVATED", desc: `HY ${hyV != null ? formatNum(hyV, 1) : "—"}% — stress building`, trend };
+      if (hyV != null && hyV > 3) return { level: "MODERATE", desc: `HY ${formatNum(hyV, 1)}% — watch closely`, trend };
+      return { level: "LOW", desc: "No acute systemic signals", trend };
     }
 
     case "Growth Momentum": {
@@ -213,9 +226,9 @@ const TREND_ARROW_GROWTH = {
 function RiskHeatMap({ data }) {
   return (
     <div
+      className="grid-4"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
         gap: 8,
       }}
     >
@@ -298,7 +311,7 @@ export default function Risk() {
   const { data: cbData, loading: cbLoading } = useCbData();
   const cbVal = cbData?.value ?? null;
 
-  if (loading) return <Loading />;
+  if (loading && Object.keys(data).length === 0) return <Loading />;
   if (error) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: "hsl(0,72%,55%)", fontSize: 11 }}>
@@ -310,6 +323,7 @@ export default function Risk() {
   // Chronological chart arrays
   const vixChart  = [...(data.VIXCLS  || [])].reverse();
   const sentChart = [...(data.UMCSENT || [])].reverse();
+  const hyChart   = [...(data.HYSPREAD || [])].reverse();
 
   // Derived latest values
   const vixVal   = latest(data.VIXCLS)?.value;
@@ -366,7 +380,7 @@ export default function Risk() {
       <GeopoliticalAlert goldVal={goldVal} vixVal={vixVal} />
 
       {/* ── VIX + Consumer Sentiment side by side ───────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div className="grid-2" style={{ display: "grid", gap: 16 }}>
 
         {/* Left: VIX */}
         <div
@@ -483,6 +497,14 @@ export default function Risk() {
                 strokeDasharray="4 4"
                 label={{ value: "Avg ~86", position: "right", fill: "hsl(220,10%,40%)", fontSize: 9 }}
               />
+              {cbVal != null && (
+                <ReferenceLine
+                  y={cbVal}
+                  stroke="hsl(185,70%,55%)"
+                  strokeDasharray="4 4"
+                  label={{ value: `CB: ${formatNum(cbVal, 1)}`, position: "right", fill: "hsl(185,70%,55%)", fontSize: 9 }}
+                />
+              )}
               <Area
                 type="monotone"
                 dataKey="value"
@@ -496,6 +518,42 @@ export default function Risk() {
             </AreaChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* HY Credit Spreads */}
+      <div className="panel" style={{ padding: "14px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--color-term-dim)" }}>
+            High Yield Credit Spreads (OAS)
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+            <span style={{ fontSize: 16, fontWeight: 600, color: "hsl(45,90%,55%)", fontVariantNumeric: "tabular-nums" }}>
+              {hyVal != null ? `${formatNum(hyVal, 2)}%` : "—"}
+            </span>
+            {hyChg != null && (
+              <span style={{ fontSize: 10, color: hyChg > 0 ? "hsl(0,72%,55%)" : "hsl(142,70%,55%)" }}>
+                {hyChg >= 0 ? "▲" : "▼"} {formatNum(Math.abs(hyChg), 1)}%
+              </span>
+            )}
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={160}>
+          <AreaChart data={hyChart} margin={{ top: 4, right: 40, bottom: 0, left: -20 }}>
+            <defs>
+              <linearGradient id="hyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="20%" stopColor="hsl(45,90%,55%)" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="hsl(45,90%,55%)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="var(--color-term-border)" strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="date" tickFormatter={fmtDaily} tick={{ fill: "var(--color-term-dim)", fontSize: 9 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+            <YAxis tick={{ fill: "var(--color-term-dim)", fontSize: 9 }} axisLine={false} tickLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `${v}%`} />
+            <Tooltip content={<ChartTooltip formatter={(v) => `${formatNum(v, 2)}%`} />} />
+            <ReferenceLine y={4} stroke="hsl(45,90%,55%)" strokeDasharray="4 4" label={{ value: "Stress >4%", position: "right", fill: "hsl(45,90%,55%)", fontSize: 9 }} />
+            <ReferenceLine y={6} stroke="hsl(0,72%,55%)" strokeDasharray="4 4" label={{ value: "Distress >6%", position: "right", fill: "hsl(0,72%,55%)", fontSize: 9 }} />
+            <Area type="monotone" dataKey="value" name="HY Spread" stroke="hsl(45,90%,55%)" strokeWidth={2} fill="url(#hyGrad)" dot={false} activeDot={{ r: 3, fill: "hsl(45,90%,55%)" }} />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
 
       {/* ── Risk Heat Map — Druckenmiller Framework ─────────────────────── */}
@@ -516,9 +574,9 @@ export default function Risk() {
 
       {/* ── 6 Indicator Cards (3 x 2) ───────────────────────────────────── */}
       <div
+        className="grid-3"
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
           gap: 12,
         }}
       >
