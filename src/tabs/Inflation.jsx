@@ -78,15 +78,11 @@ function barWidth(value) {
 
 function buildNarrative(cpiVal, coreCpiVal, corePceVal) {
   if (cpiVal == null) return "Insufficient data to generate analysis.";
-  const aboveTarget = cpiVal > 2;
-  const cpiStr = aboveTarget
-    ? `Headline CPI at ${formatNum(cpiVal, 1)}% remains ${(cpiVal - 2).toFixed(1)}pp above the Fed's 2% target`
-    : `Headline CPI at ${formatNum(cpiVal, 1)}% has returned to near the Fed's 2% target`;
   const coreStr = corePceVal != null
-    ? `, while Core PCE — the Fed's preferred gauge — at ${formatNum(corePceVal, 1)}% ${corePceVal > 2 ? "remains the binding policy constraint" : "is at or below target, clearing the way for further easing"}`
-    : "";
+    ? `Core PCE — the Fed's preferred gauge — at ${formatNum(corePceVal, 1)}% ${corePceVal > 2 ? "remains the binding policy constraint" : "is at or below target, clearing the way for further easing"}.`
+    : `Headline CPI at ${formatNum(cpiVal, 1)}% sits ${Math.abs(cpiVal - 2).toFixed(1)}pp ${cpiVal > 2 ? "above" : "below"} the Fed's 2% target.`;
   const energyStr = " Energy price volatility continues to pose upside risk to headline inflation even as core disinflation progresses.";
-  return `${cpiStr}${coreStr}.${energyStr}`;
+  return `${coreStr}${energyStr}`;
 }
 
 export default function Inflation() {

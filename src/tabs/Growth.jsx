@@ -17,11 +17,9 @@ import {
 } from "recharts";
 
 const FETCH = {
-  GDP:      SERIES.GDP,
-  M2:       SERIES.M2,
-  HOUSING:  SERIES.HOUSING,
-  INDPRO:   SERIES.INDPRO,
-  FEDFUNDS: SERIES.FEDFUNDS,
+  GDP:    SERIES.GDP,
+  M2:     SERIES.M2,
+  INDPRO: SERIES.INDPRO,
 };
 
 function toQuarterLabel(dateStr) {
@@ -140,11 +138,9 @@ export default function Growth() {
   }
 
   const {
-    GDP:      gdpRaw      = [],
-    M2:       m2Raw       = [],
-    HOUSING:  housingRaw  = [],
-    INDPRO:   indproRaw   = [],
-    FEDFUNDS: fedfundsRaw = [],
+    GDP:    gdpRaw    = [],
+    M2:     m2Raw     = [],
+    INDPRO: indproRaw = [],
   } = data;
 
   const gdpChartData    = buildGdpChartData(gdpRaw);
@@ -158,17 +154,9 @@ export default function Growth() {
   const m2Prior        = prior(m2Raw);
   const m2Change       = change(m2Latest?.value, m2Prior?.value);
 
-  const housingLatest  = latest(housingRaw);
-  const housingPrior   = prior(housingRaw);
-  const housingChange  = change(housingLatest?.value, housingPrior?.value);
-
   const indproLatest   = latest(indproRaw);
   const indproPrior    = prior(indproRaw);
   const indproChange   = change(indproLatest?.value, indproPrior?.value);
-
-  const fedfundsLatest = latest(fedfundsRaw);
-  const fedfundsPrior  = prior(fedfundsRaw);
-  const fedfundsChange = change(fedfundsLatest?.value, fedfundsPrior?.value);
 
   // Derive a GDP forecast value from the last two readings (simple trend extrapolation)
   const gdpPrior2 = prior(gdpRaw, 2);
@@ -184,10 +172,6 @@ export default function Growth() {
     gdpLatest?.value < 0 ? "bearish" : gdpLatest?.value >= 2.5 ? "bullish" : "neutral";
   const indproSignal =
     indproLatest?.value < 0 ? "bearish" : indproLatest?.value >= 2 ? "bullish" : "neutral";
-  const housingDirection =
-    housingChange == null ? "flat" : housingChange > 0 ? "up" : housingChange < 0 ? "down" : "flat";
-  const housingSignal =
-    housingLatest?.value > 1400 ? "bullish" : housingLatest?.value < 1000 ? "bearish" : "neutral";
 
   const axisStyle = {
     fontFamily: '"JetBrains Mono", monospace',
@@ -549,8 +533,8 @@ export default function Growth() {
 
       </div>
 
-      {/* Row 2: 6 Indicator Cards in 3-column grid */}
-      <div className="grid-3">
+      {/* Row 2: 4 Indicator Cards in 2-column grid */}
+      <div className="grid-2">
 
         <IndicatorCard
           label="Real GDP"
@@ -601,22 +585,6 @@ export default function Growth() {
         />
 
         <IndicatorCard
-          label="Housing Starts"
-          value={housingLatest?.value}
-          unit="K units"
-          change={housingChange}
-          changeLabel={housingChange != null ? formatPct(housingChange) : undefined}
-          direction={housingDirection}
-          signal={housingSignal}
-          detail={`New residential construction starts in thousands of units. Housing is a classic leading indicator — it responds to mortgage rates and consumer confidence before broader economic shifts appear in GDP. Starts above 1,400K signal a healthy construction sector; below 1,000K often coincides with or precedes recessionary conditions. Current mortgage-rate headwinds are a key variable to watch.`}
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/HOUST"
-          decimals={0}
-          dateLabel={fmtCardDate(latest(housingRaw)?.date)}
-          sparkData={housingRaw?.slice(0, 12)}
-        />
-
-        <IndicatorCard
           label="ISM Manufacturing"
           value={ismData?.manufacturing?.value}
           unit=""
@@ -652,21 +620,6 @@ export default function Growth() {
           decimals={1}
         />
 
-        <IndicatorCard
-          label="Fed Funds Rate"
-          value={fedfundsLatest?.value}
-          unit="%"
-          change={fedfundsChange}
-          changeLabel={fedfundsChange != null ? formatPct(fedfundsChange) : undefined}
-          direction={fedfundsChange == null ? "flat" : fedfundsChange > 0 ? "up" : fedfundsChange < 0 ? "down" : "flat"}
-          signal="neutral"
-          detail={`Effective Federal Funds Rate — the overnight interbank lending rate targeted by the Federal Open Market Committee. The FFR is the primary policy lever: higher rates tighten financial conditions, cool inflation, and reduce GDP growth. Rate changes transmit through the economy with lags of 12–18 months. Markets price future rate paths via Fed Funds futures, which drive long-end Treasury yields and equity valuations.`}
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/DFF"
-          decimals={2}
-          dateLabel={fmtCardDate(latest(fedfundsRaw)?.date)}
-          sparkData={fedfundsRaw?.slice(0, 12)}
-        />
 
       </div>
 

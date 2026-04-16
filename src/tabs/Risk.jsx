@@ -107,21 +107,13 @@ function heatMapInfo(category, data) {
       return { level: "MODERATE", desc: "Fiscal deficits persistent but contained", trend };
     }
 
-    case "Credit Stress": {
+    case "Credit & Financial Conditions": {
       if (hyVal == null) return { level: "UNKNOWN", desc: "No spread data", trend: "stable" };
       const trend = hyPrev == null ? "stable" : hyVal > hyPrev ? "worsening" : hyVal < hyPrev ? "improving" : "stable";
       if (hyVal > 6) return { level: "HIGH",     desc: `HY spread ${formatNum(hyVal, 2)}% — distress signals`, trend };
       if (hyVal > 4) return { level: "ELEVATED", desc: `HY spread ${formatNum(hyVal, 2)}% — stress building`, trend };
       if (hyVal > 3) return { level: "MODERATE", desc: `HY spread ${formatNum(hyVal, 2)}% — modest widening`, trend };
       return                { level: "LOW",      desc: `HY spread ${formatNum(hyVal, 2)}% — tight, benign`, trend };
-    }
-
-    case "Financial Conditions": {
-      if (hyVal == null) return { level: "UNKNOWN", desc: "No spread data", trend: "stable" };
-      const trend = hyPrev == null ? "stable" : hyVal > hyPrev ? "worsening" : hyVal < hyPrev ? "improving" : "stable";
-      if (hyVal > 5)   return { level: "HIGH",     desc: `Spreads ${formatNum(hyVal, 2)}% — conditions seized`, trend };
-      if (hyVal > 3.5) return { level: "MODERATE", desc: `Spreads ${formatNum(hyVal, 2)}% — some tightening`, trend };
-      return                  { level: "LOW",      desc: `Spreads ${formatNum(hyVal, 2)}% — conditions loose`, trend };
     }
 
     case "Systemic Risk": {
@@ -154,8 +146,7 @@ const HEAT_MAP_CATEGORIES = [
   "Inflation Stickiness",
   "Labor Deterioration",
   "Fiscal/Deficit",
-  "Credit Stress",
-  "Financial Conditions",
+  "Credit & Financial Conditions",
   "Systemic Risk",
   "Growth Momentum",
 ];
@@ -324,7 +315,17 @@ export default function Risk() {
 
   // Chronological chart arrays
   const vixChart  = [...(data.VIXCLS  || [])].reverse();
-  const sentChart = [...(data.UMCSENT || [])].reverse();
+  const sentChartRaw = [...(data.UMCSENT || [])].reverse();
+  // Merge CB current + prior into the last two months so both plot on the same chart
+  const sentChart = sentChartRaw.map((pt, i) => {
+    if (i === sentChartRaw.length - 1 && cbVal != null) {
+      return { ...pt, cbValue: cbVal };
+    }
+    if (i === sentChartRaw.length - 2 && cbData?.prior != null) {
+      return { ...pt, cbValue: cbData.prior };
+    }
+    return pt;
+  });
   const hyChart   = [...(data.HYSPREAD || [])].reverse();
 
   // Derived latest values
@@ -371,7 +372,7 @@ export default function Risk() {
       {/* ── Section Header ──────────────────────────────────────────────── */}
       <div>
         <div style={{ fontSize: 11, fontWeight: 600, color: "hsl(142,70%,55%)", letterSpacing: "0.06em" }}>
-          $ SENTIMENT &amp; RISK
+          $ RISK &amp; VOLATILITY
         </div>
         <div style={{ fontSize: 10, color: "var(--color-term-dim)", marginTop: 2 }}>
           — VIX, Consumer, Gold, Credit, Geopolitical
@@ -499,23 +500,25 @@ export default function Risk() {
                 strokeDasharray="4 4"
                 label={{ value: "Avg ~86", position: "right", fill: "hsl(220,10%,52%)", fontSize: 9 }}
               />
-              {cbVal != null && (
-                <ReferenceLine
-                  y={cbVal}
-                  stroke="hsl(185,70%,55%)"
-                  strokeDasharray="4 4"
-                  label={{ value: `CB: ${formatNum(cbVal, 1)}`, position: "right", fill: "hsl(185,70%,55%)", fontSize: 9 }}
-                />
-              )}
               <Area
                 type="monotone"
                 dataKey="value"
-                name="UMich Sentiment"
+                name="UMich"
                 stroke="hsl(45,90%,55%)"
                 strokeWidth={1.5}
                 fill="none"
                 dot={false}
                 activeDot={{ r: 3, fill: "hsl(45,90%,55%)" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="cbValue"
+                name="CB Confidence"
+                stroke="hsl(185,70%,55%)"
+                strokeWidth={1.5}
+                dot={{ r: 3, fill: "hsl(185,70%,55%)" }}
+                activeDot={{ r: 4, fill: "hsl(185,70%,55%)" }}
+                connectNulls={false}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -574,7 +577,7 @@ export default function Risk() {
         <RiskHeatMap data={data} />
       </div>
 
-      {/* ── 6 Indicator Cards (3 x 2) ───────────────────────────────────── */}
+      {/* ── Indicator Cards ─────────────────────────────────────────────── */}
       <div
         className="grid-3"
         style={{
@@ -594,22 +597,6 @@ export default function Risk() {
           sourceUrl="https://fred.stlouisfed.org/series/VIXCLS"
           dateLabel={fmtCardDate(latest(data.VIXCLS)?.date)}
           sparkData={data.VIXCLS?.slice(0, 12)}
-        />
-        <IndicatorCard
-          label={cbVal != null ? "Consumer Confidence (CB)" : "Consumer Confidence (UMich)"}
-          value={cbVal != null ? cbVal : sentVal}
-          unit=""
-          change={cbVal != null ? (cbData?.prior != null ? ((cbVal - cbData.prior) / cbData.prior) * 100 : null) : sentChg}
-          decimals={1}
-          signal={cbVal != null ? (cbVal < 80 ? "bearish" : cbVal > 100 ? "bullish" : "neutral") : sentSignal}
-          detail={cbVal != null
-            ? `Conference Board Consumer Confidence. Prior: ${cbData?.prior ?? "—"}, Period: ${cbData?.period ?? "—"}. Above 100 = optimistic; below 80 = pessimism. UMich Sentiment: ${sentVal != null ? formatNum(sentVal, 1) : "—"}.`
-            : "University of Michigan Consumer Sentiment. Long-run avg ~86. Below 60 = significant pessimism historically preceding spending contractions. All-time low: 50.0 (Jun 2022)."
-          }
-          source={cbVal != null ? "Conference Board / Trading Economics" : "UMich / FRED UMCSENT"}
-          sourceUrl={cbVal != null ? "https://www.conference-board.org/topics/consumer-confidence" : "https://fred.stlouisfed.org/series/UMCSENT"}
-          dateLabel={cbVal != null ? (cbData?.period ?? "") : fmtCardDate(latest(data.UMCSENT)?.date)}
-          sparkData={data.UMCSENT?.slice(0, 12)}
         />
         <IndicatorCard
           label="Gold (GLD)"

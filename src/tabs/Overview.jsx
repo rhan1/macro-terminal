@@ -435,7 +435,7 @@ export default function Overview() {
   if (t10y3mVal != null && t10y3mVal < 0)
     risks.push(`10Y-3M spread inverted (${formatNum(t10y3mVal, 2)}%) — NY Fed recession model's primary input`);
   if (cpiVal != null && cpiVal > 3.0)
-    risks.push(`Elevated CPI at ${formatNum(cpiVal, 2)}% — Fed easing constrained; risk of policy error`);
+    risks.push(`Elevated CPI at ${formatNum(cpiVal, 2)}% — Fed easing constrained; policy remains higher for longer`);
   if (vixVal != null && vixVal > 25)
     risks.push(`VIX at ${formatNum(vixVal, 1)} — elevated fear regime; volatility compresses equity multiples`);
   if (mortgageVal != null && mortgageVal > 6.0)
