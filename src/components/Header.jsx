@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { version } from "../../package.json";
 
 export default function Header() {
   const [time, setTime] = useState(new Date());
@@ -37,13 +38,20 @@ export default function Header() {
       {/* Left */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(142,70%,55%)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm14 3.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z" />
-          </svg>
+          <span style={{
+            fontSize: 16, fontWeight: 700, color: "hsl(142,70%,55%)",
+            fontFamily: '"JetBrains Mono", monospace', letterSpacing: "-0.05em",
+            display: "inline-flex", alignItems: "center",
+          }}>
+            &gt;_<span className="blink-cursor" style={{
+              display: "inline-block", width: 8, height: 14,
+              background: "hsl(142,70%,55%)", marginLeft: 1,
+            }} />
+          </span>
           <span className="glow-green" style={{ fontSize: 14, fontWeight: 600, color: "hsl(142,70%,55%)", letterSpacing: "0.05em" }}>
             MACRO TERMINAL
           </span>
-          <span style={{ fontSize: 10, color: "hsl(220,10%,52%)", marginLeft: -4 }}>v2.6.0</span>
+          <span style={{ fontSize: 10, color: "hsl(220,10%,52%)", marginLeft: -4 }}>v{version}</span>
         </div>
       </div>
 

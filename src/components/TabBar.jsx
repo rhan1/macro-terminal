@@ -7,6 +7,9 @@ const TABS = [
   { key: "risk", label: "RISK", num: "6" },
   { key: "sentiment", label: "SENTIMENT", num: "7" },
   { key: "realestate", label: "REAL ESTATE", num: "8" },
+  { key: "ipo", label: "IPOs", num: "9" },
+  { key: "auctions", label: "BOND AUCTIONS", num: "0" },
+  { key: "altindex", label: "ALT INDEX", num: "" },
 ];
 
 export default function TabBar({ active, onSelect }) {
@@ -73,7 +76,7 @@ export default function TabBar({ active, onSelect }) {
         })}
       </div>
       <span className="keys-hint" style={{ fontSize: 10, color: "hsl(220,10%,52%)", letterSpacing: "0.05em" }}>
-        KEYS [1-8] TO NAVIGATE
+        KEYS [1-9, 0] TO NAVIGATE
       </span>
     </nav>
   );

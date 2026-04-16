@@ -78,6 +78,7 @@ export default function Sentiment() {
   const [regimeData, setRegimeData] = useState(null);
   const [newsData, setNewsData] = useState(null);
   const [adanosData, setAdanosData] = useState(null);
+  const [kalshiData, setKalshiData] = useState(null);
 
   useEffect(() => {
     fetch(`/api/market?symbols=${SECTOR_ETFS.join(",")}`)
@@ -109,6 +110,7 @@ export default function Sentiment() {
     fetch("/api/sentiment?action=liquidity").then((r) => r.json()).then(setLiquidityData).catch(() => {});
     fetch("/api/sentiment?action=regime").then((r) => r.json()).then(setRegimeData).catch(() => {});
     fetch("/api/sentiment?action=news").then((r) => r.json()).then(setNewsData).catch(() => {});
+    fetch("/api/kalshi").then((r) => r.json()).then((d) => { if (d.markets) setKalshiData(d.markets); }).catch(() => {});
   }, []);
 
   if (sentLoading && !sentData && fredLoading && Object.keys(fredData).length === 0) return <Loading />;
@@ -290,6 +292,7 @@ export default function Sentiment() {
                   background: "hsl(220,15%,10%)",
                   border: `1px solid ${BORDER}`,
                   display: "flex", flexDirection: "column", gap: 2,
+                  minHeight: 90,
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: GREEN, fontFamily: '"JetBrains Mono", monospace' }}>
@@ -326,19 +329,23 @@ export default function Sentiment() {
                       )}
                     </div>
                   </div>
-                  {bullPct != null && bearPct != null && (
-                    <div style={{ marginTop: 3 }}>
-                      <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden" }}>
-                        <div style={{ width: `${bullPct}%`, background: GREEN }} />
-                        <div style={{ width: `${100 - bullPct - bearPct}%`, background: BORDER }} />
-                        <div style={{ width: `${bearPct}%`, background: RED }} />
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 1 }}>
-                        <span style={{ fontSize: 7, color: GREEN }}>{bullPct}% bull</span>
-                        <span style={{ fontSize: 7, color: RED }}>{bearPct}% bear</span>
-                      </div>
+                  <div style={{ marginTop: "auto", paddingTop: 3 }}>
+                    <div style={{ display: "flex", height: 3, borderRadius: 2, overflow: "hidden" }}>
+                      {bullPct != null && bearPct != null ? (
+                        <>
+                          <div style={{ width: `${bullPct}%`, background: GREEN }} />
+                          <div style={{ width: `${100 - bullPct - bearPct}%`, background: BORDER }} />
+                          <div style={{ width: `${bearPct}%`, background: RED }} />
+                        </>
+                      ) : (
+                        <div style={{ width: "100%", background: BORDER }} />
+                      )}
                     </div>
-                  )}
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 1 }}>
+                      <span style={{ fontSize: 7, color: bullPct != null ? GREEN : DIM }}>{bullPct != null ? `${bullPct}% bull` : "—"}</span>
+                      <span style={{ fontSize: 7, color: bearPct != null ? RED : DIM }}>{bearPct != null ? `${bearPct}% bear` : "—"}</span>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -499,6 +506,80 @@ export default function Sentiment() {
         </div>
       </div>
 
+      {/* Row 5.5: Prediction Markets */}
+      {kalshiData && (
+        <div className="panel">
+          <div className="section-label">Prediction Markets — Kalshi</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+            {kalshiData.map((market, i) => {
+              const prob = market.probability ?? market.yes_price ?? market.price ?? 0;
+              const probPct = Math.round(prob * (prob <= 1 ? 100 : 1));
+              const probColor = probPct >= 60 ? GREEN : probPct >= 40 ? AMBER : RED;
+              const vol = market.volume ?? market.dollar_volume ?? null;
+              let volLabel = null;
+              if (vol != null) {
+                if (vol >= 1e6) volLabel = `$${(vol / 1e6).toFixed(1)}M`;
+                else if (vol >= 1e3) volLabel = `$${(vol / 1e3).toFixed(0)}K`;
+                else volLabel = `$${vol}`;
+              }
+              const title = market.title ?? market.name ?? market.question ?? "—";
+              const subtitle = market.subtitle ?? market.category ?? null;
+              return (
+                <div key={market.id ?? i} style={{
+                  background: "hsl(220,15%,10%)",
+                  border: `1px solid ${BORDER}`,
+                  padding: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}>
+                  <div style={{
+                    fontSize: 10, color: DIM, lineHeight: 1.4,
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}>
+                    {title}
+                  </div>
+                  <div style={{
+                    fontSize: 28, fontWeight: 700, color: probColor,
+                    fontFamily: '"JetBrains Mono", monospace', lineHeight: 1,
+                    marginTop: 4,
+                  }}>
+                    {probPct}%
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
+                    {subtitle && (
+                      <span style={{ fontSize: 8, color: "hsl(220,10%,40%)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
+                        {subtitle}
+                      </span>
+                    )}
+                    {volLabel && (
+                      <span style={{
+                        fontSize: 8, color: CYAN,
+                        background: "hsl(185,70%,55%,0.1)",
+                        border: `1px solid hsl(185,70%,30%)`,
+                        padding: "1px 5px",
+                        borderRadius: 3,
+                        fontFamily: '"JetBrains Mono", monospace',
+                        marginLeft: "auto",
+                      }}>
+                        {volLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {kalshiData === null && (
+        <div className="panel">
+          <div className="section-label">Prediction Markets — Kalshi</div>
+          <div style={{ fontSize: 11, color: DIM }}>Loading prediction markets...</div>
+        </div>
+      )}
+
       {/* Row 6: Liquidity + News */}
       <div className="grid-2">
         {/* Fed Liquidity */}
@@ -566,18 +647,7 @@ export default function Sentiment() {
       </div>
 
       {/* Row 7: Indicator Cards */}
-      <div className="grid-3">
-        <IndicatorCard
-          label="Fear & Greed"
-          value={score}
-          unit=""
-          decimals={0}
-          signal={score == null ? "neutral" : score >= 55 ? "bullish" : score <= 35 ? "bearish" : "neutral"}
-          detail="CNN Fear & Greed Index composite score (0-100). Combines 5 market indicators: VIX volatility, market momentum, put/call ratio, safe haven demand, and junk bond demand. Extreme readings are contrarian signals — extreme fear often marks buying opportunities."
-          source="FearGreedChart API"
-          sourceUrl="https://feargreedchart.com"
-          sparkData={historyChart.length > 0 ? historyChart.slice(-12) : null}
-        />
+      <div className="grid-2">
         <IndicatorCard
           label="NFCI"
           value={nfciLatest?.value}

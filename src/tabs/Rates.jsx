@@ -28,7 +28,6 @@ const SERIES_MAP = {
   DGS20: SERIES.DGS20,
   DGS30: SERIES.DGS30,
   FEDFUNDS: SERIES.FEDFUNDS,
-  MORTGAGE30: SERIES.MORTGAGE30,
   T10Y2Y: SERIES.T10Y2Y,
   T10Y3M: SERIES.T10Y3M,
 };
@@ -83,92 +82,6 @@ function fmtDate(dateStr) {
   if (!dateStr) return "";
   const [, m, d] = dateStr.split("-");
   return `${m}/${d}`;
-}
-
-// ── YIELD CURVE TABLE (4 rows: Current, 1W Ago, 1M Ago, Chg 1M) ──
-function YieldCurveTable({ data }) {
-  const cellStyle = (color, bold) => ({
-    padding: "5px 8px",
-    textAlign: "right",
-    fontFamily: "inherit",
-    fontSize: 11,
-    fontWeight: bold ? 600 : 400,
-    color,
-    whiteSpace: "nowrap",
-  });
-
-  const labelStyle = {
-    padding: "5px 8px",
-    fontSize: 9,
-    textTransform: "uppercase",
-    letterSpacing: "0.08em",
-    color: DIM,
-    whiteSpace: "nowrap",
-  };
-
-  const headStyle = {
-    ...labelStyle,
-    textAlign: "right",
-    borderBottom: `1px solid ${BORDER}`,
-    fontWeight: 400,
-  };
-
-  const rowBorder = { borderBottom: `1px solid ${BORDER}` };
-
-  return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, tableLayout: "auto" }}>
-        <thead>
-          <tr>
-            <th style={{ ...headStyle, textAlign: "left" }}>Maturity</th>
-            {MATURITIES.map(({ label }) => (
-              <th key={label} style={headStyle}>{label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {/* Current */}
-          <tr style={rowBorder}>
-            <td style={labelStyle}>Current</td>
-            {MATURITIES.map(({ key }) => {
-              const v = valueAt(data[key] || [], 0);
-              return <td key={key} style={cellStyle(GREEN, true)}>{v != null ? `${v.toFixed(2)}%` : "—"}</td>;
-            })}
-          </tr>
-          {/* 1W Ago */}
-          <tr style={rowBorder}>
-            <td style={labelStyle}>1W Ago</td>
-            {MATURITIES.map(({ key }) => {
-              const v = valueAt(data[key] || [], 5);
-              return <td key={key} style={cellStyle(DIM, false)}>{v != null ? `${v.toFixed(2)}` : "—"}</td>;
-            })}
-          </tr>
-          {/* 1M Ago */}
-          <tr style={rowBorder}>
-            <td style={labelStyle}>1M Ago</td>
-            {MATURITIES.map(({ key }) => {
-              const v = valueAt(data[key] || [], 22);
-              return <td key={key} style={cellStyle(DIM, false)}>{v != null ? `${v.toFixed(2)}` : "—"}</td>;
-            })}
-          </tr>
-          {/* Chg (1M) in bps */}
-          <tr>
-            <td style={labelStyle}>Chg (1M)</td>
-            {MATURITIES.map(({ key }) => {
-              const cur = valueAt(data[key] || [], 0);
-              const mo = valueAt(data[key] || [], 22);
-              const bps = bpsChange(cur, mo);
-              return (
-                <td key={key} style={cellStyle(bpsColor(bps), false)}>
-                  {fmtBps(bps)}
-                </td>
-              );
-            })}
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 // ── YIELD CURVE SHAPE (3 lines: Current, 1W Ago, 1M Ago) ──
@@ -317,7 +230,6 @@ function YieldTimeSeries({ data }) {
 // ── Signal helpers ──
 function spreadSignal(v) { return v == null ? "neutral" : v < 0 ? "bearish" : v > 0.5 ? "bullish" : "neutral"; }
 function t10y3mSignal(v) { return v == null ? "neutral" : v < 0 ? "bearish" : v > 0 ? "bullish" : "neutral"; }
-function mortgageSignal(v) { return v == null ? "neutral" : v > 7 ? "bearish" : v < 5 ? "bullish" : "neutral"; }
 function dir(chg) { return chg == null ? "flat" : chg > 0 ? "up" : chg < 0 ? "down" : "flat"; }
 function bpsLabel(cur, prv) {
   if (cur == null || prv == null) return null;
@@ -343,14 +255,10 @@ export default function Rates() {
   const t10y2yPrv = prior(data.T10Y2Y || []);
   const t10y3mCur = latest(data.T10Y3M || []);
   const t10y3mPrv = prior(data.T10Y3M || []);
-  const mortCur = latest(data.MORTGAGE30 || []);
-  const mortPrv = prior(data.MORTGAGE30 || []);
-
   const d10Chg = change(d10Cur?.value, d10Prv?.value);
   const d2Chg = change(d2Cur?.value, d2Prv?.value);
   const t2yChg = change(t10y2yCur?.value, t10y2yPrv?.value);
   const t3mChg = change(t10y3mCur?.value, t10y3mPrv?.value);
-  const mortChg = change(mortCur?.value, mortPrv?.value);
 
   // Derive date range for time series title
   const tsData = data.DGS10 || [];
@@ -373,14 +281,6 @@ export default function Rates() {
         <span style={{ fontSize: 10, color: DIM, marginLeft: 8 }}>— Click any card for analysis</span>
       </div>
 
-      {/* Yield Curve Snapshot Table */}
-      <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 4, padding: 12, marginBottom: 16 }}>
-        <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: DIM, marginBottom: 10 }}>
-          Yield Curve Snapshot
-        </div>
-        <YieldCurveTable data={data} />
-      </div>
-
       {/* Two charts side-by-side */}
       <div className="grid-2" style={{ marginBottom: 16 }}>
         {/* Left: U.S. Treasury Yield Curve */}
@@ -400,7 +300,7 @@ export default function Rates() {
         </div>
       </div>
 
-      {/* 6 Indicator Cards */}
+      {/* 5 Indicator Cards */}
       <div className="grid-3">
         <IndicatorCard
           label="Fed Funds Rate"
@@ -478,21 +378,6 @@ export default function Rates() {
           decimals={0}
           prefix="+"
           sparkData={data.T10Y3M?.slice(0, 12)}
-        />
-        <IndicatorCard
-          label="30Y Mortgage Rate"
-          value={mortCur?.value}
-          unit="%"
-          change={mortChg}
-          changeLabel={mortCur && mortPrv ? `${bpsLabel(mortCur.value, mortPrv.value)} from ${formatNum(mortPrv.value, 2)}%` : null}
-          direction={dir(mortChg)}
-          signal={mortgageSignal(mortCur?.value)}
-          dateLabel={mortCur?.date?.slice(5) || ""}
-          detail="Freddie Mac's weekly 30-year fixed mortgage survey rate. Tightly linked to the 10Y Treasury yield plus a spread of ~170 bps. Rates above 7% have caused a severe affordability crunch and locked existing homeowners out of moving (the 'lock-in effect')."
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
-          decimals={2}
-          sparkData={data.MORTGAGE30?.slice(0, 12)}
         />
       </div>
     </div>

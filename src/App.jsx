@@ -10,8 +10,11 @@ import Labor from "./tabs/Labor";
 import Risk from "./tabs/Risk";
 import RealEstate from "./tabs/RealEstate";
 import Sentiment from "./tabs/Sentiment";
+import IPO from "./tabs/IPO";
+import Auctions from "./tabs/Auctions";
+import AlternativeIndex from "./tabs/AlternativeIndex";
 
-const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "sentiment", "realestate"];
+const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "sentiment", "realestate", "ipo", "auctions", "altindex"];
 
 const TAB_COMPONENTS = {
   overview: Overview,
@@ -22,6 +25,9 @@ const TAB_COMPONENTS = {
   risk: Risk,
   realestate: RealEstate,
   sentiment: Sentiment,
+  ipo: IPO,
+  auctions: Auctions,
+  altindex: AlternativeIndex,
 };
 
 export default function App() {
@@ -30,9 +36,14 @@ export default function App() {
   useEffect(() => {
     function handleKey(e) {
       const num = parseInt(e.key, 10);
-      if (num >= 1 && num <= 8 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        setActiveTab(TAB_KEYS[num - 1]);
+      if (!isNaN(num) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (num >= 1 && num <= 9) {
+          e.preventDefault();
+          setActiveTab(TAB_KEYS[num - 1]);
+        } else if (num === 0) {
+          e.preventDefault();
+          setActiveTab("auctions");
+        }
       }
     }
     window.addEventListener("keydown", handleKey);

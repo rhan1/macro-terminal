@@ -57,6 +57,8 @@ html, body, #root {
   50.01%, 100% { opacity: 0; }
 }
 
+.blink-cursor { animation: cursor-blink 1s step-end infinite; }
+
 /* Glows */
 .glow-green { text-shadow: 0 0 8px hsla(142,70%,55%,0.4); }
 .glow-red { text-shadow: 0 0 8px hsla(0,72%,55%,0.4); }

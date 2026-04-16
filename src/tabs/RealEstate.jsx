@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
@@ -197,6 +198,14 @@ const FETCH = {
 
 export default function RealEstate() {
   const { data, loading, error } = useFredData(FETCH);
+  const [mndData, setMndData] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/mortgage")
+      .then((r) => r.json())
+      .then((d) => { if (!d.error) setMndData(d); })
+      .catch(() => {});
+  }, []);
 
   if (loading && Object.keys(data).length === 0) return <Loading />;
 
@@ -410,6 +419,70 @@ export default function RealEstate() {
         </div>
       </div>
 
+      {/* ── MortgageNewsDaily Detailed Rates ── */}
+      {mndData && (
+        <div className="panel" style={{ padding: "14px 16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+            <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", color: DIM }}>
+              Mortgage Rates — MortgageNewsDaily
+            </div>
+            {mndData.current?.asOf && (
+              <span style={{ fontSize: 8, color: "hsl(220,10%,38%)" }}>As of {mndData.current.asOf}</span>
+            )}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+            {[
+              { key: "30yr", label: "30Y Fixed", isRate: true },
+              { key: "15yr", label: "15Y Fixed", isRate: true },
+              { key: "treasury10yr", label: "10Y Treasury", isRate: false },
+              { key: "umbs30", label: "UMBS 30Y MBS", isRate: false },
+            ].map(({ key, label, isRate }) => {
+              const item = mndData.rates?.[key];
+              if (!item) return null;
+              const val = isRate ? item.rate : item.price;
+              const chg = item.change;
+              const isUp = chg?.startsWith("+");
+              const isDown = chg?.startsWith("-");
+              return (
+                <div key={key} style={{ textAlign: "center", padding: "10px 6px", border: `1px solid hsl(220,15%,14%)`, background: "hsl(220,15%,10%)" }}>
+                  <div style={{ fontSize: 8, color: DIM, letterSpacing: "0.06em", marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "hsl(142,70%,55%)", fontFamily: '"JetBrains Mono", monospace' }}>
+                    {val ?? "—"}
+                  </div>
+                  {chg && (
+                    <div style={{ fontSize: 9, color: isUp ? "hsl(0,72%,55%)" : isDown ? "hsl(142,70%,55%)" : DIM, marginTop: 2, fontFamily: '"JetBrains Mono", monospace' }}>
+                      {chg}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {/* MND Survey History */}
+          {mndData.surveys && Object.keys(mndData.surveys).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 8, color: DIM, letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>Rate Surveys</div>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(Object.keys(mndData.surveys).length, 3)}, 1fr)`, gap: 8 }}>
+                {Object.entries(mndData.surveys).map(([name, rows]) => (
+                  <div key={name} style={{ border: `1px solid hsl(220,15%,14%)`, padding: 8 }}>
+                    <div style={{ fontSize: 8, color: "hsl(185,70%,55%)", letterSpacing: "0.04em", marginBottom: 6 }}>{name}</div>
+                    {rows.slice(0, 4).map((r, i) => (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 9, padding: "2px 0", borderBottom: `1px solid hsl(220,15%,12%)` }}>
+                        <span style={{ color: DIM }}>{r.date}</span>
+                        <span style={{ color: "hsl(142,70%,55%)", fontFamily: '"JetBrains Mono", monospace' }}>{r.rate}</span>
+                        <span style={{ color: r.direction === "up" ? "hsl(0,72%,55%)" : r.direction === "down" ? "hsl(142,70%,55%)" : DIM, fontFamily: '"JetBrains Mono", monospace' }}>
+                          {r.change || "—"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── 2. Two charts side-by-side ── */}
       <div className="grid-2">
 
@@ -534,36 +607,9 @@ export default function RealEstate() {
           <div style={{ fontSize: 32, fontWeight: 700, color: scColor, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
             {scVal != null ? formatNum(scVal, 1) : "—"}
           </div>
-          <div style={{ fontSize: 9, color: scColor, marginTop: 4, marginBottom: 10, letterSpacing: "0.08em" }}>
+          <div style={{ fontSize: 9, color: scColor, marginTop: 4, letterSpacing: "0.08em" }}>
             {supplyLabel(scVal)}
           </div>
-          <ResponsiveContainer width="100%" height={80}>
-            <AreaChart data={supplyChart} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
-              <defs>
-                <linearGradient id="supplyGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="20%" stopColor={scColor} stopOpacity={0.20} />
-                  <stop offset="100%" stopColor={scColor} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="label" hide />
-              <YAxis hide domain={["auto", "auto"]} />
-              <Tooltip
-                content={<ChartTooltip formatter={(v) => v != null ? `${v.toFixed(1)} mo` : "—"} />}
-                cursor={{ stroke: BORDER }}
-              />
-              <ReferenceLine y={4} stroke={RED} strokeDasharray="3 2" strokeWidth={1} />
-              <ReferenceLine y={6} stroke={GREEN} strokeDasharray="3 2" strokeWidth={1} />
-              <Area
-                type="monotone"
-                dataKey="value"
-                name="Supply"
-                stroke={scColor}
-                strokeWidth={1.5}
-                fill="url(#supplyGrad)"
-                dot={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
         </div>
 
         {/* Center: Active Listings */}
@@ -792,22 +838,6 @@ export default function RealEstate() {
           sourceUrl="https://fred.stlouisfed.org/series/CSUSHPINSA"
           dateLabel={fmtCardDate(latest(csArr)?.date)}
           sparkData={csArr?.slice(0, 12)}
-        />
-
-        <IndicatorCard
-          label="30Y Mortgage Rate"
-          value={mortgageLatest?.value}
-          unit="%"
-          decimals={2}
-          change={mortgageChange}
-          changeLabel={mortgageChange != null ? formatPct(mortgageChange) : undefined}
-          direction={mortgageChange != null ? (mortgageChange > 0 ? "up" : mortgageChange < 0 ? "down" : "flat") : undefined}
-          signal={mortgageSignal(mortgageLatest?.value)}
-          detail="30-year fixed mortgage rate. The most direct transmission channel from Fed policy to the housing market. Rates above 7% sharply reduce purchase affordability and volume, locking homeowners into existing low-rate mortgages — the 'lock-in effect' that suppresses existing home inventory. Rates below 5% historically stimulate demand, pull forward purchases, and accelerate home price appreciation. The spread between mortgage rates and the 10-year Treasury signals the degree of mortgage market stress; elevated spreads reflect lender risk aversion or MBS prepayment uncertainty."
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
-          dateLabel={fmtCardDate(latest(mortgageArr)?.date)}
-          sparkData={mortgageArr?.slice(0, 12)}
         />
 
         <IndicatorCard
