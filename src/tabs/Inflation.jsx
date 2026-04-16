@@ -191,7 +191,7 @@ export default function Inflation() {
         <div style={{ fontSize: 11, fontWeight: 600, color: "hsl(142,70%,55%)", letterSpacing: "0.1em" }}>
           $ INFLATION
         </div>
-        <div style={{ fontSize: 10, color: "hsl(220,10%,40%)", marginTop: 2 }}>
+        <div style={{ fontSize: 10, color: "hsl(220,10%,52%)", marginTop: 2 }}>
           — CPI, PCE, PPI, and Energy
         </div>
       </div>
@@ -208,13 +208,13 @@ export default function Inflation() {
             />
             <XAxis
               dataKey="label"
-              tick={{ fill: "hsl(220,10%,40%)", fontSize: 9, fontFamily: "inherit" }}
+              tick={{ fill: "hsl(220,10%,52%)", fontSize: 9, fontFamily: "inherit" }}
               tickLine={false}
               axisLine={{ stroke: "hsl(220,15%,14%)" }}
               interval="preserveStartEnd"
             />
             <YAxis
-              tick={{ fill: "hsl(220,10%,40%)", fontSize: 9, fontFamily: "inherit" }}
+              tick={{ fill: "hsl(220,10%,52%)", fontSize: 9, fontFamily: "inherit" }}
               tickLine={false}
               axisLine={false}
               tickFormatter={(v) => `${v}%`}
@@ -253,22 +253,22 @@ export default function Inflation() {
 
         {/* Legend */}
         <div style={{ display: "flex", gap: 20, marginTop: 8, paddingTop: 8, borderTop: "1px solid hsl(220,15%,14%)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "hsl(220,10%,40%)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "hsl(220,10%,52%)" }}>
             <div style={{ width: 10, height: 10, background: "hsl(142,70%,55%)", borderRadius: 1 }} />
             Headline
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "hsl(220,10%,40%)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "hsl(220,10%,52%)" }}>
             <div style={{ width: 10, height: 10, background: "hsl(45,90%,55%)", borderRadius: 1 }} />
             Core
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "hsl(220,10%,40%)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 9, color: "hsl(220,10%,52%)" }}>
             <div style={{ width: 16, height: 0, borderTop: "1.5px dashed hsl(0,72%,55%)" }} />
             2% Target
           </div>
         </div>
 
         {/* Narrative */}
-        <div style={{ marginTop: 12, fontSize: 11, lineHeight: 1.7, color: "hsl(220,10%,40%)" }}>
+        <div style={{ marginTop: 12, fontSize: 11, lineHeight: 1.7, color: "hsl(220,10%,52%)" }}>
           <span style={{ color: "hsl(142,70%,55%)" }}>▸ </span>
           {narrative}
         </div>
@@ -282,7 +282,7 @@ export default function Inflation() {
             const color = barColor(value);
             return (
               <div key={name} style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 5, paddingBottom: 5 }}>
-                <div style={{ width: 120, fontSize: 10, color: "hsl(220,10%,40%)", flexShrink: 0, textAlign: "right" }}>
+                <div style={{ width: 120, fontSize: 10, color: "hsl(220,10%,52%)", flexShrink: 0, textAlign: "right" }}>
                   {name}
                 </div>
                 <div
@@ -329,6 +329,7 @@ export default function Inflation() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CPIAUCSL"
           dateLabel={fmtCardDate(latest(cpiData)?.date)}
+          sparkData={cpiData?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -343,6 +344,7 @@ export default function Inflation() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CPILFESL"
           dateLabel={fmtCardDate(latest(coreCpiData)?.date)}
+          sparkData={coreCpiData?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -357,6 +359,7 @@ export default function Inflation() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/PCEPILFE"
           dateLabel={fmtCardDate(latest(corePceData)?.date)}
+          sparkData={corePceData?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -371,6 +374,7 @@ export default function Inflation() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/PPIACO"
           dateLabel={fmtCardDate(latest(ppiData)?.date)}
+          sparkData={ppiData?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -385,6 +389,7 @@ export default function Inflation() {
           source="FRED T10YIE"
           sourceUrl="https://fred.stlouisfed.org/series/T10YIE"
           dateLabel={fmtCardDate(latest(breakevenData)?.date)}
+          sparkData={breakevenData?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -401,6 +406,7 @@ export default function Inflation() {
           sourceUrl="https://fred.stlouisfed.org/series/DCOILWTICO"
           decimals={2}
           dateLabel={fmtCardDate(latest(oilData)?.date)}
+          sparkData={oilData?.slice(0, 12)}
         />
 
       </div>

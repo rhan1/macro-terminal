@@ -155,6 +155,10 @@ export const SERIES = {
   UMCSENT: { id: "UMCSENT", frequency: "m", limit: 24 },
   HYSPREAD: { id: "BAMLH0A0HYM2", frequency: "d", limit: 60 },
   RECESSION: { id: "RECPROUSM156N", frequency: "m", limit: 12 },
+  NFCI: { id: "NFCI", frequency: "d", limit: 52 },
+  STLFSI: { id: "STLFSI2", frequency: "d", limit: 52 },
+  WALCL: { id: "WALCL", frequency: "d", limit: 52 },
+  RRPONTSYD: { id: "RRPONTSYD", frequency: "d", limit: 60 },
 
   // Real Estate
   CASESHILLER: { id: "CSUSHPINSA", frequency: "m", limit: 36, units: "pc1" },

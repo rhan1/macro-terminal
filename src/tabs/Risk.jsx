@@ -213,13 +213,13 @@ function GeopoliticalAlert({ goldVal, vixVal }) {
 const TREND_ARROW = {
   improving: { symbol: "↓", color: "hsl(142,70%,55%)" },
   worsening: { symbol: "↑", color: "hsl(0,72%,55%)"   },
-  stable:    { symbol: "→", color: "hsl(220,10%,40%)" },
+  stable:    { symbol: "→", color: "hsl(220,10%,52%)" },
 };
 // Growth Momentum is inverted: higher GDP = improving
 const TREND_ARROW_GROWTH = {
   improving: { symbol: "↗", color: "hsl(142,70%,55%)" },
   worsening: { symbol: "↘", color: "hsl(0,72%,55%)"   },
-  stable:    { symbol: "→", color: "hsl(220,10%,40%)" },
+  stable:    { symbol: "→", color: "hsl(220,10%,52%)" },
 };
 
 // ── Risk Heat Map ─────────────────────────────────────────────────────────────
@@ -302,6 +302,8 @@ export default function Risk() {
     HYSPREAD:  { ...SERIES.HYSPREAD,  limit: 60 },
     RECESSION: { ...SERIES.RECESSION, limit: 12 },
     SP500:     { ...SERIES.SP500,     limit: 60 },
+    WALCL:     { ...SERIES.WALCL,     limit: 52 },
+    RRPONTSYD: { ...SERIES.RRPONTSYD, limit: 30 },
     CPI:       { ...SERIES.CPI,       limit: 12 },
     COREPCE:   { ...SERIES.COREPCE,   limit: 12 },
     UNRATE:    { ...SERIES.UNRATE,    limit: 12 },
@@ -403,7 +405,7 @@ export default function Risk() {
           </div>
 
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={vixChart} margin={{ top: 4, right: 40, bottom: 0, left: -20 }}>
+            <AreaChart data={vixChart} margin={{ top: 4, right: 40, bottom: 0, left: -8 }}>
               <defs>
                 <linearGradient id="vixGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="20%" stopColor="hsl(45,90%,55%)" stopOpacity={0.2} />
@@ -474,7 +476,7 @@ export default function Risk() {
           </div>
 
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={sentChart} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+            <AreaChart data={sentChart} margin={{ top: 4, right: 8, bottom: 0, left: -8 }}>
               <CartesianGrid stroke="var(--color-term-border)" strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="date"
@@ -493,9 +495,9 @@ export default function Risk() {
               <Tooltip content={<ChartTooltip formatter={(v) => formatNum(v, 1)} />} />
               <ReferenceLine
                 y={86}
-                stroke="hsl(220,10%,40%)"
+                stroke="hsl(220,10%,52%)"
                 strokeDasharray="4 4"
-                label={{ value: "Avg ~86", position: "right", fill: "hsl(220,10%,40%)", fontSize: 9 }}
+                label={{ value: "Avg ~86", position: "right", fill: "hsl(220,10%,52%)", fontSize: 9 }}
               />
               {cbVal != null && (
                 <ReferenceLine
@@ -538,7 +540,7 @@ export default function Risk() {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={160}>
-          <AreaChart data={hyChart} margin={{ top: 4, right: 40, bottom: 0, left: -20 }}>
+          <AreaChart data={hyChart} margin={{ top: 4, right: 40, bottom: 0, left: -8 }}>
             <defs>
               <linearGradient id="hyGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="20%" stopColor="hsl(45,90%,55%)" stopOpacity={0.15} />
@@ -587,9 +589,11 @@ export default function Risk() {
           change={vixChg}
           decimals={2}
           signal={vixSignal}
-          detail="CBOE Volatility Index — 30-day implied S&P 500 volatility. Below 18 = calm markets; 18–25 = cautious; above 25 = fear; above 30 = crisis/panic. Spikes: COVID (66), GFC (80)."
+          detail="CBOE Volatility Index — 30-day implied S&P 500 volatility derived from options prices. Below 18 = calm markets; 18–25 = cautious; above 25 = fear; above 30 = crisis/panic. Historical spikes: COVID (66), GFC (80). Mean-reverting — sustained VIX above 30 is rare outside crisis periods."
           source="CBOE / FRED VIXCLS"
+          sourceUrl="https://fred.stlouisfed.org/series/VIXCLS"
           dateLabel={fmtCardDate(latest(data.VIXCLS)?.date)}
+          sparkData={data.VIXCLS?.slice(0, 12)}
         />
         <IndicatorCard
           label={cbVal != null ? "Consumer Confidence (CB)" : "Consumer Confidence (UMich)"}
@@ -603,7 +607,9 @@ export default function Risk() {
             : "University of Michigan Consumer Sentiment. Long-run avg ~86. Below 60 = significant pessimism historically preceding spending contractions. All-time low: 50.0 (Jun 2022)."
           }
           source={cbVal != null ? "Conference Board / Trading Economics" : "UMich / FRED UMCSENT"}
+          sourceUrl={cbVal != null ? "https://www.conference-board.org/topics/consumer-confidence" : "https://fred.stlouisfed.org/series/UMCSENT"}
           dateLabel={cbVal != null ? (cbData?.period ?? "") : fmtCardDate(latest(data.UMCSENT)?.date)}
+          sparkData={data.UMCSENT?.slice(0, 12)}
         />
         <IndicatorCard
           label="Gold (GLD)"
@@ -613,9 +619,11 @@ export default function Risk() {
           change={goldChg}
           decimals={0}
           signal={goldSignal}
-          detail="Gold spot price (USD/troy oz). Above $2,200 signals active safe-haven demand — a bearish risk signal indicating geopolitical or macro stress. All-time high driven by de-dollarization fears."
-          source="ICE / FRED GOLDAMGBD228NLBM"
+          detail="Gold spot price (USD/troy oz). Above $2,200 signals active safe-haven demand — a bearish risk signal indicating geopolitical or macro stress. Central bank buying (esp. China, India) and de-dollarization flows have driven structural demand. Gold correlates inversely with real yields — falling real rates are bullish for gold."
+          source="ICE / FRED"
+          sourceUrl="https://fred.stlouisfed.org/series/GOLDAMGBD228NLBM"
           dateLabel={fmtCardDate(latest(data.GOLD)?.date)}
+          sparkData={data.GOLD?.slice(0, 12)}
         />
         <IndicatorCard
           label="HY Credit Spreads"
@@ -624,9 +632,11 @@ export default function Risk() {
           change={hyChg}
           decimals={2}
           signal={hySignal}
-          detail="ICE BofA High Yield OAS over Treasuries. Below 3% = complacent; 3–5% = stress building; above 5% = bearish; above 6% = distress. Widened to 20%+ during GFC. Leading indicator for defaults."
-          source="ICE BofA / FRED BAMLH0A0HYM2"
+          detail="ICE BofA High Yield OAS over Treasuries. Below 3% = complacent risk-on; 3–5% = stress building; above 5% = bearish; above 6% = distress. Widened to 20%+ during GFC. A leading indicator for corporate default rates — spread widening historically precedes earnings deterioration by 2–3 quarters."
+          source="ICE BofA / FRED"
+          sourceUrl="https://fred.stlouisfed.org/series/BAMLH0A0HYM2"
           dateLabel={fmtCardDate(latest(data.HYSPREAD)?.date)}
+          sparkData={data.HYSPREAD?.slice(0, 12)}
         />
         <IndicatorCard
           label="Recession Probability"
@@ -635,9 +645,11 @@ export default function Risk() {
           change={recChg}
           decimals={1}
           signal={recSignal}
-          detail="NY Fed smoothed recession probability from probit model using yield spread. Above 30% = elevated risk; above 40% = historically aligns with confirmed NBER recessions. Lags by ~1 quarter."
-          source="NY Fed / FRED RECPROUSM156N"
+          detail="NY Fed smoothed recession probability from a probit model using the 10Y-3M Treasury spread. Above 30% = elevated risk; above 40% = historically aligns with confirmed NBER recession dates. The model has predicted all 8 recessions since 1960. Lags by ~1 quarter due to data reporting delays."
+          source="NY Fed / FRED"
+          sourceUrl="https://fred.stlouisfed.org/series/RECPROUSM156N"
           dateLabel={fmtCardDate(latest(data.RECESSION)?.date)}
+          sparkData={data.RECESSION?.slice(0, 12)}
         />
         <IndicatorCard
           label="S&P 500"
@@ -646,9 +658,41 @@ export default function Risk() {
           change={sp500Chg}
           decimals={2}
           signal={sp500Signal}
-          detail="S&P 500 composite index. Drawdowns of 10%+ (correction) or 20%+ (bear market) alongside rising VIX and widening credit spreads signal compounding systemic risk."
-          source="S&P / FRED SP500"
+          detail="S&P 500 composite index — 500 large-cap US equities weighted by market capitalization. Drawdowns of 10%+ (correction) or 20%+ (bear market) alongside rising VIX and widening credit spreads signal compounding systemic risk. The index accounts for ~80% of total US equity market cap. Forward P/E and earnings growth trajectory are the primary valuation anchors."
+          source="S&P / FRED"
+          sourceUrl="https://fred.stlouisfed.org/series/SP500"
           dateLabel={fmtCardDate(latest(data.SP500)?.date)}
+          sparkData={data.SP500?.slice(0, 12)}
+        />
+        <IndicatorCard
+          label="Fed Balance Sheet"
+          value={latest(data.WALCL || [])?.value != null ? latest(data.WALCL || []).value / 1000000 : null}
+          unit="T"
+          prefix="$"
+          decimals={2}
+          change={change(latest(data.WALCL || [])?.value, prior(data.WALCL || [])?.value)}
+          direction={change(latest(data.WALCL || [])?.value, prior(data.WALCL || [])?.value) == null ? "flat" : change(latest(data.WALCL || [])?.value, prior(data.WALCL || [])?.value) > 0 ? "up" : "down"}
+          signal="neutral"
+          detail="Total Federal Reserve assets (WALCL). Peak was $8.97T in Apr 2022. QT has been shrinking the balance sheet since Jun 2022. Faster runoff drains liquidity and tightens financial conditions. Slowdown/pause signals policy pivot."
+          source="Fed / FRED WALCL"
+          sourceUrl="https://fred.stlouisfed.org/series/WALCL"
+          dateLabel={fmtCardDate(latest(data.WALCL || [])?.date)}
+          sparkData={(data.WALCL || [])?.slice(0, 12)}
+        />
+        <IndicatorCard
+          label="Reverse Repo"
+          value={latest(data.RRPONTSYD || [])?.value != null ? latest(data.RRPONTSYD || []).value / 1000 : null}
+          unit="B"
+          prefix="$"
+          decimals={0}
+          change={change(latest(data.RRPONTSYD || [])?.value, prior(data.RRPONTSYD || [])?.value)}
+          direction={change(latest(data.RRPONTSYD || [])?.value, prior(data.RRPONTSYD || [])?.value) == null ? "flat" : change(latest(data.RRPONTSYD || [])?.value, prior(data.RRPONTSYD || [])?.value) > 0 ? "up" : "down"}
+          signal="neutral"
+          detail="Overnight reverse repo facility usage (RRPONTSYD). High usage = excess liquidity parked at the Fed. Declining RRP = liquidity draining into Treasuries or risk assets. Near-zero RRP means the liquidity buffer is exhausted."
+          source="NY Fed / FRED RRPONTSYD"
+          sourceUrl="https://fred.stlouisfed.org/series/RRPONTSYD"
+          dateLabel={fmtCardDate(latest(data.RRPONTSYD || [])?.date)}
+          sparkData={(data.RRPONTSYD || [])?.slice(0, 12)}
         />
       </div>
 

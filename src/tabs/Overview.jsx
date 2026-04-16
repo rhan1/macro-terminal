@@ -291,7 +291,7 @@ function getUpcomingEvents() {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Overview() {
   const { data, loading, error } = useFredData(FETCH_SERIES);
-  const { data: marketData, spyChart, loading: marketLoading, lastUpdated } = useMarketData();
+  const { data: marketData, spyChart, chartRange, loadChart, loading: marketLoading, lastUpdated } = useMarketData();
 
   // Live refresh age display
   const [now, setNow] = useState(Date.now());
@@ -613,7 +613,7 @@ export default function Overview() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(8, 1fr)",
+            gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
             gap: 8,
           }}
         >
@@ -626,6 +626,11 @@ export default function Overview() {
                 { key: "USO",  displayName: "Crude Oil",      prefix: "$" },
                 { key: "HYG",  displayName: "High Yield Corp", prefix: "$" },
                 { key: "VIX",  displayName: "Volatility",     prefix: "" },
+                { key: "UNG",  displayName: "Nat Gas",        prefix: "$" },
+                { key: "CPER", displayName: "Copper",         prefix: "$" },
+                { key: "FXE",  displayName: "EUR/USD",        prefix: "$" },
+                { key: "FXY",  displayName: "JPY",            prefix: "$" },
+                { key: "FXB",  displayName: "GBP/USD",        prefix: "$" },
               ].map(({ key, displayName, prefix }) => {
                 const ticker = marketData[key];
                 const price = ticker?.price ?? null;
@@ -757,15 +762,38 @@ export default function Overview() {
         <div className="panel" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "var(--color-term-dim)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                S&P 500 (SPY) — 1 Year
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 10, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  S&P 500 (SPY)
+                </span>
+                <div style={{ display: "flex", gap: 2 }}>
+                  {[
+                    { label: "1M", range: "1mo" },
+                    { label: "3M", range: "3mo" },
+                    { label: "6M", range: "6mo" },
+                    { label: "1Y", range: "1y" },
+                    { label: "5Y", range: "5y" },
+                  ].map(({ label, range }) => (
+                    <button
+                      key={range}
+                      onClick={() => loadChart(range)}
+                      style={{
+                        background: chartRange === range ? "hsla(142,70%,55%,0.15)" : "none",
+                        border: chartRange === range ? "1px solid hsla(142,70%,55%,0.4)" : "1px solid transparent",
+                        color: chartRange === range ? "hsl(142,70%,55%)" : "var(--color-term-dim)",
+                        fontSize: 9,
+                        fontFamily: "inherit",
+                        padding: "2px 8px",
+                        cursor: "pointer",
+                        letterSpacing: "0.04em",
+                        fontWeight: chartRange === range ? 600 : 400,
+                        transition: "all 0.1s",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }}>
                 <span
@@ -816,7 +844,7 @@ export default function Overview() {
             )}
           </div>
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={spChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <AreaChart data={spChartData} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
               <defs>
                 <linearGradient id="spGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="var(--color-term-green)" stopOpacity={0.15} />
@@ -901,7 +929,7 @@ export default function Overview() {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={yieldCurveData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+            <LineChart data={yieldCurveData} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
               <defs>
                 <linearGradient id="ycGreenGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="var(--color-term-green)" stopOpacity={0.15} />

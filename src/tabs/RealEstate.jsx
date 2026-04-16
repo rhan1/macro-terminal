@@ -14,7 +14,7 @@ const GREEN  = "hsl(142,70%,55%)";
 const RED    = "hsl(0,72%,55%)";
 const AMBER  = "hsl(45,90%,55%)";
 const CYAN   = "hsl(185,70%,55%)";
-const DIM    = "hsl(220,10%,40%)";
+const DIM    = "hsl(220,10%,52%)";
 const BORDER = "hsl(220,15%,14%)";
 const SURFACE = "hsl(220,20%,7%)";
 
@@ -419,7 +419,7 @@ export default function RealEstate() {
             CASE-SHILLER NATIONAL HPI — YOY % CHANGE
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={csChart} margin={{ top: 6, right: 8, left: -20, bottom: 0 }}>
+            <AreaChart data={csChart} margin={{ top: 6, right: 8, left: -8, bottom: 0 }}>
               <defs>
                 <linearGradient id="csGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="20%" stopColor={GREEN} stopOpacity={0.20} />
@@ -538,7 +538,7 @@ export default function RealEstate() {
             {supplyLabel(scVal)}
           </div>
           <ResponsiveContainer width="100%" height={80}>
-            <AreaChart data={supplyChart} margin={{ top: 4, right: 4, left: -32, bottom: 0 }}>
+            <AreaChart data={supplyChart} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
               <defs>
                 <linearGradient id="supplyGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="20%" stopColor={scColor} stopOpacity={0.20} />
@@ -584,7 +584,7 @@ export default function RealEstate() {
             )}
           </div>
           <ResponsiveContainer width="100%" height={80}>
-            <AreaChart data={listingsChart} margin={{ top: 4, right: 4, left: -32, bottom: 0 }}>
+            <AreaChart data={listingsChart} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
               <defs>
                 <linearGradient id="listingsGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="20%" stopColor={CYAN} stopOpacity={0.20} />
@@ -628,7 +628,7 @@ export default function RealEstate() {
             )}
           </div>
           <ResponsiveContainer width="100%" height={80}>
-            <AreaChart data={domChart} margin={{ top: 4, right: 4, left: -32, bottom: 0 }}>
+            <AreaChart data={domChart} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
               <defs>
                 <linearGradient id="domGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="20%" stopColor={AMBER} stopOpacity={0.20} />
@@ -791,6 +791,7 @@ export default function RealEstate() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CSUSHPINSA"
           dateLabel={fmtCardDate(latest(csArr)?.date)}
+          sparkData={csArr?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -806,6 +807,7 @@ export default function RealEstate() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
           dateLabel={fmtCardDate(latest(mortgageArr)?.date)}
+          sparkData={mortgageArr?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -821,6 +823,7 @@ export default function RealEstate() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/EXHOSLUSM495S"
           dateLabel={fmtCardDate(latest(salesArr)?.date)}
+          sparkData={salesArr?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -836,6 +839,7 @@ export default function RealEstate() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/HOUST"
           dateLabel={fmtCardDate(latest(startsArr)?.date)}
+          sparkData={startsArr?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -855,6 +859,7 @@ export default function RealEstate() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/HOSSUPUSM673N"
           dateLabel={fmtCardDate(latest(supplyArr)?.date)}
+          sparkData={supplyArr?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -870,6 +875,7 @@ export default function RealEstate() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/FIXHAI"
           dateLabel={fmtCardDate(latest(affordArr)?.date)}
+          sparkData={affordArr?.slice(0, 12)}
         />
 
       </div>

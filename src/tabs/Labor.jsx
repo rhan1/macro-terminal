@@ -88,7 +88,7 @@ export default function Labor() {
     ? ` ${unrateDir} ${unratePpChange >= 0 ? "+" : ""}${formatNum(unratePpChange, 1)}pp`
     : "";
   const unrateHeaderColor = unratePpChange == null
-    ? "hsl(220,10%,40%)"
+    ? "hsl(220,10%,52%)"
     : unratePpChange > 0
     ? "hsl(0,72%,55%)"
     : "hsl(142,70%,55%)";
@@ -235,7 +235,7 @@ export default function Labor() {
             )}
           </div>
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={unrateChart} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} syncId="labor">
+            <AreaChart data={unrateChart} margin={{ top: 8, right: 8, left: -8, bottom: 0 }} syncId="labor">
               <defs>
                 <linearGradient id="unrateGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="20%" stopColor="hsl(0,72%,55%)" stopOpacity={0.20} />
@@ -492,11 +492,12 @@ export default function Labor() {
               ? `Current unemployment is ${formatNum(unrateVal, 1)}%. The CBO estimates the long-run natural rate (NAIRU) at ~4.4%. ` +
                 `${unrateVal > 4.5 ? "Readings above this threshold signal rising slack — historically associated with softening earnings and eventual Fed easing bias." : unrateVal < 4.0 ? "Readings below this threshold signal an overheating labor market that pressures wages and services inflation." : "Current readings are near the NAIRU, consistent with full employment by conventional metrics."} ` +
                 `Druckenmiller views the direction of unemployment — not just the level — as the critical cycle signal. Source: BLS via FRED UNRATE.`
-              : undefined
+              : "U-3 unemployment rate — the percentage of the labor force that is jobless and actively seeking work. The CBO estimates NAIRU at ~4.4%. Direction matters more than level for cycle timing."
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/UNRATE"
           dateLabel={fmtCardDate(latest(unrateArr)?.date)}
+          sparkData={unrateArr?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -511,11 +512,12 @@ export default function Labor() {
               ? `The economy added ${formatNum(payemsVal, 0)}K jobs last month. Economists estimate ~70K/month is needed to keep up with working-age population growth; sustained readings above 150K signal robust labor demand. ` +
                 `${payemsVal < 0 ? "Negative payrolls signal outright job losses — historically a precursor to broader earnings pressure and rising default rates." : payemsVal < 70 ? "Readings below the ~70K breakeven suggest the labor market is absorbing workers slower than the population is growing." : "The current pace is comfortably above the breakeven rate."} ` +
                 `Note: initial payroll prints are subject to significant revision. Watch the 3-month average for signal. Source: BLS PAYEMS.`
-              : undefined
+              : "Monthly change in total nonfarm payroll employment. The ~70K/month breakeven keeps up with working-age population growth. Initial prints are subject to significant revision — watch the 3-month average."
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/PAYEMS"
           dateLabel={fmtCardDate(latest(payemsArr)?.date)}
+          sparkData={payemsArr?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -532,11 +534,12 @@ export default function Labor() {
                 `The Fed's sustainable nominal wage ceiling given 2% inflation + ~1.5% productivity growth is approximately 3.5%. ` +
                 `${wagesVal > 4.5 ? "Current wage growth is inflationary — the primary channel keeping services inflation sticky above the 2% target." : wagesVal < 3.0 ? "Wage growth is cooling toward pre-pandemic levels, easing services inflation pressure and opening room for Fed easing." : "Wage growth is above pre-pandemic norms but moderating — a key variable for the Fed's last-mile inflation battle."} ` +
                 `Source: BLS CES0500000003.`
-              : undefined
+              : "Average hourly earnings, year-over-year change. Pre-pandemic norm was ~3%. The Fed's sustainable ceiling is ~3.5% (2% inflation + 1.5% productivity). Above 4.5% sustains services inflation via the wage-price mechanism."
           }
           source="BLS / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/CES0500000003"
           dateLabel={fmtCardDate(latest(wagesArr)?.date)}
+          sparkData={wagesArr?.slice(0, 12)}
         />
       </div>
 
@@ -554,6 +557,7 @@ export default function Labor() {
           source="DOL / FRED ICSA"
           sourceUrl="https://fred.stlouisfed.org/series/ICSA"
           dateLabel={fmtCardDate(latest(claimsArr)?.date)}
+          sparkData={claimsArr?.slice(0, 12)}
         />
 
         <IndicatorCard

@@ -4,7 +4,7 @@
   --color-term-bg: hsl(220 20% 4%);
   --color-term-surface: hsl(220 20% 7%);
   --color-term-border: hsl(220 15% 14%);
-  --color-term-dim: hsl(220 10% 40%);
+  --color-term-dim: hsl(220 10% 52%);
   --color-term-green: hsl(142 70% 55%);
   --color-term-red: hsl(0 72% 55%);
   --color-term-amber: hsl(45 90% 55%);
@@ -30,7 +30,7 @@ html, body, #root {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: hsl(220 20% 4%); }
 ::-webkit-scrollbar-thumb { background: hsl(220 15% 14%); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(220 10% 40%); }
+::-webkit-scrollbar-thumb:hover { background: hsl(220 10% 52%); }
 
 /* Scanline CRT effect */
 #root {
@@ -75,7 +75,7 @@ html, body, #root {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: hsl(220 10% 40%);
+  color: hsl(220 10% 52%);
   margin-bottom: 8px;
 }
 
@@ -111,11 +111,11 @@ button:focus-visible, [tabindex]:focus-visible {
 
 /* Tab content fade transition */
 .tab-content {
-  animation: tab-fade-in 120ms ease-out;
+  animation: tab-fade-in 180ms ease-out;
 }
 @keyframes tab-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Market ticker horizontal scroll on mobile */
@@ -142,3 +142,53 @@ button:focus-visible, [tabindex]:focus-visible {
   background-size: 400px 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* Skip link for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 200;
+  background: hsl(220 20% 7%);
+  color: hsl(185 70% 55%);
+  border: 1px solid hsl(185 70% 55%);
+  padding: 8px 16px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+/* Hide keyboard hint on touch/mobile */
+.keys-hint { display: inline; }
+@media (max-width: 768px) {
+  .keys-hint { display: none; }
+}
+
+/* Header data sources hide on small screens */
+.header-sources { display: inline; }
+@media (max-width: 600px) {
+  .header-sources { display: none !important; }
+}
+
+/* Prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  #root::after { animation: none; }
+  .tab-content { animation: none; }
+  .loading-bar { animation: none; }
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* Print stylesheet */
+@media print {
+  html, body, #root { background: white; color: black; overflow: visible; height: auto; }
+  #root::after { display: none; }
+  .glow-green, .glow-red, .glow-amber, .glow-cyan { text-shadow: none; }
+  header, nav, .skip-link { break-inside: avoid; }
+  .panel { border-color: #ccc; background: white; }
+}
+
+/* Grid orphan fix — lone last item in 3-col grid spans full width */
+.grid-3 > :last-child:nth-child(3n+1) { grid-column: 1 / -1; }
