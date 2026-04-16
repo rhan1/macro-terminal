@@ -192,7 +192,7 @@ export default function Growth() {
   const axisStyle = {
     fontFamily: '"JetBrains Mono", monospace',
     fontSize: 9,
-    fill: "hsl(220,10%,40%)",
+    fill: "hsl(220,10%,52%)",
   };
 
   return (
@@ -214,7 +214,7 @@ export default function Growth() {
         <div
           style={{
             fontSize: 10,
-            color: "hsl(220,10%,40%)",
+            color: "hsl(220,10%,52%)",
             marginTop: 2,
           }}
         >
@@ -261,7 +261,7 @@ export default function Growth() {
               />
               <ReferenceLine
                 y={2}
-                stroke="hsl(220,10%,40%)"
+                stroke="hsl(220,10%,52%)"
                 strokeDasharray="4 4"
               />
               <Bar dataKey="value" name="GDP Growth" radius={[2, 2, 0, 0]} maxBarSize={32}>
@@ -275,7 +275,7 @@ export default function Growth() {
             style={{
               marginTop: 8,
               fontSize: 11,
-              color: "hsl(220,10%,40%)",
+              color: "hsl(220,10%,52%)",
               lineHeight: 1.65,
             }}
           >
@@ -312,7 +312,7 @@ export default function Growth() {
                     fontSize: 9,
                     fontFamily: '"JetBrains Mono", monospace',
                     letterSpacing: "0.08em",
-                    color: "hsl(220,10%,40%)",
+                    color: "hsl(220,10%,52%)",
                   }}
                 >
                   50 = EXPANSION THRESHOLD
@@ -340,7 +340,7 @@ export default function Growth() {
                       style={{
                         background: "hsl(220,15%,10%)",
                         border: `1px solid ${mfgColor}33`,
-                        borderRadius: 6,
+                        borderRadius: 0,
                         padding: "16px 12px",
                         textAlign: "center",
                       }}
@@ -372,7 +372,7 @@ export default function Growth() {
                         style={{
                           fontSize: 10,
                           fontFamily: '"JetBrains Mono", monospace',
-                          color: "hsl(220,10%,40%)",
+                          color: "hsl(220,10%,52%)",
                           marginTop: 8,
                         }}
                       >
@@ -413,7 +413,7 @@ export default function Growth() {
                       style={{
                         background: "hsl(220,15%,10%)",
                         border: `1px solid ${svcColor}33`,
-                        borderRadius: 6,
+                        borderRadius: 0,
                         padding: "16px 12px",
                         textAlign: "center",
                       }}
@@ -445,7 +445,7 @@ export default function Growth() {
                         style={{
                           fontSize: 10,
                           fontFamily: '"JetBrains Mono", monospace',
-                          color: "hsl(220,10%,40%)",
+                          color: "hsl(220,10%,52%)",
                           marginTop: 8,
                         }}
                       >
@@ -479,7 +479,7 @@ export default function Growth() {
               <div
                 style={{
                   fontSize: 11,
-                  color: "hsl(220,10%,40%)",
+                  color: "hsl(220,10%,52%)",
                   lineHeight: 1.65,
                 }}
               >
@@ -520,7 +520,7 @@ export default function Growth() {
                   />
                   <ReferenceLine
                     y={0}
-                    stroke="hsl(220,10%,40%)"
+                    stroke="hsl(220,10%,52%)"
                     strokeDasharray="4 4"
                   />
                   <Bar
@@ -536,7 +536,7 @@ export default function Growth() {
                 style={{
                   marginTop: 8,
                   fontSize: 11,
-                  color: "hsl(220,10%,40%)",
+                  color: "hsl(220,10%,52%)",
                   lineHeight: 1.65,
                 }}
               >
@@ -565,6 +565,7 @@ export default function Growth() {
           sourceUrl="https://fred.stlouisfed.org/series/A191RL1Q225SBEA"
           decimals={1}
           dateLabel={fmtCardQuarter(latest(gdpRaw)?.date)}
+          sparkData={gdpRaw?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -580,6 +581,7 @@ export default function Growth() {
           sourceUrl="https://fred.stlouisfed.org/series/INDPRO"
           decimals={2}
           dateLabel={fmtCardDate(latest(indproRaw)?.date)}
+          sparkData={indproRaw?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -595,6 +597,7 @@ export default function Growth() {
           sourceUrl="https://fred.stlouisfed.org/series/M2SL"
           decimals={2}
           dateLabel={fmtCardDate(latest(m2Raw)?.date)}
+          sparkData={m2Raw?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -610,6 +613,7 @@ export default function Growth() {
           sourceUrl="https://fred.stlouisfed.org/series/HOUST"
           decimals={0}
           dateLabel={fmtCardDate(latest(housingRaw)?.date)}
+          sparkData={housingRaw?.slice(0, 12)}
         />
 
         <IndicatorCard
@@ -642,8 +646,9 @@ export default function Growth() {
                 : "bearish"
               : "neutral"
           }
-          detail="ISM Manufacturing PMI. Readings above 50 indicate expansion in the factory sector. The ISM survey is one of the most watched leading indicators for economic activity."
+          detail="ISM Manufacturing PMI. Readings above 50 indicate expansion in the factory sector. The ISM survey covers 400+ purchasing managers across 18 industries and is one of the most watched leading indicators for economic activity. New Orders and Employment subindices are particularly predictive of GDP direction."
           source="ISM / Trading Economics"
+          sourceUrl="https://www.ismworld.org/supply-management-news-and-reports/reports/ism-report-on-business/"
           decimals={1}
         />
 
@@ -660,6 +665,7 @@ export default function Growth() {
           sourceUrl="https://fred.stlouisfed.org/series/DFF"
           decimals={2}
           dateLabel={fmtCardDate(latest(fedfundsRaw)?.date)}
+          sparkData={fedfundsRaw?.slice(0, 12)}
         />
 
       </div>

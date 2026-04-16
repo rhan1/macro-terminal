@@ -415,6 +415,7 @@ export default function Rates() {
           source="Federal Reserve"
           sourceUrl="https://fred.stlouisfed.org/series/FEDFUNDS"
           decimals={2}
+          sparkData={data.FEDFUNDS?.slice(0, 12)}
         />
         <IndicatorCard
           label="10Y Treasury Yield"
@@ -429,6 +430,7 @@ export default function Rates() {
           source="U.S. Treasury"
           sourceUrl="https://fred.stlouisfed.org/series/DGS10"
           decimals={2}
+          sparkData={data.DGS10?.slice(0, 12)}
         />
         <IndicatorCard
           label="2Y Treasury Yield"
@@ -443,6 +445,7 @@ export default function Rates() {
           source="U.S. Treasury"
           sourceUrl="https://fred.stlouisfed.org/series/DGS2"
           decimals={2}
+          sparkData={data.DGS2?.slice(0, 12)}
         />
         <IndicatorCard
           label="2s10s Spread"
@@ -458,6 +461,7 @@ export default function Rates() {
           sourceUrl="https://fred.stlouisfed.org/series/T10Y2Y"
           decimals={0}
           prefix="+"
+          sparkData={data.T10Y2Y?.slice(0, 12)}
         />
         <IndicatorCard
           label="10Y-3M Spread"
@@ -473,6 +477,7 @@ export default function Rates() {
           sourceUrl="https://fred.stlouisfed.org/series/T10Y3M"
           decimals={0}
           prefix="+"
+          sparkData={data.T10Y3M?.slice(0, 12)}
         />
         <IndicatorCard
           label="30Y Mortgage Rate"
@@ -487,6 +492,7 @@ export default function Rates() {
           source="FRED"
           sourceUrl="https://fred.stlouisfed.org/series/MORTGAGE30US"
           decimals={2}
+          sparkData={data.MORTGAGE30?.slice(0, 12)}
         />
       </div>
     </div>

@@ -27,7 +27,7 @@ const SIGNAL_STYLES = {
 
 const DIR_ICONS = { up: "▲", down: "▼", flat: "◆" };
 
-function Sparkline({ data, color, width = 48, height = 20 }) {
+function Sparkline({ data, color, width = 100, height = 30 }) {
   if (!data || data.length < 2) return null;
   const vals = data.map((d) => (typeof d === "number" ? d : d.value)).filter((v) => v != null);
   if (vals.length < 2) return null;
@@ -36,16 +36,18 @@ function Sparkline({ data, color, width = 48, height = 20 }) {
   const range = max - min || 1;
   const points = vals.map((v, i) => {
     const x = (i / (vals.length - 1)) * width;
-    const y = height - ((v - min) / range) * (height - 2) - 1;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
     return `${x},${y}`;
   });
+  const areaPoints = `0,${height} ${points.join(" ")} ${width},${height}`;
   return (
-    <svg width={width} height={height} style={{ display: "block", opacity: 0.7 }}>
+    <svg width={width} height={height} style={{ display: "block" }}>
+      <polygon points={areaPoints} fill={color} fillOpacity={0.12} />
       <polyline
         points={points.join(" ")}
         fill="none"
         stroke={color}
-        strokeWidth={1.2}
+        strokeWidth={1.5}
         strokeLinejoin="round"
         strokeLinecap="round"
       />
@@ -91,7 +93,7 @@ export default function IndicatorCard({
       {/* Top: label+value (left) + badge (right, top-aligned) */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
         <div>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,40%)", marginBottom: 2 }}>
+          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,52%)", marginBottom: 2 }}>
             {label}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -129,11 +131,11 @@ export default function IndicatorCard({
         {dirIcon && (
           <span style={{ fontSize: 9, color: s.text }}>{dirIcon}</span>
         )}
-        <span style={{ color: "hsl(220,10%,40%)", fontVariantNumeric: "tabular-nums" }}>
+        <span style={{ color: "hsl(220,10%,52%)", fontVariantNumeric: "tabular-nums" }}>
           {changeLabel || (change != null ? formatPct(change) : "")}
         </span>
         {dateLabel && (
-          <span style={{ marginLeft: "auto", fontSize: 10, color: "hsl(220,10%,40%)" }}>{dateLabel}</span>
+          <span style={{ marginLeft: "auto", fontSize: 10, color: "hsl(220,10%,52%)" }}>{dateLabel}</span>
         )}
       </div>
 
@@ -145,20 +147,20 @@ export default function IndicatorCard({
             paddingTop: 10,
             borderTop: "1px solid hsl(220,15%,14%)",
             fontSize: 11,
-            color: "hsl(220,10%,40%)",
+            color: "hsl(220,10%,52%)",
             lineHeight: 1.6,
           }}
         >
           <p style={{ margin: 0 }}>{detail}</p>
           {source && (
-            <div style={{ marginTop: 6 }}>
-              <span style={{ color: "hsl(185,70%,55%)", fontSize: 9 }}>SRC: </span>
+            <div style={{ marginTop: 6, minHeight: 44, display: "flex", alignItems: "center" }}>
+              <span style={{ color: "hsl(185,70%,55%)", fontSize: 11 }}>SRC: </span>
               {sourceUrl ? (
                 <a
                   href={sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: "hsl(185,70%,55%)", fontSize: 9, textDecoration: "none" }}
+                  style={{ color: "hsl(185,70%,55%)", fontSize: 11, textDecoration: "none", padding: "8px 4px" }}
                   onClick={(e) => e.stopPropagation()}
                   onMouseEnter={(e) => { e.target.style.textDecoration = "underline"; }}
                   onMouseLeave={(e) => { e.target.style.textDecoration = "none"; }}
@@ -166,7 +168,7 @@ export default function IndicatorCard({
                   {source}
                 </a>
               ) : (
-                <span style={{ color: "hsl(185,70%,55%)", fontSize: 9 }}>{source}</span>
+                <span style={{ color: "hsl(185,70%,55%)", fontSize: 11, padding: "8px 4px" }}>{source}</span>
               )}
             </div>
           )}

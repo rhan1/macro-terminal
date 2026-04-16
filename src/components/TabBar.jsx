@@ -5,12 +5,15 @@ const TABS = [
   { key: "growth", label: "GROWTH", num: "4" },
   { key: "labor", label: "LABOR", num: "5" },
   { key: "risk", label: "RISK", num: "6" },
-  { key: "realestate", label: "REAL ESTATE", num: "7" },
+  { key: "sentiment", label: "SENTIMENT", num: "7" },
+  { key: "realestate", label: "REAL ESTATE", num: "8" },
 ];
 
 export default function TabBar({ active, onSelect }) {
   return (
     <nav
+      role="tablist"
+      aria-label="Dashboard sections"
       style={{
         display: "flex",
         alignItems: "center",
@@ -27,6 +30,11 @@ export default function TabBar({ active, onSelect }) {
           return (
             <button
               key={tab.key}
+              role="tab"
+              id={`tab-${tab.key}`}
+              aria-selected={isActive}
+              aria-controls={`panel-${tab.key}`}
+              tabIndex={isActive ? 0 : -1}
               onClick={() => onSelect(tab.key)}
               className={isActive ? "glow-green" : ""}
               style={{
@@ -37,29 +45,35 @@ export default function TabBar({ active, onSelect }) {
                   : "1px solid transparent",
                 padding: "8px 16px",
                 cursor: "pointer",
-                color: isActive ? "hsl(142,70%,55%)" : "hsl(220,10%,40%)",
+                color: isActive ? "hsl(142,70%,55%)" : "hsl(0,0%,85%)",
                 fontSize: 10,
                 fontFamily: "inherit",
                 fontWeight: isActive ? 600 : 400,
                 letterSpacing: "0.05em",
                 textTransform: "uppercase",
-                transition: "color 0.15s",
+                transition: "color 0.15s, background 0.1s",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) e.target.style.color = "hsla(142,70%,55%,0.7)";
               }}
               onMouseLeave={(e) => {
-                if (!isActive) e.target.style.color = "hsl(220,10%,40%)";
+                if (!isActive) e.target.style.color = "hsl(0,0%,85%)";
+              }}
+              onMouseDown={(e) => {
+                e.target.style.background = "hsla(142,70%,55%,0.08)";
+              }}
+              onMouseUp={(e) => {
+                e.target.style.background = "none";
               }}
             >
-              <span style={{ color: "hsl(220,10%,40%)", marginRight: 4, fontSize: 10 }}>{tab.num}</span>
+              <span style={{ color: "hsl(0,0%,55%)", marginRight: 4, fontSize: 10 }}>{tab.num}</span>
               {tab.label}
             </button>
           );
         })}
       </div>
-      <span style={{ fontSize: 10, color: "hsl(220,10%,40%)", letterSpacing: "0.05em" }}>
-        KEYS [1-7] TO NAVIGATE
+      <span className="keys-hint" style={{ fontSize: 10, color: "hsl(220,10%,52%)", letterSpacing: "0.05em" }}>
+        KEYS [1-8] TO NAVIGATE
       </span>
     </nav>
   );

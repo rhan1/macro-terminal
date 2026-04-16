@@ -9,8 +9,9 @@ import Growth from "./tabs/Growth";
 import Labor from "./tabs/Labor";
 import Risk from "./tabs/Risk";
 import RealEstate from "./tabs/RealEstate";
+import Sentiment from "./tabs/Sentiment";
 
-const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "realestate"];
+const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "sentiment", "realestate"];
 
 const TAB_COMPONENTS = {
   overview: Overview,
@@ -20,6 +21,7 @@ const TAB_COMPONENTS = {
   labor: Labor,
   risk: Risk,
   realestate: RealEstate,
+  sentiment: Sentiment,
 };
 
 export default function App() {
@@ -28,7 +30,7 @@ export default function App() {
   useEffect(() => {
     function handleKey(e) {
       const num = parseInt(e.key, 10);
-      if (num >= 1 && num <= 7 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (num >= 1 && num <= 8 && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         setActiveTab(TAB_KEYS[num - 1]);
       }
@@ -48,9 +50,11 @@ export default function App() {
         overflow: "hidden",
       }}
     >
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <Header />
       <TabBar active={activeTab} onSelect={setActiveTab} />
       <main
+        id="main-content"
         style={{
           flex: 1,
           overflowY: "auto",
