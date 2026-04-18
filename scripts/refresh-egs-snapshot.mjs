@@ -1,27 +1,61 @@
 #!/usr/bin/env node
-// Fetches eurogirlsescort.es homepage once and parses the country sidebar
-// (~55 countries + pre-aggregated listing counts) into public/data/egs-snapshot.json.
+// Fetches eurogirlsescort.es homepage once, parses the country sidebar
+// into country totals, and writes:
+//   - data/egs-history.json    — append-only time series, source of truth
+//   - data/egs-snapshot.json   — current reading + last 12 trend points per country
 //
-// Why a local script instead of /api/egs: Vercel's us-east egress IPs hit a
-// Cloudflare "Just a moment…" challenge on egs. Residential IPs pass. So we
-// scrape from here, commit the JSON, and serve it statically from the app.
+// Country names are translated ISO → English via a curated map; unknown
+// ISOs fall back to the scraped Spanish name.
 //
 // Usage: npm run refresh-egs
-//        (or: node scripts/refresh-egs-snapshot.mjs)
 
-import { writeFile, mkdir } from "node:fs/promises";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const URL = "https://www.eurogirlsescort.es/";
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-// flag-icon-XX + country text + <small>(N)</small>
 const COUNTRY_RE =
   /flag-icon flag-icon-([a-z]{2})"><\/span>\s*([^<]+?)\s*<\/a>\s*<small>\(([\d,]+)\)<\/small>/g;
 
-// Approximate metro population (millions) for a representative city per country.
-// Drives the /100k derivation in the tooltip. Keyed by ISO.
+// ISO 3166-1 alpha-2 → English name. Covers all ~129 entries the scrape returns.
+const EN_NAME = {
+  ad: "Andorra", ae: "United Arab Emirates", af: "Afghanistan", al: "Albania",
+  am: "Armenia", ao: "Angola", ar: "Argentina", at: "Austria", au: "Australia",
+  az: "Azerbaijan", ba: "Bosnia & Herzegovina", bb: "Barbados", bd: "Bangladesh",
+  be: "Belgium", bg: "Bulgaria", bh: "Bahrain", bo: "Bolivia", br: "Brazil",
+  bs: "Bahamas", bw: "Botswana", by: "Belarus", ca: "Canada", cd: "DR Congo",
+  ch: "Switzerland", ci: "Côte d'Ivoire", cl: "Chile", cm: "Cameroon",
+  cn: "China", co: "Colombia", cr: "Costa Rica", cu: "Cuba", cv: "Cape Verde",
+  cy: "Cyprus", cz: "Czech Republic", de: "Germany", dk: "Denmark",
+  do: "Dominican Republic", dz: "Algeria", ec: "Ecuador", ee: "Estonia",
+  eg: "Egypt", es: "Spain", et: "Ethiopia", fi: "Finland", fr: "France",
+  gb: "United Kingdom", ge: "Georgia", gh: "Ghana", gr: "Greece",
+  gt: "Guatemala", hk: "Hong Kong", hn: "Honduras", hr: "Croatia",
+  hu: "Hungary", id: "Indonesia", ie: "Ireland", il: "Israel", in: "India",
+  iq: "Iraq", ir: "Iran", is: "Iceland", it: "Italy", jm: "Jamaica",
+  jo: "Jordan", jp: "Japan", ke: "Kenya", kg: "Kyrgyzstan", kh: "Cambodia",
+  kr: "South Korea", kw: "Kuwait", kz: "Kazakhstan", la: "Laos",
+  lb: "Lebanon", li: "Liechtenstein", lk: "Sri Lanka", lt: "Lithuania",
+  lu: "Luxembourg", lv: "Latvia", ly: "Libya", ma: "Morocco", mc: "Monaco",
+  md: "Moldova", me: "Montenegro", mg: "Madagascar", mk: "North Macedonia",
+  ml: "Mali", mm: "Myanmar", mn: "Mongolia", mt: "Malta", mu: "Mauritius",
+  mv: "Maldives", mx: "Mexico", my: "Malaysia", mz: "Mozambique",
+  na: "Namibia", ng: "Nigeria", ni: "Nicaragua", nl: "Netherlands",
+  no: "Norway", np: "Nepal", nz: "New Zealand", om: "Oman", pa: "Panama",
+  pe: "Peru", pg: "Papua New Guinea", ph: "Philippines", pk: "Pakistan",
+  pl: "Poland", pr: "Puerto Rico", ps: "Palestine", pt: "Portugal",
+  py: "Paraguay", qa: "Qatar", ro: "Romania", rs: "Serbia", ru: "Russia",
+  rw: "Rwanda", sa: "Saudi Arabia", sd: "Sudan", se: "Sweden", sg: "Singapore",
+  si: "Slovenia", sk: "Slovakia", sn: "Senegal", so: "Somalia", sv: "El Salvador",
+  sy: "Syria", th: "Thailand", tj: "Tajikistan", tm: "Turkmenistan",
+  tn: "Tunisia", tr: "Turkey", tt: "Trinidad & Tobago", tw: "Taiwan",
+  tz: "Tanzania", ua: "Ukraine", ug: "Uganda", us: "United States",
+  uy: "Uruguay", uz: "Uzbekistan", ve: "Venezuela", vn: "Vietnam",
+  ye: "Yemen", za: "South Africa", zm: "Zambia", zw: "Zimbabwe",
+};
+
 const REF_POP = {
   gb: 9.5, de: 3.6, fr: 11.1, es: 6.7, it: 4.3, nl: 1.1, ch: 1.4, at: 2.0,
   pl: 1.8, ro: 1.8, hu: 1.8, cz: 1.3, bg: 1.7, gr: 3.2, pt: 2.9, se: 1.6,
@@ -36,9 +70,24 @@ const REF_POP = {
   iq: 7.5, lb: 2.2, sy: 2.5, jo: 4.5, ye: 2.8, np: 1.4, lk: 2.3, tw: 2.6,
 };
 
+const TREND_POINTS = 12; // max points per country kept in snapshot for sparklines
+
+function loadJson(path) {
+  if (!existsSync(path)) return null;
+  try { return JSON.parse(readFileSync(path, "utf8")); }
+  catch { return null; }
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 async function main() {
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const outPath = resolve(__dirname, "../data/egs-snapshot.json");
+  const dataDir = resolve(__dirname, "../data");
+  const histPath = resolve(dataDir, "egs-history.json");
+  const snapPath = resolve(dataDir, "egs-snapshot.json");
+  mkdirSync(dataDir, { recursive: true });
 
   process.stdout.write(`Fetching ${URL}… `);
   const t0 = Date.now();
@@ -47,63 +96,103 @@ async function main() {
     signal: AbortSignal.timeout(15000),
   });
   if (!resp.ok) {
-    console.error(`\nFAILED: HTTP ${resp.status}. Body title: ${(await resp.text()).slice(0, 120)}`);
+    console.error(`\nFAILED: HTTP ${resp.status}`);
     process.exit(1);
   }
   const html = await resp.text();
   console.log(`${resp.status} ${html.length.toLocaleString()} bytes in ${Date.now() - t0}ms`);
 
-  const countries = [];
+  const date = todayIso();
+  const parsed = [];
   const seen = new Set();
   for (const m of html.matchAll(COUNTRY_RE)) {
     const iso = m[1].toLowerCase();
-    const country = m[2].trim();
+    const spanish = m[2].trim();
     const total = parseInt(m[3].replace(/,/g, ""), 10);
-    if (seen.has(iso)) continue;
+    if (seen.has(iso) || !total) continue;
     seen.add(iso);
-    if (!total) continue;
-    countries.push({
+    parsed.push({
       iso,
-      country,
+      country: EN_NAME[iso] ?? spanish,
+      spanish,
       total,
-      cities: [],
-      countPer100kRef: REF_POP[iso]
-        ? Math.round(((total / (REF_POP[iso] * 1_000_000)) * 100_000) * 100) / 100
-        : null,
     });
   }
+  parsed.sort((a, b) => b.total - a.total);
 
-  countries.sort((a, b) => b.total - a.total);
+  // Merge into history (append-only, dedupe same-day updates)
+  const history = loadJson(histPath) ?? { series: {} };
+  for (const c of parsed) {
+    const arr = history.series[c.iso] ?? [];
+    if (arr.length && arr[arr.length - 1].date === date) {
+      arr[arr.length - 1] = { date, total: c.total }; // overwrite same-day
+    } else {
+      arr.push({ date, total: c.total });
+    }
+    history.series[c.iso] = arr;
+  }
+  history.lastRefresh = date;
+  history.countriesCount = parsed.length;
+  writeFileSync(histPath, JSON.stringify(history, null, 2) + "\n");
+
+  // Build snapshot with trend (last 12 points) + prev for delta computation
+  const countries = parsed.map((c) => {
+    const trend = (history.series[c.iso] ?? []).slice(-TREND_POINTS);
+    const prev = trend.length >= 2 ? trend[trend.length - 2].total : null;
+    const delta = prev != null ? c.total - prev : null;
+    const deltaPct = prev ? Math.round((delta / prev) * 1000) / 10 : null;
+    return {
+      iso: c.iso,
+      country: c.country,
+      spanish: c.spanish,
+      total: c.total,
+      prev,
+      delta,
+      deltaPct,
+      trend,
+      cities: [],
+      countPer100kRef: REF_POP[c.iso]
+        ? Math.round(((c.total / (REF_POP[c.iso] * 1_000_000)) * 100_000) * 100) / 100
+        : null,
+    };
+  });
+
   const totalWorldwide = countries.reduce((s, c) => s + c.total, 0);
-
   const snapshot = {
     source: "eurogirlsescort.es",
     fetchedAt: new Date().toISOString(),
+    snapshotDate: date,
     totalWorldwide,
     countriesCount: countries.length,
     countries,
     cities: countries.map((c) => ({
       city: c.country,
       count: c.total,
-      url: `/escorts/${c.country.toLowerCase().replace(/\s+/g, "-")}/`,
+      url: `/escorts/${c.spanish.toLowerCase().replace(/\s+/g, "-")}/`,
       population: REF_POP[c.iso] ?? null,
       countPer100k: c.countPer100kRef,
       iso: c.iso,
       country: c.country,
     })),
   };
-
-  await mkdir(dirname(outPath), { recursive: true });
-  await writeFile(outPath, JSON.stringify(snapshot, null, 2) + "\n");
+  writeFileSync(snapPath, JSON.stringify(snapshot, null, 2) + "\n");
 
   console.log(
-    `Parsed ${countries.length} countries · totalWorldwide=${totalWorldwide.toLocaleString()}`
+    `Parsed ${countries.length} countries · total=${totalWorldwide.toLocaleString()} · date=${date}`
   );
-  console.log(`Top 10:`);
-  for (const c of countries.slice(0, 10)) {
-    console.log(`  ${c.iso.toUpperCase()} ${c.country.padEnd(22)} ${String(c.total).padStart(6)}`);
+  const sample = countries.filter((c) => c.delta != null).slice(0, 10);
+  if (sample.length) {
+    console.log("\nTop 10 with delta vs previous reading:");
+    for (const c of sample) {
+      const sign = c.delta > 0 ? "+" : "";
+      console.log(`  ${c.iso.toUpperCase()} ${c.country.padEnd(25)} ${String(c.total).padStart(6)}  Δ ${sign}${c.delta} (${sign}${c.deltaPct}%)`);
+    }
+  } else {
+    console.log("\n(First reading — deltas will appear on next refresh.)");
+    for (const c of countries.slice(0, 10)) {
+      console.log(`  ${c.iso.toUpperCase()} ${c.country.padEnd(25)} ${String(c.total).padStart(6)}`);
+    }
   }
-  console.log(`\nWrote ${outPath}`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
