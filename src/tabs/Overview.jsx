@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { useMarketData } from "../hooks/useMarketData";
+import { useOverviewNarrative } from "../hooks/useOverviewNarrative";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
@@ -563,6 +564,9 @@ export default function Overview() {
         >
           {TODAY} — The Druckenmiller View
         </div>
+
+        {/* Perplexity-sourced live narrative — today's market drivers */}
+        <NarrativePanel />
 
         {/* Analytical bullets */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1261,6 +1265,92 @@ export default function Overview() {
         />
       </div>
 
+    </div>
+  );
+}
+
+// ── Today's Market Drivers — Perplexity Sonar-sourced paragraph ───────────────
+function NarrativePanel() {
+  const { data, loading } = useOverviewNarrative();
+
+  if (loading) return null;
+  if (!data || data.error || !data.paragraph) return null;
+
+  const sources = Array.isArray(data.sources) ? data.sources : [];
+  const fetchedAgo = (() => {
+    if (!data.fetchedAt) return "";
+    const mins = Math.round((Date.now() - new Date(data.fetchedAt).getTime()) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    return `${hrs}h ago`;
+  })();
+
+  // Replace Perplexity's [1], [2] inline markers with superscript links to the citation URLs.
+  const renderWithCitations = (text) => {
+    const parts = text.split(/(\[\d+\])/g);
+    return parts.map((part, i) => {
+      const m = part.match(/^\[(\d+)\]$/);
+      if (!m) return part;
+      const idx = parseInt(m[1], 10) - 1;
+      const src = sources[idx];
+      if (!src?.url) return part;
+      return (
+        <a
+          key={i}
+          href={src.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: "hsl(185,70%,55%)",
+            textDecoration: "none",
+            fontSize: 9,
+            verticalAlign: "super",
+            margin: "0 1px",
+          }}
+        >
+          [{m[1]}]
+        </a>
+      );
+    });
+  };
+
+  return (
+    <div
+      style={{
+        marginBottom: 14,
+        paddingBottom: 12,
+        borderBottom: "1px solid hsl(220,15%,14%)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 9,
+          textTransform: "uppercase",
+          letterSpacing: "0.12em",
+          color: "hsl(185,70%,55%)",
+          fontWeight: 600,
+          marginBottom: 6,
+          display: "flex",
+          alignItems: "baseline",
+          gap: 10,
+        }}
+      >
+        <span>Today's Market Drivers</span>
+        <span style={{ color: "hsl(220,10%,52%)", letterSpacing: "0.05em", fontWeight: 400 }}>
+          via Perplexity Sonar · {fetchedAgo}
+        </span>
+      </div>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 11,
+          color: "var(--color-term-text)",
+          lineHeight: 1.7,
+        }}
+      >
+        {renderWithCitations(data.paragraph)}
+      </p>
     </div>
   );
 }
