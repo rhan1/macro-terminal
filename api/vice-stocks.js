@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  const symbols = (req.query.symbols || "RICK,MGM,LVS,WYNN,CZR,DKNG,DEO,STZ,MTCH,TLRY").split(",").map((s) => s.trim().toUpperCase());
+  const symbols = (req.query.symbols || "RICK,MGM,LVS,WYNN,CZR,DKNG,DEO,STZ,MTCH,TLRY,DG,DLTR,FIVE,EZPW,FCFS").split(",").map((s) => s.trim().toUpperCase());
   const range = req.query.range || "1y";
   const validRanges = ["1mo", "3mo", "6mo", "1y", "5y"];
   const safeRange = validRanges.includes(range) ? range : "1y";
@@ -69,12 +69,21 @@ export default async function handler(req, res) {
     "Alcohol": ["DEO", "STZ"],
     "Dating": ["MTCH"],
     "Cannabis": ["TLRY"],
+    "Dollar Stores": ["DG", "DLTR", "FIVE"],
+    "Pawn Shops": ["EZPW", "FCFS"],
+  };
+
+  // Groups: which categories belong to which top-level section in the UI
+  const groups = {
+    "Vice Stocks": ["Adult Entertainment", "Gambling & Casinos", "Alcohol", "Dating", "Cannabis"],
+    "Stress Economy": ["Dollar Stores", "Pawn Shops"],
   };
 
   res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
   return res.status(200).json({
     stocks,
     categories,
+    groups,
     updated: new Date().toISOString(),
   });
 }
