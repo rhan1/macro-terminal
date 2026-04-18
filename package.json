@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "refresh-egs": "node scripts/refresh-egs-snapshot.mjs"
+    "seed-egs-blob": "node scripts/seed-egs-blob.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.3.3",
