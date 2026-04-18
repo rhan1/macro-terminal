@@ -462,7 +462,10 @@ export default function AlternativeIndex() {
       .catch(() => setViceLoading(false));
   }, [viceRange]);
 
-  // ── Fetch escorts (egs primary; on failure, merge escortdirectory + tryst) ─
+  // ── Fetch escorts: egs + tryst always merged; escortdirectory last-resort ──
+  // Rule: primary source wins any ISO it has; tryst fills ONLY the gaps.
+  //       egs is the primary when healthy (129 countries); if egs fails,
+  //       escortdirectory becomes primary and tryst still fills its gaps.
   useEffect(() => {
     (async () => {
       const tryFetch = async (path) => {
@@ -475,49 +478,51 @@ export default function AlternativeIndex() {
         } catch { return null; }
       };
 
-      // Primary: egs (129-country snapshot)
-      const egs = await tryFetch("/api/egs");
-      if (egs) {
-        setEscortData({ ...egs, activeLabel: "eurogirlsescort.es" });
-        setEscortLoading(false);
-        return;
-      }
+      const mergeWithGaps = (primary, secondary) => {
+        const byIso = new Map();
+        for (const c of primary?.countries ?? []) {
+          const iso = (c?.iso || "").toLowerCase();
+          if (!iso || c.total == null) continue;
+          byIso.set(iso, { ...c, iso });
+        }
+        for (const c of secondary?.countries ?? []) {
+          const iso = (c?.iso || "").toLowerCase();
+          if (!iso || c.total == null) continue;
+          if (byIso.has(iso)) continue; // primary wins overlap
+          byIso.set(iso, { ...c, iso });
+        }
+        return [...byIso.values()].sort((a, b) => b.total - a.total);
+      };
 
-      // Fallback: merge escortdirectory (base ~22 countries) with tryst gap-fill (14).
-      // Rule: escortdirectory value wins where present; tryst fills only gaps.
-      const [escorts, tryst] = await Promise.all([
-        tryFetch("/api/escorts"),
+      // Fetch all three in parallel — cheap, each endpoint is separately cached.
+      const [egs, tryst, escorts] = await Promise.all([
+        tryFetch("/api/egs"),
         tryFetch("/api/tryst"),
+        tryFetch("/api/escorts"),
       ]);
 
-      if (!escorts && !tryst) {
+      let primary = egs;
+      let primaryLabel = "eurogirlsescort.es";
+      if (!primary) {
+        primary = escorts;
+        primaryLabel = "escortdirectory.com";
+      }
+      if (!primary && !tryst) {
         setEscortLoading(false);
         return;
       }
 
-      const byIso = new Map();
-      for (const c of escorts?.countries ?? []) {
-        if (!c?.iso || c.total == null) continue;
-        byIso.set(c.iso.toLowerCase(), { ...c, iso: c.iso.toLowerCase(), _source: "escortdirectory.com" });
-      }
-      for (const c of tryst?.countries ?? []) {
-        const iso = (c?.iso || "").toLowerCase();
-        if (!iso || c.total == null) continue;
-        if (byIso.has(iso)) continue; // escortdirectory wins overlap
-        byIso.set(iso, { ...c, iso, _source: "tryst.link" });
-      }
-
-      const countries = [...byIso.values()].sort((a, b) => b.total - a.total);
+      const countries = mergeWithGaps(primary, tryst);
       const totalWorldwide = countries.reduce((s, c) => s + c.total, 0);
       const sources = [];
-      if (escorts) sources.push("escortdirectory.com");
+      if (primary) sources.push(primaryLabel);
       if (tryst) sources.push("tryst.link");
 
       setEscortData({
         countries,
         totalWorldwide,
         activeLabel: sources.join(" + "),
-        fetchedAt: escorts?.fetchedAt || tryst?.fetchedAt,
+        fetchedAt: primary?.fetchedAt || tryst?.fetchedAt,
       });
       setEscortLoading(false);
     })();
