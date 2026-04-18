@@ -149,6 +149,8 @@ export const SERIES = {
   PAYEMS: { id: "PAYEMS", frequency: "m", limit: 24, units: "chg" },
   WAGES: { id: "CES0500000003", frequency: "m", limit: 24, units: "pc1" },
   CLAIMS: { id: "ICSA", frequency: "d", limit: 30 },
+  JOLTS_LAYOFF_RATE:  { id: "JTSLDR", frequency: "m", limit: 36 }, // layoffs/discharges, %
+  JOLTS_LAYOFF_LEVEL: { id: "JTSLDL", frequency: "m", limit: 36 }, // layoffs/discharges, thousands
   BREAKEVEN: { id: "T10YIE", frequency: "d", limit: 60 },
 
   // Risk
