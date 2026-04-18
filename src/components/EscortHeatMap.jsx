@@ -229,34 +229,44 @@ ${rules}
         <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>
           {mode === "density" ? "Listings / 100K pop" : "Listings"}
         </span>
-        <div style={{ display: "flex", gap: 2 }}>
+        {/* Continuous swatch strip — discrete tiers, no crowded per-band labels. */}
+        <div
+          style={{
+            display: "flex",
+            height: 10,
+            borderRadius: 1,
+            overflow: "hidden",
+            width: 220,
+          }}
+        >
           {TIER_COLORS.map((color, i) => (
-            <div
-              key={i}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 2,
-              }}
-            >
-              <div style={{ width: 24, height: 10, background: color, borderRadius: 1 }} />
-              <span
-                style={{
-                  fontSize: 8,
-                  color: DIM,
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {tierLabels[i] ?? "—"}
-              </span>
-            </div>
+            <div key={i} style={{ flex: 1, background: color }} />
           ))}
         </div>
-        <span style={{ fontSize: 9, color: DIM, fontFamily: '"JetBrains Mono", monospace' }}>
-          low → high
+
+        {/* Endpoint labels — just min and max of the whole range. */}
+        <span
+          style={{
+            fontSize: 9,
+            color: DIM,
+            fontFamily: '"JetBrains Mono", monospace',
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {(() => {
+            const firstLabel = tierLabels.find((l) => l != null);
+            const lastLabel = [...tierLabels].reverse().find((l) => l != null);
+            // Pull the low end from firstLabel (bottom tier, smallest value)
+            // and the high end from lastLabel (top tier, largest value).
+            const low = firstLabel ? firstLabel.split("–")[0] : "—";
+            const high = lastLabel
+              ? (lastLabel.includes("–") ? lastLabel.split("–")[1] : lastLabel)
+              : "—";
+            return `${low}  →  ${high}`;
+          })()}
         </span>
+
         <span style={{ marginLeft: "auto", fontSize: 8, color: DIM }}>
           Map: CC BY-SA 3.0 · Al MacDonald / F. Lekschas
         </span>
