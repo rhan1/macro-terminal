@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useFredData } from "../hooks/useFredData";
+import { useChallengerData } from "../hooks/useChallengerData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
@@ -45,6 +46,7 @@ function chartSlice(arr, n = 24) {
 
 export default function Labor() {
   const { data, loading, error } = useFredData(FETCH);
+  const { data: challengerData } = useChallengerData();
 
   if (loading && Object.keys(data).length === 0) return <Loading />;
 
@@ -616,6 +618,39 @@ export default function Labor() {
       >
         Layoffs & Discharges
       </div>
+
+      {challengerData && !challengerData.error && challengerData.headline != null && (() => {
+        const c = challengerData;
+        const ch = c.direction && c.pctChange != null
+          ? (c.direction === "up" ? c.pctChange : -c.pctChange)
+          : null;
+        const signal = c.headline >= 75000 ? "bearish" : c.headline <= 40000 ? "bullish" : "neutral";
+        const priorPart = c.prior != null && c.priorPeriod
+          ? `${c.direction === "up" ? "Up" : "Down"} ${c.pctChange}% from ${formatNum(c.prior, 0)} in ${c.priorPeriod}. `
+          : "";
+        const ytdPart = c.ytd != null ? `YTD: ${formatNum(c.ytd, 0)} cuts announced. ` : "";
+        const reasonPart = c.topReason?.name && c.topReason?.count != null
+          ? `Top reason: ${c.topReason.name} (${formatNum(c.topReason.count, 0)}). `
+          : "";
+        const detail =
+          `U.S.-based employers announced ${formatNum(c.headline, 0)} job cuts in ${c.period ?? "the latest month"}. ` +
+          priorPart + ytdPart + reasonPart +
+          "Challenger, Gray & Christmas tracks announced job-cut intent, a leading signal that typically front-runs JOLTS layoffs and initial jobless claims by one to three months.";
+        return (
+          <IndicatorCard
+            label="Challenger Job Cuts"
+            value={c.headline}
+            unit=""
+            decimals={0}
+            signal={signal}
+            changeLabel={ch != null ? `${ch >= 0 ? "+" : ""}${ch}% m/m` : (c.period ?? null)}
+            detail={detail}
+            source={c.source ?? "Challenger, Gray & Christmas"}
+            sourceUrl={c.articleUrl ?? "https://www.challengergray.com/blog/category/job-cuts-report/"}
+            dateLabel={c.period ?? ""}
+          />
+        );
+      })()}
 
       <div className="grid-2">
         <IndicatorCard
