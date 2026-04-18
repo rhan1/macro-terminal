@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "refresh-egs": "node scripts/refresh-egs-snapshot.mjs"
   },
   "dependencies": {
     "playwright": "^1.59.1",
