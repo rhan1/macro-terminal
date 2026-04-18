@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Loading from "../components/Loading";
 import ChartTooltip from "../components/ChartTooltip";
+import EscortHeatMap from "../components/EscortHeatMap";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -291,102 +292,130 @@ function CompactStockCard({ ticker, stock }) {
   );
 }
 
-// ── Stress signal sparkline card ──────────────────────────────────────────────
-function StressSignalCard({ seriesKey, signal }) {
-  // Determine color: savings up = green; delinquency, credit balances, claims up = red
-  const goodWhenUp = seriesKey === "PSAVERT";
-  const trend      = signal?.trend; // "up" | "down"
-  let valueColor   = DIM;
-  if (trend === "up")   valueColor = goodWhenUp ? GREEN : RED;
-  if (trend === "down") valueColor = goodWhenUp ? RED   : GREEN;
+// ── Google Trends stress signal card ─────────────────────────────────────────
+function TrendsSignalCard({ termData }) {
+  // All 6 terms are distress proxies: high = bad, rising = red/amber, falling = green
+  const current   = termData?.current;
+  const change    = termData?.change;
+  const peak      = termData?.peak;
+  const term      = termData?.term ?? "";
+  const hasError  = !!termData?.error && !current;
 
-  const latest    = signal?.latest?.value;
-  const change    = signal?.change;
-  const unit      = signal?.unit ?? "";
-  const name      = signal?.name ?? seriesKey;
-
-  const sparkData = (signal?.data ?? []).map((p) => ({
+  const sparkData = (termData?.data ?? []).map((p) => ({
     date: p.date,
     value: p.value,
   }));
 
-  const arrow      = change == null ? "" : change > 0 ? "▲" : change < 0 ? "▼" : "—";
-  const changeAbs  = change != null ? Math.abs(change) : null;
-  const changeColor = change == null ? DIM : change > 0 ? (goodWhenUp ? GREEN : RED) : (goodWhenUp ? RED : GREEN);
+  // Color logic: rising stress = AMBER (warning), falling stress = GREEN (relief)
+  let valueColor  = DIM;
+  let changeColor = DIM;
+  let strokeColor = AMBER;
 
-  // Smart formatting based on series key
-  function fmtValue(v, u) {
-    if (v == null) return "—";
-    if (seriesKey === "ICSA") return `${Math.round(v).toLocaleString("en-US")}K`;
-    if (seriesKey === "CCLACBW027SBOG") return `$${Math.round(v).toLocaleString("en-US")}B`;
-    if (u === "%") return `${v.toFixed(2)}%`;
-    return v.toFixed(2);
+  if (current != null) {
+    // High absolute interest (>60) = amber, otherwise cyan
+    valueColor = current >= 60 ? AMBER : CYAN;
   }
-  const latestStr  = fmtValue(latest, unit);
-  const changeStr  = changeAbs != null ? `${arrow} ${fmtValue(changeAbs, unit)}` : "—";
+  if (change != null) {
+    changeColor = change > 0 ? AMBER : change < 0 ? GREEN : DIM;
+    strokeColor = change > 0 ? AMBER : RED;
+  }
 
-  const strokeColor = valueColor;
+  const arrow      = change == null ? "" : change > 0 ? "▲" : change < 0 ? "▼" : "–";
+  const changeStr  = change == null
+    ? "vs 4 wks ago: —"
+    : `${arrow} ${Math.abs(change).toFixed(0)} vs 4w ago`;
+
+  const currentStr = current != null ? String(current) : "—";
 
   return (
     <div
       className="panel"
       style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}
     >
-      {/* Signal name */}
-      <div style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
-        {name}
-      </div>
-
-      {/* Latest value */}
+      {/* Term label */}
       <div
         style={{
-          fontSize: 20,
-          fontWeight: 700,
-          color: valueColor,
-          fontVariantNumeric: "tabular-nums",
-          fontFamily: '"JetBrains Mono", monospace',
-          lineHeight: 1,
+          fontSize: 9,
+          color: DIM,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
       >
-        {latestStr}
+        {term}
       </div>
 
-      {/* Change from prior */}
-      <div style={{ fontSize: 10, color: changeColor, fontVariantNumeric: "tabular-nums" }}>
-        {changeStr}
-      </div>
+      {hasError ? (
+        <div style={{ fontSize: 10, color: DIM, marginTop: 4 }}>no data</div>
+      ) : (
+        <>
+          {/* Current interest (0–100) */}
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 20,
+                fontWeight: 700,
+                color: valueColor,
+                fontVariantNumeric: "tabular-nums",
+                fontFamily: '"JetBrains Mono", monospace',
+                lineHeight: 1,
+              }}
+            >
+              {currentStr}
+            </span>
+            {peak != null && (
+              <span style={{ fontSize: 9, color: DIM }}>
+                / {peak} peak
+              </span>
+            )}
+          </div>
 
-      {/* Sparkline */}
-      {sparkData.length > 1 && (
-        <ResponsiveContainer width="100%" height={80}>
-          <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: -32, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`stressGrad-${seriesKey}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor={strokeColor} stopOpacity={0.2} />
-                <stop offset="95%" stopColor={strokeColor} stopOpacity={0.01} />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="date" hide />
-            <YAxis domain={["auto", "auto"]} hide />
-            <Tooltip
-              content={
-                <ChartTooltip
-                  formatter={(v) => `${Number(v).toFixed(2)}${unit}`}
+          {/* 4-week delta */}
+          <div style={{ fontSize: 10, color: changeColor, fontVariantNumeric: "tabular-nums" }}>
+            {changeStr}
+          </div>
+
+          {/* Sparkline */}
+          {sparkData.length > 1 && (
+            <ResponsiveContainer width="100%" height={80}>
+              <AreaChart data={sparkData} margin={{ top: 2, right: 2, left: -32, bottom: 0 }}>
+                <defs>
+                  <linearGradient id={`trendsGrad-${term.replace(/\s+/g, "-")}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={strokeColor} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={strokeColor} stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" hide />
+                <YAxis domain={[0, 100]} hide />
+                <Tooltip
+                  content={
+                    <ChartTooltip
+                      formatter={(v) => `${Number(v).toFixed(0)}`}
+                    />
+                  }
                 />
-              }
-            />
-            <Area
-              type="monotone"
-              dataKey="value"
-              name={name}
-              stroke={strokeColor}
-              strokeWidth={1.5}
-              fill={`url(#stressGrad-${seriesKey})`}
-              dot={false}
-              activeDot={{ r: 3, fill: strokeColor }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  name={term}
+                  stroke={strokeColor}
+                  strokeWidth={1.5}
+                  fill={`url(#trendsGrad-${term.replace(/\s+/g, "-")})`}
+                  dot={false}
+                  activeDot={{ r: 3, fill: strokeColor }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+
+          {/* No data yet but no error — key not configured */}
+          {sparkData.length === 0 && (
+            <div style={{ fontSize: 10, color: DIM, marginTop: 4 }}>awaiting data</div>
+          )}
+        </>
       )}
     </div>
   );
@@ -403,9 +432,9 @@ export default function AlternativeIndex() {
   const [escortData, setEscortData]       = useState(null);
   const [escortLoading, setEscortLoading] = useState(true);
 
-  // ── Stress signals state ────────────────────────────────────────────────────
-  const [stressData, setStressData]       = useState(null);
-  const [stressLoading, setStressLoading] = useState(true);
+  // ── Google Trends stress signals state ─────────────────────────────────────
+  const [trendsData, setTrendsData]       = useState(null);
+  const [trendsLoading, setTrendsLoading] = useState(true);
 
   // ── Fetch vice stocks ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -420,33 +449,45 @@ export default function AlternativeIndex() {
       .catch(() => setViceLoading(false));
   }, [viceRange]);
 
-  // ── Fetch escorts ──────────────────────────────────────────────────────────
+  // ── Fetch escorts (cascade: egs → tryst → escortdirectory) ────────────────
   useEffect(() => {
-    fetch("/api/escorts")
-      .then((r) => r.json())
-      .then((d) => {
-        setEscortData(d);
-        setEscortLoading(false);
-      })
-      .catch(() => setEscortLoading(false));
+    const SOURCES = [
+      { path: "/api/egs",     label: "eurogirlsescort.es" },
+      { path: "/api/tryst",   label: "tryst.link" },
+      { path: "/api/escorts", label: "escortdirectory.com" },
+    ];
+    (async () => {
+      for (const src of SOURCES) {
+        try {
+          const r = await fetch(src.path);
+          if (!r.ok) continue;
+          const d = await r.json();
+          if ((d?.countries?.length ?? 0) > 0) {
+            setEscortData({ ...d, activeLabel: src.label });
+            setEscortLoading(false);
+            return;
+          }
+        } catch { /* fall through */ }
+      }
+      setEscortLoading(false);
+    })();
   }, []);
 
-  // ── Fetch stress signals ────────────────────────────────────────────────────
+  // ── Fetch Google Trends stress signals ─────────────────────────────────────
   useEffect(() => {
-    fetch("/api/stress-signals")
+    fetch("/api/trends")
       .then((r) => r.json())
       .then((d) => {
-        setStressData(d);
-        setStressLoading(false);
+        setTrendsData(d);
+        setTrendsLoading(false);
       })
-      .catch(() => setStressLoading(false));
+      .catch(() => setTrendsLoading(false));
   }, []);
 
   // ── Derived escort data ─────────────────────────────────────────────────────
-  const escortCities = escortData?.cities ?? [];
-  const escortTotal  = escortData?.total ?? null;
-  const sortedCities = [...escortCities].sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
-  const maxCount     = sortedCities[0]?.count ?? 1;
+  const escortCountries = escortData?.countries ?? [];
+  const escortTotal     = escortData?.totalWorldwide ?? escortData?.total ?? null;
+  const escortSource    = escortData?.activeLabel ?? null;
 
   // ── Derived vice stocks data ────────────────────────────────────────────────
   const stocksObj  = viceData?.stocks ?? {};
@@ -456,9 +497,10 @@ export default function AlternativeIndex() {
   // Ordered category list (preserving API key order)
   const categoryEntries = Object.entries(categories);
 
-  // ── Derived stress signals data ─────────────────────────────────────────────
-  const signals        = stressData?.signals ?? {};
-  const STRESS_ORDER   = ["PSAVERT", "DRCCLACBS", "CCLACBW027SBOG", "ICSA"];
+  // ── Derived Google Trends data ──────────────────────────────────────────────
+  const trendsTerms    = trendsData?.terms ?? [];
+  const trendsSource   = trendsData?.source ?? "Google Trends via SerpAPI";
+  const trendsNotConfigured = !!trendsData?.error;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -533,168 +575,79 @@ export default function AlternativeIndex() {
         )}
       </div>
 
-      {/* ── Section 2: Escort Economy Index ── */}
+      {/* ── Section 2: Escort Economy Heatmap ── */}
       <div>
-        <SectionLabel>Escort Economy Index</SectionLabel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
+          <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            Escort Economy — World Heatmap
+          </div>
+          {escortSource && (
+            <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+              source: {escortSource}
+            </div>
+          )}
+        </div>
 
         {escortLoading ? (
           <div style={{ padding: "20px 0" }}>
             <Loading />
           </div>
+        ) : escortCountries.length > 0 ? (
+          <EscortHeatMap countries={escortCountries} totalWorldwide={escortTotal} />
         ) : (
           <div className="panel" style={{ padding: 16 }}>
-            {/* Total worldwide count */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 16 }}>
-              <span
-                style={{
-                  fontSize: 32,
-                  fontWeight: 700,
-                  color: CYAN,
-                  fontFamily: '"JetBrains Mono", monospace',
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {escortTotal != null ? escortTotal.toLocaleString() : "—"}
-              </span>
-              <span style={{ fontSize: 10, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                Worldwide listings
-              </span>
-            </div>
-
-            {/* City table */}
-            {sortedCities.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                {/* Table header */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 90px 90px 1fr",
-                    gap: 8,
-                    paddingBottom: 6,
-                    borderBottom: `1px solid ${BORDER}`,
-                    marginBottom: 2,
-                  }}
-                >
-                  {["City", "Count", "Per 100K", ""].map((h, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        fontSize: 9,
-                        color: DIM,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {h}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Rows */}
-                {sortedCities.map((city, idx) => {
-                  const isTop5    = idx < 5;
-                  const barWidth  = maxCount > 0
-                    ? Math.max(2, Math.round((city.count / maxCount) * 100))
-                    : 0;
-                  const nameColor = isTop5 ? "var(--color-term-text)" : DIM;
-
-                  return (
-                    <div
-                      key={city.city ?? idx}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 90px 90px 1fr",
-                        gap: 8,
-                        alignItems: "center",
-                        paddingTop: 5,
-                        paddingBottom: 5,
-                        borderBottom: `1px solid ${BORDER}`,
-                      }}
-                    >
-                      {/* City name */}
-                      <div style={{ fontSize: 11, color: nameColor, fontWeight: isTop5 ? 600 : 400 }}>
-                        {isTop5 && (
-                          <span style={{ color: AMBER, marginRight: 5, fontSize: 9 }}>
-                            {idx + 1}.
-                          </span>
-                        )}
-                        {city.city}
-                      </div>
-
-                      {/* Count */}
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: CYAN,
-                          fontFamily: '"JetBrains Mono", monospace',
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      >
-                        {city.count != null ? city.count.toLocaleString() : "—"}
-                      </div>
-
-                      {/* Per 100K */}
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: isTop5 ? AMBER : DIM,
-                          fontFamily: '"JetBrains Mono", monospace',
-                          fontVariantNumeric: "tabular-nums",
-                        }}
-                      >
-                        {city.per100k != null ? city.per100k.toFixed(1) : "—"}
-                      </div>
-
-                      {/* Bar */}
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <div
-                          style={{
-                            height: 6,
-                            width: `${barWidth}%`,
-                            background: isTop5
-                              ? `linear-gradient(90deg, ${CYAN}, ${CYAN}88)`
-                              : `${CYAN}44`,
-                            borderRadius: 2,
-                            transition: "width 0.3s ease",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: DIM, padding: "8px 0" }}>
-                No city data available.
-              </div>
-            )}
+            <div style={{ fontSize: 11, color: DIM }}>No country data available.</div>
           </div>
         )}
       </div>
 
-      {/* ── Section 3: Economic Stress Signals ── */}
+      {/* ── Section 3: Google Trends — Stress Signals ── */}
       <div>
-        <SectionLabel>Economic Stress Signals</SectionLabel>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
+          <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            Google Trends — Stress Signals
+          </div>
+          <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+            {trendsSource}
+          </div>
+        </div>
 
-        {stressLoading ? (
+        {trendsLoading ? (
           <div style={{ padding: "20px 0" }}>
             <Loading />
+          </div>
+        ) : trendsNotConfigured ? (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: 10,
+            }}
+          >
+            {[
+              "pawn shop near me",
+              "payday loan",
+              "sell my gold",
+              "food bank near me",
+              "side hustle",
+              "how to make money fast",
+            ].map((term) => (
+              <TrendsSignalCard
+                key={term}
+                termData={{ term, current: null, change: null, peak: null, data: [], error: "not configured" }}
+              />
+            ))}
           </div>
         ) : (
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
               gap: 10,
             }}
           >
-            {STRESS_ORDER.map((key) => (
-              <StressSignalCard
-                key={key}
-                seriesKey={key}
-                signal={signals[key] ?? null}
-              />
+            {trendsTerms.map((t) => (
+              <TrendsSignalCard key={t.term} termData={t} />
             ))}
           </div>
         )}

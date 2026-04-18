@@ -79,7 +79,7 @@ export default function IPO() {
           $ IPO Calendar
         </div>
         <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>
-          — Upcoming &amp; Recent IPOs via IPOScoop
+          — Upcoming &amp; Recent IPOs via Nasdaq + SEC EDGAR
         </div>
       </div>
 
@@ -222,7 +222,7 @@ export default function IPO() {
 
       {/* Source */}
       <div style={{ fontSize: 8, color: "hsl(220,10%,38%)", textAlign: "right" }}>
-        Source: IPOScoop.com &middot; Updated: {data?.fetchedAt ? new Date(data.fetchedAt).toLocaleString() : "—"}
+        Source: Nasdaq IPO Calendar + SEC EDGAR &middot; Updated: {data?.fetchedAt ? new Date(data.fetchedAt).toLocaleString() : "—"}
       </div>
     </div>
   );

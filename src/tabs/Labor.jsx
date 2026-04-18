@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
@@ -19,6 +20,8 @@ const FETCH = {
   PAYEMS: SERIES.PAYEMS,
   WAGES:  SERIES.WAGES,
   CLAIMS: SERIES.CLAIMS,
+  JOLTS_LAYOFF_RATE:  SERIES.JOLTS_LAYOFF_RATE,
+  JOLTS_LAYOFF_LEVEL: SERIES.JOLTS_LAYOFF_LEVEL,
 };
 
 function fmtMonthYear(dateStr) {
@@ -57,6 +60,8 @@ export default function Labor() {
   const payemsArr = data.PAYEMS || [];
   const wagesArr  = data.WAGES  || [];
   const claimsArr = data.CLAIMS || [];
+  const layoffRateArr  = data.JOLTS_LAYOFF_RATE  || [];
+  const layoffLevelArr = data.JOLTS_LAYOFF_LEVEL || [];
 
   const latestUnrate = latest(unrateArr);
   const priorUnrate  = prior(unrateArr, 1);
@@ -171,6 +176,23 @@ export default function Labor() {
   const unrateChart = chartSlice(unrateArr, 24);
   const payemsChart = chartSlice(payemsArr, 24);
   const claimsChart = chartSlice(claimsArr, 30).map(d => ({ ...d, value: d.value / 1000 }));
+
+  const latestLayoffRate  = latest(layoffRateArr);
+  const priorLayoffRate   = prior(layoffRateArr, 1);
+  const latestLayoffLevel = latest(layoffLevelArr);
+  const priorLayoffLevel  = prior(layoffLevelArr, 1);
+  const layoffRateVal  = latestLayoffRate?.value ?? null;
+  const layoffLevelVal = latestLayoffLevel?.value ?? null;
+  const layoffRateChange  = change(layoffRateVal,  priorLayoffRate?.value);
+  const layoffLevelChange = change(layoffLevelVal, priorLayoffLevel?.value);
+  const layoffRateSignal =
+    layoffRateVal == null ? "neutral" :
+    layoffRateVal > 1.5 ? "bearish" :
+    layoffRateVal < 1.0 ? "bullish" : "neutral";
+  const layoffLevelSignal =
+    layoffLevelVal == null ? "neutral" :
+    layoffLevelVal > 2000 ? "bearish" :
+    layoffLevelVal < 1500 ? "bullish" : "neutral";
 
   return (
     <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -578,6 +600,171 @@ export default function Labor() {
         />
       </div>
 
+      {/* ── Section: Layoffs ── */}
+      <div
+        style={{
+          fontSize: 10,
+          fontWeight: 600,
+          color: "hsl(220,10%,52%)",
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          borderBottom: "1px solid hsl(220,15%,14%)",
+          paddingBottom: 6,
+          marginTop: 8,
+          marginBottom: 4,
+        }}
+      >
+        Layoffs & Discharges
+      </div>
+
+      <div className="grid-2">
+        <IndicatorCard
+          label="JOLTS Layoffs Rate"
+          value={layoffRateVal}
+          unit="%"
+          change={layoffRateChange}
+          decimals={1}
+          signal={layoffRateSignal}
+          detail="BLS Job Openings & Labor Turnover Survey — layoffs and discharges as a share of total employment. The lowest-volatility cyclical labor indicator. Sustained rates above 1.5% historically coincide with recessions; below 1.0% signals a tight labor market with low involuntary churn."
+          source="BLS / FRED JTSLDR"
+          sourceUrl="https://fred.stlouisfed.org/series/JTSLDR"
+          dateLabel={fmtCardDate(latest(layoffRateArr)?.date)}
+          sparkData={layoffRateArr?.slice(0, 24)}
+        />
+
+        <IndicatorCard
+          label="JOLTS Layoffs Level"
+          value={layoffLevelVal}
+          unit="K"
+          change={layoffLevelChange}
+          decimals={0}
+          signal={layoffLevelSignal}
+          detail="Monthly total count of layoffs and discharges (thousands). Tracks the absolute number of workers separated involuntarily. Pre-pandemic baseline was ~1.7M/month; spikes above 2M/month signal cyclical weakness in labor demand."
+          source="BLS / FRED JTSLDL"
+          sourceUrl="https://fred.stlouisfed.org/series/JTSLDL"
+          dateLabel={fmtCardDate(latest(layoffLevelArr)?.date)}
+          sparkData={layoffLevelArr?.slice(0, 24)}
+        />
+      </div>
+
+      <LayoffNewsPanel />
+
+    </div>
+  );
+}
+
+// ── Layoff news feed (Google News RSS via /api/layoffs) ───────────────────────
+function LayoffNewsPanel() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/layoffs")
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
+      .catch(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const items = data?.items ?? [];
+  const DIM    = "hsl(220,10%,52%)";
+  const BORDER = "hsl(220,15%,14%)";
+  const AMBER  = "hsl(45,90%,55%)";
+  const RED    = "hsl(0,72%,55%)";
+
+  function formatDate(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const now = new Date();
+    const diffH = (now - d) / 36e5;
+    if (diffH < 24) return `${Math.max(1, Math.round(diffH))}h ago`;
+    const days = Math.round(diffH / 24);
+    if (days < 14) return `${days}d ago`;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  return (
+    <div
+      className="panel"
+      style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <span
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: RED,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+          }}
+        >
+          Recent Layoff Announcements
+        </span>
+        <span
+          style={{
+            fontSize: 9,
+            color: DIM,
+            letterSpacing: "0.05em",
+            marginLeft: "auto",
+          }}
+        >
+          {data?.source ?? "Google News RSS"}
+        </span>
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 11, color: DIM }}>Loading headlines…</div>
+      ) : items.length === 0 ? (
+        <div style={{ fontSize: 11, color: DIM }}>
+          {data?.error ?? "No recent layoff headlines."}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {items.slice(0, 12).map((it, i) => (
+            <a
+              key={i}
+              href={it.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto auto",
+                gap: 10,
+                alignItems: "baseline",
+                padding: "6px 0",
+                borderBottom: i < Math.min(items.length, 12) - 1 ? `1px solid ${BORDER}` : "none",
+                fontSize: 11,
+                color: "var(--color-term-text)",
+                textDecoration: "none",
+                lineHeight: 1.35,
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = "hsla(220,15%,14%,0.4)"; }}
+              onMouseOut={(e)  => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {it.title}
+              </span>
+              <span style={{ fontSize: 9, color: AMBER, letterSpacing: "0.04em" }}>
+                {it.source || "—"}
+              </span>
+              <span
+                style={{
+                  fontSize: 9,
+                  color: DIM,
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontVariantNumeric: "tabular-nums",
+                  minWidth: 56,
+                  textAlign: "right",
+                }}
+              >
+                {formatDate(it.date)}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
