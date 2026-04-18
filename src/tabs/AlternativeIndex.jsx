@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import Loading from "../components/Loading";
 import ChartTooltip from "../components/ChartTooltip";
 import EscortHeatMap from "../components/EscortHeatMap";
+import IndicatorCard from "../components/IndicatorCard";
+import { useTsaData } from "../hooks/useTsaData";
+import { useBoxOfficeData } from "../hooks/useBoxOfficeData";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -436,6 +439,10 @@ export default function AlternativeIndex() {
   const [trendsData, setTrendsData]       = useState(null);
   const [trendsLoading, setTrendsLoading] = useState(true);
 
+  // ── Leisure & Travel signals ───────────────────────────────────────────────
+  const { data: tsaData, loading: tsaLoading } = useTsaData();
+  const { data: boxData, loading: boxLoading } = useBoxOfficeData();
+
   // ── Fetch vice stocks ───────────────────────────────────────────────────────
   useEffect(() => {
     setViceLoading(true);
@@ -560,7 +567,7 @@ export default function AlternativeIndex() {
           $ Alternative Index
         </div>
         <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>
-          — Vice Stocks, Stress Economy, Escort Economy, Stress Signals
+          — Vice Stocks, Stress Economy, Leisure & Travel, Escort Economy, Stress Signals
         </div>
       </div>
 
@@ -661,7 +668,94 @@ export default function AlternativeIndex() {
         </div>
       )}
 
-      {/* ── Section 3: Escort Economy Heatmap ── */}
+      {/* ── Section 3: Leisure & Travel (TSA checkpoints + Box Office) ── */}
+      {(() => {
+        const tsaLatest = tsaData?.latest ?? null;
+        const tsaRows = tsaData?.rows ?? [];
+        const tsaSparkData = [...tsaRows]
+          .reverse()
+          .map((r) => ({ value: r.current }))
+          .filter((d) => d.value != null);
+        const tsaMm = tsaLatest?.current != null ? tsaLatest.current / 1_000_000 : null;
+        const tsaDelta = tsaLatest?.deltaPct ?? null;
+        const tsaSignal = tsaDelta == null ? "neutral" : tsaDelta > 0 ? "bullish" : "bearish";
+        const tsaDetail = tsaLatest?.current != null
+          ? `TSA screened ${tsaLatest.current.toLocaleString()} passengers on ${tsaLatest.date}. ` +
+            (tsaDelta != null
+              ? `That's ${tsaDelta >= 0 ? "up" : "down"} ${Math.abs(tsaDelta)}% vs ~30 days prior (${tsaLatest.deltaWindow}). `
+              : "") +
+            "Daily checkpoint volume is a high-frequency proxy for domestic discretionary travel demand — a leading signal for airline, hotel, and leisure-sector earnings."
+          : "TSA passenger checkpoint volume — daily count of screened travelers. High-frequency discretionary-travel demand proxy.";
+
+        const weeks = boxData?.weeks ?? [];
+        const boxLatest = boxData?.latest ?? null;
+        const boxSparkData = [...weeks]
+          .reverse()
+          .map((w) => ({ value: w.topTenGross }))
+          .filter((d) => d.value != null);
+        const boxMm = boxLatest?.topTenGross != null ? boxLatest.topTenGross / 1_000_000 : null;
+        const boxYoy = boxLatest?.yoyPct ?? null;
+        const boxSignal = boxYoy == null ? "neutral" : boxYoy > 0 ? "bullish" : "bearish";
+        const boxDetail = boxLatest?.topTenGross != null
+          ? `Domestic top-10 weekly gross for ${boxLatest.weekLabel} was ${boxLatest.topTenGross.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}. ` +
+            (boxYoy != null ? `That's ${boxYoy >= 0 ? "up" : "down"} ${Math.abs(boxYoy)}% vs the same week last year. ` : "") +
+            "Weekly box office is a discretionary-spending barometer — holds up in mild slowdowns, cracks fast in real downturns."
+          : "Box Office Mojo weekly domestic top-10 gross. Leisure-spending signal; can flag consumer pullback when it dips.";
+
+        const anyAvailable = tsaData || boxData;
+        if (!anyAvailable) return null;
+        return (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                Leisure & Travel
+              </div>
+              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+                source: tsa.gov · boxofficemojo.com
+              </div>
+            </div>
+            {(tsaLoading || boxLoading) && !tsaData && !boxData ? (
+              <div style={{ padding: "20px 0" }}><Loading /></div>
+            ) : (
+              <div className="grid-2">
+                {tsaData && !tsaData.error && tsaLatest?.current != null && (
+                  <IndicatorCard
+                    label="TSA Checkpoint Volume"
+                    value={tsaMm}
+                    unit="M"
+                    decimals={2}
+                    signal={tsaSignal}
+                    changeLabel={tsaDelta != null ? `${tsaDelta >= 0 ? "+" : ""}${tsaDelta}% vs 30d` : tsaLatest.date}
+                    detail={tsaDetail}
+                    source="tsa.gov"
+                    sourceUrl={tsaData?.url ?? "https://www.tsa.gov/travel/passenger-volumes"}
+                    dateLabel={tsaLatest.date}
+                    sparkData={tsaSparkData}
+                  />
+                )}
+                {boxData && !boxData.error && boxLatest?.topTenGross != null && (
+                  <IndicatorCard
+                    label="Box Office (Top-10 Weekly)"
+                    value={boxMm}
+                    unit="M"
+                    decimals={1}
+                    prefix="$"
+                    signal={boxSignal}
+                    changeLabel={boxYoy != null ? `${boxYoy >= 0 ? "+" : ""}${boxYoy}% YoY` : boxLatest.weekLabel}
+                    detail={boxDetail}
+                    source="boxofficemojo.com"
+                    sourceUrl={boxData?.url ?? "https://www.boxofficemojo.com/weekly/"}
+                    dateLabel={boxLatest.weekLabel}
+                    sparkData={boxSparkData}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Section 4: Escort Economy Heatmap ── */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
           <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
