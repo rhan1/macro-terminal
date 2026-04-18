@@ -3,6 +3,8 @@ import worldMapSvg from "../assets/world-map/world-map.min.svg?raw";
 
 const AMBER  = "hsl(45,90%,55%)";
 const CYAN   = "hsl(185,70%,55%)";
+const GREEN  = "hsl(142,70%,55%)";
+const RED    = "hsl(0,72%,55%)";
 const DIM    = "hsl(220,10%,52%)";
 const MUTED  = "hsl(220,15%,18%)";
 const BORDER = "hsl(220,15%,14%)";
@@ -229,6 +231,24 @@ ${rules}
             {hover.total.toLocaleString()}{" "}
             <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>listings</span>
           </div>
+          {hover.delta != null && (
+            <div
+              style={{
+                fontSize: 10,
+                color: hover.delta > 0 ? GREEN : hover.delta < 0 ? RED : DIM,
+                fontFamily: '"JetBrains Mono", monospace',
+                fontVariantNumeric: "tabular-nums",
+                marginTop: 4,
+              }}
+            >
+              {hover.delta > 0 ? "▲" : hover.delta < 0 ? "▼" : "–"}{" "}
+              {hover.delta > 0 ? "+" : ""}{hover.delta.toLocaleString()}
+              {hover.deltaPct != null && (
+                <span style={{ color: DIM }}>{" "}({hover.deltaPct > 0 ? "+" : ""}{hover.deltaPct}%)</span>
+              )}
+              <span style={{ color: DIM, marginLeft: 6, fontSize: 9 }}>vs last refresh</span>
+            </div>
+          )}
           <div
             style={{
               marginTop: 6,

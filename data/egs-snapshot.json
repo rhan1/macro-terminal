@@ -1,994 +1,2285 @@
 {
   "source": "eurogirlsescort.es",
-  "fetchedAt": "2026-04-18T04:45:15.446Z",
-  "totalWorldwide": 139239,
+  "fetchedAt": "2026-04-18T04:51:04.335Z",
+  "snapshotDate": "2026-04-18",
+  "totalWorldwide": 139237,
   "countriesCount": 129,
   "countries": [
     {
       "iso": "gb",
-      "country": "Reino Unido",
+      "country": "United Kingdom",
+      "spanish": "Reino Unido",
       "total": 13078,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 13078
+        }
+      ],
       "cities": [],
       "countPer100kRef": 137.66
     },
     {
       "iso": "ae",
-      "country": "EAU",
+      "country": "United Arab Emirates",
+      "spanish": "EAU",
       "total": 11519,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 11519
+        }
+      ],
       "cities": [],
       "countPer100kRef": 329.11
     },
     {
       "iso": "de",
-      "country": "Alemania",
+      "country": "Germany",
+      "spanish": "Alemania",
       "total": 10767,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 10767
+        }
+      ],
       "cities": [],
       "countPer100kRef": 299.08
     },
     {
       "iso": "es",
-      "country": "España",
+      "country": "Spain",
+      "spanish": "España",
       "total": 10549,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 10549
+        }
+      ],
       "cities": [],
       "countPer100kRef": 157.45
     },
     {
       "iso": "tr",
-      "country": "Turquía",
+      "country": "Turkey",
+      "spanish": "Turquía",
       "total": 6061,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 6061
+        }
+      ],
       "cities": [],
       "countPer100kRef": 38.36
     },
     {
       "iso": "fr",
-      "country": "Francia",
+      "country": "France",
+      "spanish": "Francia",
       "total": 4889,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 4889
+        }
+      ],
       "cities": [],
       "countPer100kRef": 44.05
     },
     {
       "iso": "nl",
-      "country": "Países Bajos",
+      "country": "Netherlands",
+      "spanish": "Países Bajos",
       "total": 4303,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 4303
+        }
+      ],
       "cities": [],
       "countPer100kRef": 391.18
     },
     {
       "iso": "sa",
-      "country": "Arabia Saudí",
+      "country": "Saudi Arabia",
+      "spanish": "Arabia Saudí",
       "total": 4258,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 4258
+        }
+      ],
       "cities": [],
       "countPer100kRef": 56.03
     },
     {
       "iso": "it",
-      "country": "Italia",
+      "country": "Italy",
+      "spanish": "Italia",
       "total": 4109,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 4109
+        }
+      ],
       "cities": [],
       "countPer100kRef": 95.56
     },
     {
       "iso": "cn",
       "country": "China",
+      "spanish": "China",
       "total": 3642,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 3642
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "il",
       "country": "Israel",
+      "spanish": "Israel",
       "total": 2666,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2666
+        }
+      ],
       "cities": [],
       "countPer100kRef": 62
     },
     {
       "iso": "my",
-      "country": "Malaisia",
+      "country": "Malaysia",
+      "spanish": "Malaisia",
       "total": 2465,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2465
+        }
+      ],
       "cities": [],
       "countPer100kRef": 31.6
     },
     {
       "iso": "pt",
       "country": "Portugal",
+      "spanish": "Portugal",
       "total": 2376,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2376
+        }
+      ],
       "cities": [],
       "countPer100kRef": 81.93
     },
     {
       "iso": "th",
-      "country": "Tailandia",
+      "country": "Thailand",
+      "spanish": "Tailandia",
       "total": 2355,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2355
+        }
+      ],
       "cities": [],
       "countPer100kRef": 22.43
     },
     {
       "iso": "hr",
-      "country": "Croacia",
+      "country": "Croatia",
+      "spanish": "Croacia",
       "total": 1900,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1900
+        }
+      ],
       "cities": [],
       "countPer100kRef": 237.5
     },
     {
       "iso": "pl",
-      "country": "Polonia",
-      "total": 1848,
+      "country": "Poland",
+      "spanish": "Polonia",
+      "total": 1847,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1847
+        }
+      ],
       "cities": [],
-      "countPer100kRef": 102.67
+      "countPer100kRef": 102.61
     },
     {
       "iso": "ru",
-      "country": "Rusia",
+      "country": "Russia",
+      "spanish": "Rusia",
       "total": 1846,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1846
+        }
+      ],
       "cities": [],
       "countPer100kRef": 14.65
     },
     {
       "iso": "jp",
-      "country": "Japón",
+      "country": "Japan",
+      "spanish": "Japón",
       "total": 1741,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1741
+        }
+      ],
       "cities": [],
       "countPer100kRef": 4.66
     },
     {
       "iso": "id",
       "country": "Indonesia",
+      "spanish": "Indonesia",
       "total": 1699,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1699
+        }
+      ],
       "cities": [],
       "countPer100kRef": 15.73
     },
     {
       "iso": "rs",
       "country": "Serbia",
-      "total": 1578,
+      "spanish": "Serbia",
+      "total": 1579,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1579
+        }
+      ],
       "cities": [],
-      "countPer100kRef": 112.71
+      "countPer100kRef": 112.79
     },
     {
       "iso": "lb",
-      "country": "Líbano",
+      "country": "Lebanon",
+      "spanish": "Líbano",
       "total": 1551,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1551
+        }
+      ],
       "cities": [],
       "countPer100kRef": 70.5
     },
     {
       "iso": "ge",
       "country": "Georgia",
+      "spanish": "Georgia",
       "total": 1533,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1533
+        }
+      ],
       "cities": [],
       "countPer100kRef": 127.75
     },
     {
       "iso": "ch",
-      "country": "Suiza",
+      "country": "Switzerland",
+      "spanish": "Suiza",
       "total": 1467,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1467
+        }
+      ],
       "cities": [],
       "countPer100kRef": 104.79
     },
     {
       "iso": "me",
       "country": "Montenegro",
+      "spanish": "Montenegro",
       "total": 1457,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1457
+        }
+      ],
       "cities": [],
       "countPer100kRef": 728.5
     },
     {
       "iso": "om",
-      "country": "Omán",
+      "country": "Oman",
+      "spanish": "Omán",
       "total": 1437,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1437
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "qa",
       "country": "Qatar",
+      "spanish": "Qatar",
       "total": 1373,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1373
+        }
+      ],
       "cities": [],
       "countPer100kRef": 68.65
     },
     {
       "iso": "mx",
-      "country": "México",
+      "country": "Mexico",
+      "spanish": "México",
       "total": 1365,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1365
+        }
+      ],
       "cities": [],
       "countPer100kRef": 6.2
     },
     {
       "iso": "ua",
-      "country": "Ucrania",
+      "country": "Ukraine",
+      "spanish": "Ucrania",
       "total": 1363,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1363
+        }
+      ],
       "cities": [],
       "countPer100kRef": 47
     },
     {
       "iso": "co",
       "country": "Colombia",
+      "spanish": "Colombia",
       "total": 1361,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1361
+        }
+      ],
       "cities": [],
       "countPer100kRef": 12.04
     },
     {
       "iso": "at",
       "country": "Austria",
+      "spanish": "Austria",
       "total": 1315,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1315
+        }
+      ],
       "cities": [],
       "countPer100kRef": 65.75
     },
     {
       "iso": "al",
       "country": "Albania",
-      "total": 1224,
+      "spanish": "Albania",
+      "total": 1223,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1223
+        }
+      ],
       "cities": [],
-      "countPer100kRef": 244.8
+      "countPer100kRef": 244.6
     },
     {
       "iso": "eg",
-      "country": "Egipto",
+      "country": "Egypt",
+      "spanish": "Egipto",
       "total": 1172,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1172
+        }
+      ],
       "cities": [],
       "countPer100kRef": 5.5
     },
     {
       "iso": "be",
-      "country": "Bélgica",
+      "country": "Belgium",
+      "spanish": "Bélgica",
       "total": 1170,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1170
+        }
+      ],
       "cities": [],
       "countPer100kRef": 97.5
     },
     {
       "iso": "ca",
-      "country": "Canadá",
+      "country": "Canada",
+      "spanish": "Canadá",
       "total": 1094,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1094
+        }
+      ],
       "cities": [],
       "countPer100kRef": 17.65
     },
     {
       "iso": "bh",
-      "country": "Baréin",
+      "country": "Bahrain",
+      "spanish": "Baréin",
       "total": 1083,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1083
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "cz",
-      "country": "República Checa",
+      "country": "Czech Republic",
+      "spanish": "República Checa",
       "total": 1042,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1042
+        }
+      ],
       "cities": [],
       "countPer100kRef": 80.15
     },
     {
       "iso": "mt",
       "country": "Malta",
+      "spanish": "Malta",
       "total": 1037,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1037
+        }
+      ],
       "cities": [],
       "countPer100kRef": 259.25
     },
     {
       "iso": "gr",
-      "country": "Grecia",
+      "country": "Greece",
+      "spanish": "Grecia",
       "total": 1001,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1001
+        }
+      ],
       "cities": [],
       "countPer100kRef": 31.28
     },
     {
       "iso": "sg",
-      "country": "Singapur",
+      "country": "Singapore",
+      "spanish": "Singapur",
       "total": 972,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 972
+        }
+      ],
       "cities": [],
       "countPer100kRef": 16.47
     },
     {
       "iso": "ro",
-      "country": "Rumanía",
+      "country": "Romania",
+      "spanish": "Rumanía",
       "total": 968,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 968
+        }
+      ],
       "cities": [],
       "countPer100kRef": 53.78
     },
     {
       "iso": "in",
       "country": "India",
+      "spanish": "India",
       "total": 967,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 967
+        }
+      ],
       "cities": [],
       "countPer100kRef": 3.19
     },
     {
       "iso": "jo",
-      "country": "Jordania",
+      "country": "Jordan",
+      "spanish": "Jordania",
       "total": 958,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 958
+        }
+      ],
       "cities": [],
       "countPer100kRef": 21.29
     },
     {
       "iso": "ph",
-      "country": "Filipinas",
+      "country": "Philippines",
+      "spanish": "Filipinas",
       "total": 944,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 944
+        }
+      ],
       "cities": [],
       "countPer100kRef": 6.99
     },
     {
       "iso": "hu",
-      "country": "Hungría",
+      "country": "Hungary",
+      "spanish": "Hungría",
       "total": 860,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 860
+        }
+      ],
       "cities": [],
       "countPer100kRef": 47.78
     },
     {
       "iso": "am",
       "country": "Armenia",
+      "spanish": "Armenia",
       "total": 839,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 839
+        }
+      ],
       "cities": [],
       "countPer100kRef": 76.27
     },
     {
       "iso": "cy",
-      "country": "Chipre",
+      "country": "Cyprus",
+      "spanish": "Chipre",
       "total": 800,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 800
+        }
+      ],
       "cities": [],
       "countPer100kRef": 266.67
     },
     {
       "iso": "bg",
       "country": "Bulgaria",
+      "spanish": "Bulgaria",
       "total": 774,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 774
+        }
+      ],
       "cities": [],
       "countPer100kRef": 45.53
     },
     {
       "iso": "gh",
       "country": "Ghana",
+      "spanish": "Ghana",
       "total": 665,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 665
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "ci",
-      "country": "Costa de Marfil",
+      "country": "Côte d'Ivoire",
+      "spanish": "Costa de Marfil",
       "total": 620,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 620
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "az",
-      "country": "Azerbaiyán",
+      "country": "Azerbaijan",
+      "spanish": "Azerbaiyán",
       "total": 615,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 615
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "kz",
-      "country": "Kazajistán",
+      "country": "Kazakhstan",
+      "spanish": "Kazajistán",
       "total": 614,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 614
+        }
+      ],
       "cities": [],
       "countPer100kRef": 32.32
     },
     {
       "iso": "by",
-      "country": "Bielorrusia",
+      "country": "Belarus",
+      "spanish": "Bielorrusia",
       "total": 602,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 602
+        }
+      ],
       "cities": [],
       "countPer100kRef": 30.1
     },
     {
       "iso": "br",
-      "country": "Brasil",
+      "country": "Brazil",
+      "spanish": "Brasil",
       "total": 551,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 551
+        }
+      ],
       "cities": [],
       "countPer100kRef": 2.5
     },
     {
       "iso": "za",
-      "country": "Sudáfrica",
+      "country": "South Africa",
+      "spanish": "Sudáfrica",
       "total": 537,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 537
+        }
+      ],
       "cities": [],
       "countPer100kRef": 9.59
     },
     {
       "iso": "xk",
       "country": "Kosovo",
-      "total": 534,
+      "spanish": "Kosovo",
+      "total": 535,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 535
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "ke",
-      "country": "Kenia",
+      "country": "Kenya",
+      "spanish": "Kenia",
       "total": 531,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 531
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "kw",
       "country": "Kuwait",
+      "spanish": "Kuwait",
       "total": 505,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 505
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "lu",
-      "country": "Luxemburgo",
+      "country": "Luxembourg",
+      "spanish": "Luxemburgo",
       "total": 493,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 493
+        }
+      ],
       "cities": [],
       "countPer100kRef": 82.17
     },
     {
       "iso": "ma",
-      "country": "Marruecos",
+      "country": "Morocco",
+      "spanish": "Marruecos",
       "total": 479,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 479
+        }
+      ],
       "cities": [],
       "countPer100kRef": 12.28
     },
     {
       "iso": "mc",
-      "country": "Mónaco",
+      "country": "Monaco",
+      "spanish": "Mónaco",
       "total": 464,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 464
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "se",
-      "country": "Suecia",
+      "country": "Sweden",
+      "spanish": "Suecia",
       "total": 446,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 446
+        }
+      ],
       "cities": [],
       "countPer100kRef": 27.88
     },
     {
       "iso": "fi",
-      "country": "Finlandia",
+      "country": "Finland",
+      "spanish": "Finlandia",
       "total": 380,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 380
+        }
+      ],
       "cities": [],
       "countPer100kRef": 29.23
     },
     {
       "iso": "ng",
       "country": "Nigeria",
+      "spanish": "Nigeria",
       "total": 375,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 375
+        }
+      ],
       "cities": [],
       "countPer100kRef": 2.44
     },
     {
       "iso": "mk",
-      "country": "Macedonia",
+      "country": "North Macedonia",
+      "spanish": "Macedonia",
       "total": 369,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 369
+        }
+      ],
       "cities": [],
       "countPer100kRef": 61.5
     },
     {
       "iso": "au",
       "country": "Australia",
+      "spanish": "Australia",
       "total": 361,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 361
+        }
+      ],
       "cities": [],
       "countPer100kRef": 6.81
     },
     {
       "iso": "ee",
       "country": "Estonia",
-      "total": 342,
+      "spanish": "Estonia",
+      "total": 341,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 341
+        }
+      ],
       "cities": [],
-      "countPer100kRef": 85.5
+      "countPer100kRef": 85.25
     },
     {
       "iso": "ba",
-      "country": "Bosnia-Herzegovina",
-      "total": 328,
+      "country": "Bosnia & Herzegovina",
+      "spanish": "Bosnia-Herzegovina",
+      "total": 327,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 327
+        }
+      ],
       "cities": [],
-      "countPer100kRef": 109.33
+      "countPer100kRef": 109
     },
     {
       "iso": "dk",
-      "country": "Dinamarca",
+      "country": "Denmark",
+      "spanish": "Dinamarca",
       "total": 323,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 323
+        }
+      ],
       "cities": [],
       "countPer100kRef": 23.07
     },
     {
       "iso": "lv",
-      "country": "Letonia",
+      "country": "Latvia",
+      "spanish": "Letonia",
       "total": 307,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 307
+        }
+      ],
       "cities": [],
       "countPer100kRef": 51.17
     },
     {
       "iso": "vn",
       "country": "Vietnam",
+      "spanish": "Vietnam",
       "total": 306,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 306
+        }
+      ],
       "cities": [],
       "countPer100kRef": 3.36
     },
     {
       "iso": "sn",
       "country": "Senegal",
+      "spanish": "Senegal",
       "total": 298,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 298
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "ie",
-      "country": "Irlanda",
+      "country": "Ireland",
+      "spanish": "Irlanda",
       "total": 237,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 237
+        }
+      ],
       "cities": [],
       "countPer100kRef": 11.85
     },
     {
       "iso": "si",
-      "country": "Eslovenia",
+      "country": "Slovenia",
+      "spanish": "Eslovenia",
       "total": 222,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 222
+        }
+      ],
       "cities": [],
       "countPer100kRef": 74
     },
     {
       "iso": "ar",
       "country": "Argentina",
+      "spanish": "Argentina",
       "total": 213,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 213
+        }
+      ],
       "cities": [],
       "countPer100kRef": 6.87
     },
     {
       "iso": "lt",
-      "country": "Lituania",
+      "country": "Lithuania",
+      "spanish": "Lituania",
       "total": 206,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 206
+        }
+      ],
       "cities": [],
       "countPer100kRef": 41.2
     },
     {
       "iso": "no",
-      "country": "Noruega",
+      "country": "Norway",
+      "spanish": "Noruega",
       "total": 204,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 204
+        }
+      ],
       "cities": [],
       "countPer100kRef": 18.55
     },
     {
       "iso": "lk",
       "country": "Sri Lanka",
+      "spanish": "Sri Lanka",
       "total": 191,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 191
+        }
+      ],
       "cities": [],
       "countPer100kRef": 8.3
     },
     {
       "iso": "ug",
       "country": "Uganda",
+      "spanish": "Uganda",
       "total": 174,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 174
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "pe",
-      "country": "Perú",
+      "country": "Peru",
+      "spanish": "Perú",
       "total": 152,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 152
+        }
+      ],
       "cities": [],
       "countPer100kRef": 1.38
     },
     {
       "iso": "tw",
-      "country": "Taiwán",
+      "country": "Taiwan",
+      "spanish": "Taiwán",
       "total": 150,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 150
+        }
+      ],
       "cities": [],
       "countPer100kRef": 5.77
     },
     {
       "iso": "sk",
-      "country": "Eslovaquia",
+      "country": "Slovakia",
+      "spanish": "Eslovaquia",
       "total": 145,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 145
+        }
+      ],
       "cities": [],
       "countPer100kRef": 20.71
     },
     {
       "iso": "ec",
       "country": "Ecuador",
+      "spanish": "Ecuador",
       "total": 138,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 138
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "pk",
-      "country": "Paquistán",
+      "country": "Pakistan",
+      "spanish": "Paquistán",
       "total": 123,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 123
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.82
     },
     {
       "iso": "tn",
-      "country": "Túnez",
+      "country": "Tunisia",
+      "spanish": "Túnez",
       "total": 119,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 119
+        }
+      ],
       "cities": [],
       "countPer100kRef": 4.41
     },
     {
       "iso": "is",
-      "country": "Islandia",
+      "country": "Iceland",
+      "spanish": "Islandia",
       "total": 116,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 116
+        }
+      ],
       "cities": [],
       "countPer100kRef": 58
     },
     {
       "iso": "cr",
       "country": "Costa Rica",
+      "spanish": "Costa Rica",
       "total": 111,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 111
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "kr",
-      "country": "Corea del Sur",
+      "country": "South Korea",
+      "spanish": "Corea del Sur",
       "total": 109,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 109
+        }
+      ],
       "cities": [],
       "countPer100kRef": 1.1
     },
     {
       "iso": "pa",
-      "country": "Panamá",
+      "country": "Panama",
+      "spanish": "Panamá",
       "total": 108,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 108
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "mu",
-      "country": "Mauricius",
+      "country": "Mauritius",
+      "spanish": "Mauricius",
       "total": 104,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 104
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "md",
-      "country": "Moldavia",
+      "country": "Moldova",
+      "spanish": "Moldavia",
       "total": 95,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 95
+        }
+      ],
       "cities": [],
       "countPer100kRef": 19
     },
     {
       "iso": "jm",
       "country": "Jamaica",
+      "spanish": "Jamaica",
       "total": 80,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 80
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "uz",
-      "country": "Uzbekistán",
+      "country": "Uzbekistan",
+      "spanish": "Uzbekistán",
       "total": 74,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 74
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "nz",
-      "country": "Nueva Zelanda",
+      "country": "New Zealand",
+      "spanish": "Nueva Zelanda",
       "total": 55,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 55
+        }
+      ],
       "cities": [],
       "countPer100kRef": 3.24
     },
     {
       "iso": "cl",
       "country": "Chile",
+      "spanish": "Chile",
       "total": 43,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 43
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.63
     },
     {
       "iso": "ni",
       "country": "Nicaragua",
+      "spanish": "Nicaragua",
       "total": 30,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 30
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "cm",
-      "country": "Camerún",
+      "country": "Cameroon",
+      "spanish": "Camerún",
       "total": 20,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 20
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "ve",
       "country": "Venezuela",
+      "spanish": "Venezuela",
       "total": 18,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 18
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.62
     },
     {
       "iso": "np",
       "country": "Nepal",
+      "spanish": "Nepal",
       "total": 17,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 17
+        }
+      ],
       "cities": [],
       "countPer100kRef": 1.21
     },
     {
       "iso": "ad",
       "country": "Andorra",
+      "spanish": "Andorra",
       "total": 16,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 16
+        }
+      ],
       "cities": [],
       "countPer100kRef": 16
     },
     {
       "iso": "tz",
       "country": "Tanzania",
+      "spanish": "Tanzania",
       "total": 16,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 16
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "bj",
       "country": "Benin",
+      "spanish": "Benin",
       "total": 13,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 13
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "cd",
-      "country": "RD del Congo",
+      "country": "DR Congo",
+      "spanish": "RD del Congo",
       "total": 13,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 13
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "gt",
       "country": "Guatemala",
+      "spanish": "Guatemala",
       "total": 12,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 12
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "tg",
       "country": "Togo",
+      "spanish": "Togo",
       "total": 10,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 10
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "cv",
       "country": "Cape Verde",
+      "spanish": "Cape Verde",
       "total": 8,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 8
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "kg",
-      "country": "Kirguistán",
+      "country": "Kyrgyzstan",
+      "spanish": "Kirguistán",
       "total": 8,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 8
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "li",
       "country": "Liechtenstein",
+      "spanish": "Liechtenstein",
       "total": 6,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 6
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "kh",
-      "country": "Camboya",
+      "country": "Cambodia",
+      "spanish": "Camboya",
       "total": 6,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 6
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "et",
       "country": "Ethiopia",
+      "spanish": "Ethiopia",
       "total": 5,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 5
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "iq",
       "country": "Iraq",
+      "spanish": "Iraq",
       "total": 5,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 5
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.07
     },
     {
       "iso": "ml",
       "country": "Mali",
+      "spanish": "Mali",
       "total": 5,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 5
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "uy",
       "country": "Uruguay",
+      "spanish": "Uruguay",
       "total": 5,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 5
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.28
     },
     {
       "iso": "dz",
-      "country": "Argelia",
+      "country": "Algeria",
+      "spanish": "Argelia",
       "total": 4,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 4
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.11
     },
     {
       "iso": "gm",
       "country": "Gambia",
+      "spanish": "Gambia",
       "total": 4,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 4
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "py",
       "country": "Paraguay",
+      "spanish": "Paraguay",
       "total": 4,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 4
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "ao",
       "country": "Angola",
+      "spanish": "Angola",
       "total": 3,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 3
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "la",
       "country": "Laos",
+      "spanish": "Laos",
       "total": 3,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 3
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "bd",
       "country": "Bangladesh",
+      "spanish": "Bangladesh",
       "total": 2,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.01
     },
     {
       "iso": "bf",
       "country": "Burkina Faso",
+      "spanish": "Burkina Faso",
       "total": 2,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "cg",
       "country": "Congo",
+      "spanish": "Congo",
       "total": 2,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "ir",
       "country": "Iran",
+      "spanish": "Iran",
       "total": 2,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.02
     },
     {
       "iso": "mv",
       "country": "Maldives",
+      "spanish": "Maldives",
       "total": 2,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "sc",
       "country": "Seychelles",
+      "spanish": "Seychelles",
       "total": 2,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 2
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "bn",
       "country": "Brunei",
+      "spanish": "Brunei",
       "total": 1,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "mn",
       "country": "Mongolia",
+      "spanish": "Mongolia",
       "total": 1,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "ps",
       "country": "Palestine",
+      "spanish": "Palestine",
       "total": 1,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "sy",
       "country": "Syria",
+      "spanish": "Syria",
       "total": 1,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1
+        }
+      ],
       "cities": [],
       "countPer100kRef": 0.04
     },
     {
       "iso": "gl",
       "country": "Tierra Verde",
+      "spanish": "Tierra Verde",
       "total": 1,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     },
     {
       "iso": "zm",
       "country": "Zambia",
+      "spanish": "Zambia",
       "total": 1,
+      "prev": null,
+      "delta": null,
+      "deltaPct": null,
+      "trend": [
+        {
+          "date": "2026-04-18",
+          "total": 1
+        }
+      ],
       "cities": [],
       "countPer100kRef": null
     }
   ],
   "cities": [
     {
-      "city": "Reino Unido",
+      "city": "United Kingdom",
       "count": 13078,
       "url": "/escorts/reino-unido/",
       "population": 9.5,
       "countPer100k": 137.66,
       "iso": "gb",
-      "country": "Reino Unido"
+      "country": "United Kingdom"
     },
     {
-      "city": "EAU",
+      "city": "United Arab Emirates",
       "count": 11519,
       "url": "/escorts/eau/",
       "population": 3.5,
       "countPer100k": 329.11,
       "iso": "ae",
-      "country": "EAU"
+      "country": "United Arab Emirates"
     },
     {
-      "city": "Alemania",
+      "city": "Germany",
       "count": 10767,
       "url": "/escorts/alemania/",
       "population": 3.6,
       "countPer100k": 299.08,
       "iso": "de",
-      "country": "Alemania"
+      "country": "Germany"
     },
     {
-      "city": "España",
+      "city": "Spain",
       "count": 10549,
       "url": "/escorts/españa/",
       "population": 6.7,
       "countPer100k": 157.45,
       "iso": "es",
-      "country": "España"
+      "country": "Spain"
     },
     {
-      "city": "Turquía",
+      "city": "Turkey",
       "count": 6061,
       "url": "/escorts/turquía/",
       "population": 15.8,
       "countPer100k": 38.36,
       "iso": "tr",
-      "country": "Turquía"
+      "country": "Turkey"
     },
     {
-      "city": "Francia",
+      "city": "France",
       "count": 4889,
       "url": "/escorts/francia/",
       "population": 11.1,
       "countPer100k": 44.05,
       "iso": "fr",
-      "country": "Francia"
+      "country": "France"
     },
     {
-      "city": "Países Bajos",
+      "city": "Netherlands",
       "count": 4303,
       "url": "/escorts/países-bajos/",
       "population": 1.1,
       "countPer100k": 391.18,
       "iso": "nl",
-      "country": "Países Bajos"
+      "country": "Netherlands"
     },
     {
-      "city": "Arabia Saudí",
+      "city": "Saudi Arabia",
       "count": 4258,
       "url": "/escorts/arabia-saudí/",
       "population": 7.6,
       "countPer100k": 56.03,
       "iso": "sa",
-      "country": "Arabia Saudí"
+      "country": "Saudi Arabia"
     },
     {
-      "city": "Italia",
+      "city": "Italy",
       "count": 4109,
       "url": "/escorts/italia/",
       "population": 4.3,
       "countPer100k": 95.56,
       "iso": "it",
-      "country": "Italia"
+      "country": "Italy"
     },
     {
       "city": "China",
@@ -1009,13 +2300,13 @@
       "country": "Israel"
     },
     {
-      "city": "Malaisia",
+      "city": "Malaysia",
       "count": 2465,
       "url": "/escorts/malaisia/",
       "population": 7.8,
       "countPer100k": 31.6,
       "iso": "my",
-      "country": "Malaisia"
+      "country": "Malaysia"
     },
     {
       "city": "Portugal",
@@ -1027,49 +2318,49 @@
       "country": "Portugal"
     },
     {
-      "city": "Tailandia",
+      "city": "Thailand",
       "count": 2355,
       "url": "/escorts/tailandia/",
       "population": 10.5,
       "countPer100k": 22.43,
       "iso": "th",
-      "country": "Tailandia"
+      "country": "Thailand"
     },
     {
-      "city": "Croacia",
+      "city": "Croatia",
       "count": 1900,
       "url": "/escorts/croacia/",
       "population": 0.8,
       "countPer100k": 237.5,
       "iso": "hr",
-      "country": "Croacia"
+      "country": "Croatia"
     },
     {
-      "city": "Polonia",
-      "count": 1848,
+      "city": "Poland",
+      "count": 1847,
       "url": "/escorts/polonia/",
       "population": 1.8,
-      "countPer100k": 102.67,
+      "countPer100k": 102.61,
       "iso": "pl",
-      "country": "Polonia"
+      "country": "Poland"
     },
     {
-      "city": "Rusia",
+      "city": "Russia",
       "count": 1846,
       "url": "/escorts/rusia/",
       "population": 12.6,
       "countPer100k": 14.65,
       "iso": "ru",
-      "country": "Rusia"
+      "country": "Russia"
     },
     {
-      "city": "Japón",
+      "city": "Japan",
       "count": 1741,
       "url": "/escorts/japón/",
       "population": 37.4,
       "countPer100k": 4.66,
       "iso": "jp",
-      "country": "Japón"
+      "country": "Japan"
     },
     {
       "city": "Indonesia",
@@ -1082,21 +2373,21 @@
     },
     {
       "city": "Serbia",
-      "count": 1578,
+      "count": 1579,
       "url": "/escorts/serbia/",
       "population": 1.4,
-      "countPer100k": 112.71,
+      "countPer100k": 112.79,
       "iso": "rs",
       "country": "Serbia"
     },
     {
-      "city": "Líbano",
+      "city": "Lebanon",
       "count": 1551,
       "url": "/escorts/líbano/",
       "population": 2.2,
       "countPer100k": 70.5,
       "iso": "lb",
-      "country": "Líbano"
+      "country": "Lebanon"
     },
     {
       "city": "Georgia",
@@ -1108,13 +2399,13 @@
       "country": "Georgia"
     },
     {
-      "city": "Suiza",
+      "city": "Switzerland",
       "count": 1467,
       "url": "/escorts/suiza/",
       "population": 1.4,
       "countPer100k": 104.79,
       "iso": "ch",
-      "country": "Suiza"
+      "country": "Switzerland"
     },
     {
       "city": "Montenegro",
@@ -1126,13 +2417,13 @@
       "country": "Montenegro"
     },
     {
-      "city": "Omán",
+      "city": "Oman",
       "count": 1437,
       "url": "/escorts/omán/",
       "population": null,
       "countPer100k": null,
       "iso": "om",
-      "country": "Omán"
+      "country": "Oman"
     },
     {
       "city": "Qatar",
@@ -1144,22 +2435,22 @@
       "country": "Qatar"
     },
     {
-      "city": "México",
+      "city": "Mexico",
       "count": 1365,
       "url": "/escorts/méxico/",
       "population": 22,
       "countPer100k": 6.2,
       "iso": "mx",
-      "country": "México"
+      "country": "Mexico"
     },
     {
-      "city": "Ucrania",
+      "city": "Ukraine",
       "count": 1363,
       "url": "/escorts/ucrania/",
       "population": 2.9,
       "countPer100k": 47,
       "iso": "ua",
-      "country": "Ucrania"
+      "country": "Ukraine"
     },
     {
       "city": "Colombia",
@@ -1181,57 +2472,57 @@
     },
     {
       "city": "Albania",
-      "count": 1224,
+      "count": 1223,
       "url": "/escorts/albania/",
       "population": 0.5,
-      "countPer100k": 244.8,
+      "countPer100k": 244.6,
       "iso": "al",
       "country": "Albania"
     },
     {
-      "city": "Egipto",
+      "city": "Egypt",
       "count": 1172,
       "url": "/escorts/egipto/",
       "population": 21.3,
       "countPer100k": 5.5,
       "iso": "eg",
-      "country": "Egipto"
+      "country": "Egypt"
     },
     {
-      "city": "Bélgica",
+      "city": "Belgium",
       "count": 1170,
       "url": "/escorts/bélgica/",
       "population": 1.2,
       "countPer100k": 97.5,
       "iso": "be",
-      "country": "Bélgica"
+      "country": "Belgium"
     },
     {
-      "city": "Canadá",
+      "city": "Canada",
       "count": 1094,
       "url": "/escorts/canadá/",
       "population": 6.2,
       "countPer100k": 17.65,
       "iso": "ca",
-      "country": "Canadá"
+      "country": "Canada"
     },
     {
-      "city": "Baréin",
+      "city": "Bahrain",
       "count": 1083,
       "url": "/escorts/baréin/",
       "population": null,
       "countPer100k": null,
       "iso": "bh",
-      "country": "Baréin"
+      "country": "Bahrain"
     },
     {
-      "city": "República Checa",
+      "city": "Czech Republic",
       "count": 1042,
       "url": "/escorts/república-checa/",
       "population": 1.3,
       "countPer100k": 80.15,
       "iso": "cz",
-      "country": "República Checa"
+      "country": "Czech Republic"
     },
     {
       "city": "Malta",
@@ -1243,31 +2534,31 @@
       "country": "Malta"
     },
     {
-      "city": "Grecia",
+      "city": "Greece",
       "count": 1001,
       "url": "/escorts/grecia/",
       "population": 3.2,
       "countPer100k": 31.28,
       "iso": "gr",
-      "country": "Grecia"
+      "country": "Greece"
     },
     {
-      "city": "Singapur",
+      "city": "Singapore",
       "count": 972,
       "url": "/escorts/singapur/",
       "population": 5.9,
       "countPer100k": 16.47,
       "iso": "sg",
-      "country": "Singapur"
+      "country": "Singapore"
     },
     {
-      "city": "Rumanía",
+      "city": "Romania",
       "count": 968,
       "url": "/escorts/rumanía/",
       "population": 1.8,
       "countPer100k": 53.78,
       "iso": "ro",
-      "country": "Rumanía"
+      "country": "Romania"
     },
     {
       "city": "India",
@@ -1279,31 +2570,31 @@
       "country": "India"
     },
     {
-      "city": "Jordania",
+      "city": "Jordan",
       "count": 958,
       "url": "/escorts/jordania/",
       "population": 4.5,
       "countPer100k": 21.29,
       "iso": "jo",
-      "country": "Jordania"
+      "country": "Jordan"
     },
     {
-      "city": "Filipinas",
+      "city": "Philippines",
       "count": 944,
       "url": "/escorts/filipinas/",
       "population": 13.5,
       "countPer100k": 6.99,
       "iso": "ph",
-      "country": "Filipinas"
+      "country": "Philippines"
     },
     {
-      "city": "Hungría",
+      "city": "Hungary",
       "count": 860,
       "url": "/escorts/hungría/",
       "population": 1.8,
       "countPer100k": 47.78,
       "iso": "hu",
-      "country": "Hungría"
+      "country": "Hungary"
     },
     {
       "city": "Armenia",
@@ -1315,13 +2606,13 @@
       "country": "Armenia"
     },
     {
-      "city": "Chipre",
+      "city": "Cyprus",
       "count": 800,
       "url": "/escorts/chipre/",
       "population": 0.3,
       "countPer100k": 266.67,
       "iso": "cy",
-      "country": "Chipre"
+      "country": "Cyprus"
     },
     {
       "city": "Bulgaria",
@@ -1342,62 +2633,62 @@
       "country": "Ghana"
     },
     {
-      "city": "Costa de Marfil",
+      "city": "Côte d'Ivoire",
       "count": 620,
       "url": "/escorts/costa-de-marfil/",
       "population": null,
       "countPer100k": null,
       "iso": "ci",
-      "country": "Costa de Marfil"
+      "country": "Côte d'Ivoire"
     },
     {
-      "city": "Azerbaiyán",
+      "city": "Azerbaijan",
       "count": 615,
       "url": "/escorts/azerbaiyán/",
       "population": null,
       "countPer100k": null,
       "iso": "az",
-      "country": "Azerbaiyán"
+      "country": "Azerbaijan"
     },
     {
-      "city": "Kazajistán",
+      "city": "Kazakhstan",
       "count": 614,
       "url": "/escorts/kazajistán/",
       "population": 1.9,
       "countPer100k": 32.32,
       "iso": "kz",
-      "country": "Kazajistán"
+      "country": "Kazakhstan"
     },
     {
-      "city": "Bielorrusia",
+      "city": "Belarus",
       "count": 602,
       "url": "/escorts/bielorrusia/",
       "population": 2,
       "countPer100k": 30.1,
       "iso": "by",
-      "country": "Bielorrusia"
+      "country": "Belarus"
     },
     {
-      "city": "Brasil",
+      "city": "Brazil",
       "count": 551,
       "url": "/escorts/brasil/",
       "population": 22,
       "countPer100k": 2.5,
       "iso": "br",
-      "country": "Brasil"
+      "country": "Brazil"
     },
     {
-      "city": "Sudáfrica",
+      "city": "South Africa",
       "count": 537,
       "url": "/escorts/sudáfrica/",
       "population": 5.6,
       "countPer100k": 9.59,
       "iso": "za",
-      "country": "Sudáfrica"
+      "country": "South Africa"
     },
     {
       "city": "Kosovo",
-      "count": 534,
+      "count": 535,
       "url": "/escorts/kosovo/",
       "population": null,
       "countPer100k": null,
@@ -1405,13 +2696,13 @@
       "country": "Kosovo"
     },
     {
-      "city": "Kenia",
+      "city": "Kenya",
       "count": 531,
       "url": "/escorts/kenia/",
       "population": null,
       "countPer100k": null,
       "iso": "ke",
-      "country": "Kenia"
+      "country": "Kenya"
     },
     {
       "city": "Kuwait",
@@ -1423,49 +2714,49 @@
       "country": "Kuwait"
     },
     {
-      "city": "Luxemburgo",
+      "city": "Luxembourg",
       "count": 493,
       "url": "/escorts/luxemburgo/",
       "population": 0.6,
       "countPer100k": 82.17,
       "iso": "lu",
-      "country": "Luxemburgo"
+      "country": "Luxembourg"
     },
     {
-      "city": "Marruecos",
+      "city": "Morocco",
       "count": 479,
       "url": "/escorts/marruecos/",
       "population": 3.9,
       "countPer100k": 12.28,
       "iso": "ma",
-      "country": "Marruecos"
+      "country": "Morocco"
     },
     {
-      "city": "Mónaco",
+      "city": "Monaco",
       "count": 464,
       "url": "/escorts/mónaco/",
       "population": null,
       "countPer100k": null,
       "iso": "mc",
-      "country": "Mónaco"
+      "country": "Monaco"
     },
     {
-      "city": "Suecia",
+      "city": "Sweden",
       "count": 446,
       "url": "/escorts/suecia/",
       "population": 1.6,
       "countPer100k": 27.88,
       "iso": "se",
-      "country": "Suecia"
+      "country": "Sweden"
     },
     {
-      "city": "Finlandia",
+      "city": "Finland",
       "count": 380,
       "url": "/escorts/finlandia/",
       "population": 1.3,
       "countPer100k": 29.23,
       "iso": "fi",
-      "country": "Finlandia"
+      "country": "Finland"
     },
     {
       "city": "Nigeria",
@@ -1477,13 +2768,13 @@
       "country": "Nigeria"
     },
     {
-      "city": "Macedonia",
+      "city": "North Macedonia",
       "count": 369,
       "url": "/escorts/macedonia/",
       "population": 0.6,
       "countPer100k": 61.5,
       "iso": "mk",
-      "country": "Macedonia"
+      "country": "North Macedonia"
     },
     {
       "city": "Australia",
@@ -1496,39 +2787,39 @@
     },
     {
       "city": "Estonia",
-      "count": 342,
+      "count": 341,
       "url": "/escorts/estonia/",
       "population": 0.4,
-      "countPer100k": 85.5,
+      "countPer100k": 85.25,
       "iso": "ee",
       "country": "Estonia"
     },
     {
-      "city": "Bosnia-Herzegovina",
-      "count": 328,
+      "city": "Bosnia & Herzegovina",
+      "count": 327,
       "url": "/escorts/bosnia-herzegovina/",
       "population": 0.3,
-      "countPer100k": 109.33,
+      "countPer100k": 109,
       "iso": "ba",
-      "country": "Bosnia-Herzegovina"
+      "country": "Bosnia & Herzegovina"
     },
     {
-      "city": "Dinamarca",
+      "city": "Denmark",
       "count": 323,
       "url": "/escorts/dinamarca/",
       "population": 1.4,
       "countPer100k": 23.07,
       "iso": "dk",
-      "country": "Dinamarca"
+      "country": "Denmark"
     },
     {
-      "city": "Letonia",
+      "city": "Latvia",
       "count": 307,
       "url": "/escorts/letonia/",
       "population": 0.6,
       "countPer100k": 51.17,
       "iso": "lv",
-      "country": "Letonia"
+      "country": "Latvia"
     },
     {
       "city": "Vietnam",
@@ -1549,22 +2840,22 @@
       "country": "Senegal"
     },
     {
-      "city": "Irlanda",
+      "city": "Ireland",
       "count": 237,
       "url": "/escorts/irlanda/",
       "population": 2,
       "countPer100k": 11.85,
       "iso": "ie",
-      "country": "Irlanda"
+      "country": "Ireland"
     },
     {
-      "city": "Eslovenia",
+      "city": "Slovenia",
       "count": 222,
       "url": "/escorts/eslovenia/",
       "population": 0.3,
       "countPer100k": 74,
       "iso": "si",
-      "country": "Eslovenia"
+      "country": "Slovenia"
     },
     {
       "city": "Argentina",
@@ -1576,22 +2867,22 @@
       "country": "Argentina"
     },
     {
-      "city": "Lituania",
+      "city": "Lithuania",
       "count": 206,
       "url": "/escorts/lituania/",
       "population": 0.5,
       "countPer100k": 41.2,
       "iso": "lt",
-      "country": "Lituania"
+      "country": "Lithuania"
     },
     {
-      "city": "Noruega",
+      "city": "Norway",
       "count": 204,
       "url": "/escorts/noruega/",
       "population": 1.1,
       "countPer100k": 18.55,
       "iso": "no",
-      "country": "Noruega"
+      "country": "Norway"
     },
     {
       "city": "Sri Lanka",
@@ -1612,31 +2903,31 @@
       "country": "Uganda"
     },
     {
-      "city": "Perú",
+      "city": "Peru",
       "count": 152,
       "url": "/escorts/perú/",
       "population": 11,
       "countPer100k": 1.38,
       "iso": "pe",
-      "country": "Perú"
+      "country": "Peru"
     },
     {
-      "city": "Taiwán",
+      "city": "Taiwan",
       "count": 150,
       "url": "/escorts/taiwán/",
       "population": 2.6,
       "countPer100k": 5.77,
       "iso": "tw",
-      "country": "Taiwán"
+      "country": "Taiwan"
     },
     {
-      "city": "Eslovaquia",
+      "city": "Slovakia",
       "count": 145,
       "url": "/escorts/eslovaquia/",
       "population": 0.7,
       "countPer100k": 20.71,
       "iso": "sk",
-      "country": "Eslovaquia"
+      "country": "Slovakia"
     },
     {
       "city": "Ecuador",
@@ -1648,31 +2939,31 @@
       "country": "Ecuador"
     },
     {
-      "city": "Paquistán",
+      "city": "Pakistan",
       "count": 123,
       "url": "/escorts/paquistán/",
       "population": 15,
       "countPer100k": 0.82,
       "iso": "pk",
-      "country": "Paquistán"
+      "country": "Pakistan"
     },
     {
-      "city": "Túnez",
+      "city": "Tunisia",
       "count": 119,
       "url": "/escorts/túnez/",
       "population": 2.7,
       "countPer100k": 4.41,
       "iso": "tn",
-      "country": "Túnez"
+      "country": "Tunisia"
     },
     {
-      "city": "Islandia",
+      "city": "Iceland",
       "count": 116,
       "url": "/escorts/islandia/",
       "population": 0.2,
       "countPer100k": 58,
       "iso": "is",
-      "country": "Islandia"
+      "country": "Iceland"
     },
     {
       "city": "Costa Rica",
@@ -1684,40 +2975,40 @@
       "country": "Costa Rica"
     },
     {
-      "city": "Corea del Sur",
+      "city": "South Korea",
       "count": 109,
       "url": "/escorts/corea-del-sur/",
       "population": 9.9,
       "countPer100k": 1.1,
       "iso": "kr",
-      "country": "Corea del Sur"
+      "country": "South Korea"
     },
     {
-      "city": "Panamá",
+      "city": "Panama",
       "count": 108,
       "url": "/escorts/panamá/",
       "population": null,
       "countPer100k": null,
       "iso": "pa",
-      "country": "Panamá"
+      "country": "Panama"
     },
     {
-      "city": "Mauricius",
+      "city": "Mauritius",
       "count": 104,
       "url": "/escorts/mauricius/",
       "population": null,
       "countPer100k": null,
       "iso": "mu",
-      "country": "Mauricius"
+      "country": "Mauritius"
     },
     {
-      "city": "Moldavia",
+      "city": "Moldova",
       "count": 95,
       "url": "/escorts/moldavia/",
       "population": 0.5,
       "countPer100k": 19,
       "iso": "md",
-      "country": "Moldavia"
+      "country": "Moldova"
     },
     {
       "city": "Jamaica",
@@ -1729,22 +3020,22 @@
       "country": "Jamaica"
     },
     {
-      "city": "Uzbekistán",
+      "city": "Uzbekistan",
       "count": 74,
       "url": "/escorts/uzbekistán/",
       "population": null,
       "countPer100k": null,
       "iso": "uz",
-      "country": "Uzbekistán"
+      "country": "Uzbekistan"
     },
     {
-      "city": "Nueva Zelanda",
+      "city": "New Zealand",
       "count": 55,
       "url": "/escorts/nueva-zelanda/",
       "population": 1.7,
       "countPer100k": 3.24,
       "iso": "nz",
-      "country": "Nueva Zelanda"
+      "country": "New Zealand"
     },
     {
       "city": "Chile",
@@ -1765,13 +3056,13 @@
       "country": "Nicaragua"
     },
     {
-      "city": "Camerún",
+      "city": "Cameroon",
       "count": 20,
       "url": "/escorts/camerún/",
       "population": null,
       "countPer100k": null,
       "iso": "cm",
-      "country": "Camerún"
+      "country": "Cameroon"
     },
     {
       "city": "Venezuela",
@@ -1819,13 +3110,13 @@
       "country": "Benin"
     },
     {
-      "city": "RD del Congo",
+      "city": "DR Congo",
       "count": 13,
       "url": "/escorts/rd-del-congo/",
       "population": null,
       "countPer100k": null,
       "iso": "cd",
-      "country": "RD del Congo"
+      "country": "DR Congo"
     },
     {
       "city": "Guatemala",
@@ -1855,13 +3146,13 @@
       "country": "Cape Verde"
     },
     {
-      "city": "Kirguistán",
+      "city": "Kyrgyzstan",
       "count": 8,
       "url": "/escorts/kirguistán/",
       "population": null,
       "countPer100k": null,
       "iso": "kg",
-      "country": "Kirguistán"
+      "country": "Kyrgyzstan"
     },
     {
       "city": "Liechtenstein",
@@ -1873,13 +3164,13 @@
       "country": "Liechtenstein"
     },
     {
-      "city": "Camboya",
+      "city": "Cambodia",
       "count": 6,
       "url": "/escorts/camboya/",
       "population": null,
       "countPer100k": null,
       "iso": "kh",
-      "country": "Camboya"
+      "country": "Cambodia"
     },
     {
       "city": "Ethiopia",
@@ -1918,13 +3209,13 @@
       "country": "Uruguay"
     },
     {
-      "city": "Argelia",
+      "city": "Algeria",
       "count": 4,
       "url": "/escorts/argelia/",
       "population": 3.7,
       "countPer100k": 0.11,
       "iso": "dz",
-      "country": "Argelia"
+      "country": "Algeria"
     },
     {
       "city": "Gambia",
