@@ -1,5 +1,11 @@
 {
   "framework": "vite",
   "buildCommand": "npx vite build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "crons": [
+    {
+      "path": "/api/cron/refresh-egs",
+      "schedule": "0 10 * * 1"
+    }
+  ]
 }
