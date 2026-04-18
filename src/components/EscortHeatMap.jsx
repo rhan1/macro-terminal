@@ -9,11 +9,29 @@ const DIM    = "hsl(220,10%,52%)";
 const MUTED  = "hsl(220,15%,18%)";
 const BORDER = "hsl(220,15%,14%)";
 
+const MODE_STORAGE_KEY = "macro-heatmap-mode";
+
 export default function EscortHeatMap({ countries, totalWorldwide }) {
   const wrapRef = useRef(null);
   const [hover, setHover] = useState(null);
 
-  const maxTotal = countries.reduce((m, c) => Math.max(m, c.total), 0);
+  // Sort/color mode: "density" (listings / 100k pop) or "total" (raw count).
+  // Density normalizes away country size and is the default.
+  const [mode, setMode] = useState(() => {
+    if (typeof window === "undefined") return "density";
+    const stored = window.localStorage?.getItem(MODE_STORAGE_KEY);
+    return stored === "total" ? "total" : "density";
+  });
+  useEffect(() => {
+    window.localStorage?.setItem(MODE_STORAGE_KEY, mode);
+  }, [mode]);
+
+  // valueOf(c) is the scalar the palette and ranking are keyed off.
+  // In density mode we fall back to 0 (not null) for countries missing a
+  // population reference so they bucket into the bottom tier instead of
+  // disappearing entirely.
+  const valueOf = (c) =>
+    mode === "density" ? (c.countPer100kRef ?? 0) : (c.total ?? 0);
 
   // 10-band decile palette — deep navy → teal → cyan → green → lime → amber →
   // hot red. Doubling the band count (was 5) lets 129 countries spread across
@@ -36,21 +54,20 @@ export default function EscortHeatMap({ countries, totalWorldwide }) {
   );
   const TIER_COUNT = TIER_COLORS.length;
 
-  // Rank countries by total, then assign each to a decile (0..9).
+  // Rank countries by the active metric, then assign each to a decile (0..9).
   // Pure rank-based bucketing so the top tier stands out even when values
   // are log-compressed against the long tail of small-country listings.
   const { fillCss, tierByIso, tierLabels } = useMemo(() => {
     const ranked = [...countries]
       .filter((c) => c.iso)
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => valueOf(b) - valueOf(a));
     const n = ranked.length;
     const tiers = new Map();
     const tierBounds = Array.from({ length: TIER_COUNT }, () => []);
     ranked.forEach((c, idx) => {
-      // Top 1/TIER_COUNT → tier = TIER_COUNT-1, ..., bottom → tier 0
       const tier = (TIER_COUNT - 1) - Math.min(TIER_COUNT - 1, Math.floor((idx / n) * TIER_COUNT));
       tiers.set(c.iso, tier);
-      tierBounds[tier].push(c.total);
+      tierBounds[tier].push(valueOf(c));
     });
 
     const rules = ranked
@@ -61,12 +78,14 @@ export default function EscortHeatMap({ countries, totalWorldwide }) {
       })
       .join("\n");
 
-    // Build legend labels — range for each tier
+    // Legend formatter: density shows 1 decimal, totals are integer.
+    const fmtBound = (v) =>
+      mode === "density" ? v.toFixed(1) : Math.round(v).toLocaleString();
     const labels = tierBounds.map((vals) => {
       if (!vals.length) return null;
       const min = Math.min(...vals);
       const max = Math.max(...vals);
-      return min === max ? `${min}` : `${min}–${max}`;
+      return min === max ? fmtBound(min) : `${fmtBound(min)}–${fmtBound(max)}`;
     });
 
     return {
@@ -78,7 +97,7 @@ ${rules}
       tierByIso: tiers,
       tierLabels: labels,
     };
-  }, [countries, TIER_COLORS]);
+  }, [countries, TIER_COLORS, mode]);
 
   const byIso = useMemo(
     () => new Map(countries.filter((c) => c.iso).map((c) => [c.iso, c])),
@@ -128,7 +147,11 @@ ${rules}
     setHover({ ...entry, x: e.clientX, y: e.clientY });
   };
 
-  const topCountry = countries[0];
+  // Leader in the currently-active metric, not just the prop sort order.
+  const topCountry = useMemo(() => {
+    const ranked = [...countries].filter((c) => c.iso).sort((a, b) => valueOf(b) - valueOf(a));
+    return ranked[0] ?? null;
+  }, [countries, mode]);
 
   return (
     <div className="panel escort-heatmap" style={{ padding: 16 }}>
@@ -149,6 +172,40 @@ ${rules}
         <span style={{ fontSize: 10, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Worldwide listings
         </span>
+
+        {/* Mode toggle — TOTAL vs /100K population */}
+        <div style={{ display: "flex", gap: 2, marginLeft: 10 }}>
+          {[
+            { key: "total",   label: "TOTAL" },
+            { key: "density", label: "/100K" },
+          ].map((opt) => {
+            const active = mode === opt.key;
+            return (
+              <button
+                key={opt.key}
+                onClick={() => setMode(opt.key)}
+                style={{
+                  background: active ? "hsla(185,70%,55%,0.15)" : "none",
+                  border: active ? `1px solid hsla(185,70%,55%,0.4)` : "1px solid transparent",
+                  color: active ? CYAN : DIM,
+                  fontSize: 9,
+                  fontFamily: "inherit",
+                  padding: "2px 8px",
+                  cursor: "pointer",
+                  letterSpacing: "0.04em",
+                  fontWeight: active ? 600 : 400,
+                  transition: "all 0.1s",
+                }}
+                title={opt.key === "density"
+                  ? "Rank by listings per 100,000 population — normalizes country size"
+                  : "Rank by raw listing count"}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
         <span style={{ marginLeft: "auto", fontSize: 10, color: DIM }}>
           {countries.length} countries tracked
           {topCountry && (
@@ -170,7 +227,7 @@ ${rules}
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-          Listings
+          {mode === "density" ? "Listings / 100K pop" : "Listings"}
         </span>
         <div style={{ display: "flex", gap: 2 }}>
           {TIER_COLORS.map((color, i) => (
@@ -235,9 +292,30 @@ ${rules}
               lineHeight: 1,
             }}
           >
-            {hover.total.toLocaleString()}{" "}
-            <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>listings</span>
+            {mode === "density" && hover.countPer100kRef != null ? (
+              <>
+                {hover.countPer100kRef.toFixed(1)}{" "}
+                <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>/ 100K pop</span>
+              </>
+            ) : (
+              <>
+                {hover.total.toLocaleString()}{" "}
+                <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>listings</span>
+              </>
+            )}
           </div>
+          {/* Secondary metric — the one NOT selected as the primary view */}
+          {mode === "density" ? (
+            <div style={{ fontSize: 10, color: DIM, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums", marginTop: 2 }}>
+              {hover.total.toLocaleString()} total listings
+            </div>
+          ) : (
+            hover.countPer100kRef != null && (
+              <div style={{ fontSize: 10, color: DIM, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums", marginTop: 2 }}>
+                {hover.countPer100kRef.toFixed(1)} / 100K pop
+              </div>
+            )
+          )}
           {hover.delta != null && (
             <div
               style={{
