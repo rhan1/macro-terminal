@@ -26,6 +26,15 @@ const COUNTRY_NAMES = {
   br: "Brazil",
 };
 
+// Reference population in millions for density normalization.
+// Mirrors the REF_POP subset in api/cron/refresh-egs.js; adult-female proxy
+// used to compute `countPer100kRef = total / (pop * 1M) * 100K`.
+const REF_POP = {
+  us: 19.5, mx: 22.0, jp: 37.4, kr: 9.9,  th: 10.5, ph: 13.5,
+  sg: 5.9,  au: 5.3,  nz: 1.7,  fr: 11.1, it: 4.3,  ie: 2.0,
+  fi: 1.3,  br: 22.0,
+};
+
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const BASE = "https://tryst.link";
 const META_RE = /Browse\s+([\d,]+)\s+verified\s+escorts/i;
@@ -78,12 +87,20 @@ export default async function handler(req, res) {
     const results = await fetchAllWithLimit(GAP_ISOS);
     const countries = results
       .filter((r) => r.status === "fulfilled" && r.value.total != null)
-      .map((r) => ({
-        iso: r.value.iso,
-        country: COUNTRY_NAMES[r.value.iso] ?? r.value.iso.toUpperCase(),
-        total: r.value.total,
-        cities: [],
-      }))
+      .map((r) => {
+        const { iso, total } = r.value;
+        const pop = REF_POP[iso];
+        const countPer100kRef = pop
+          ? Math.round(((total / (pop * 1_000_000)) * 100_000) * 100) / 100
+          : null;
+        return {
+          iso,
+          country: COUNTRY_NAMES[iso] ?? iso.toUpperCase(),
+          total,
+          countPer100kRef,
+          cities: [],
+        };
+      })
       .sort((a, b) => b.total - a.total);
 
     const totalWorldwide = countries.reduce((s, c) => s + c.total, 0);
