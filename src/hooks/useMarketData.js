@@ -43,7 +43,7 @@ export function useMarketData() {
 
     if (!quoteCache.data || now - quoteCache.ts >= QUOTE_TTL) {
       fetches.push(
-        fetch("/api/market?symbols=SPY,QQQ,TLT,GLD,USO,HYG,%5EVIX,UNG,CPER,FXE,FXY,FXB")
+        fetch("/api/market?symbols=SPY,QQQ,TLT,GLD,USO,HYG,%5EVIX,UNG,CPER,FXE,FXY,FXB,BTC-USD")
           .then((r) => r.json())
           .then((d) => { quoteCache.data = d; quoteCache.ts = Date.now(); })
           .catch(() => {})
