@@ -1,16 +1,35 @@
 // Google Trends — Search Interest via SerpAPI
 // Terms chosen as stress/distress proxies (true "alternative" data)
-// Free tier: 250 req/month. 8 terms × 1 req/day = ~240/month (fits free cap).
+// SerpAPI Google Trends returns weekly bins for date=today+12-m; polling
+// weekly (not daily) gives identical signal at 1/7th the quota.
+// Free tier: 250 req/mo. 20 terms × ~4 polls/mo = 80/mo (170 headroom).
 
 const TERMS = [
+  // Distress core (original 8)
   "pawn shop near me",
   "payday loan",
   "sell my gold",
   "food bank near me",
   "side hustle",
   "how to make money fast",
-  "recession",                      // macro-narrative fear (spiked 244% Aug 2024)
-  "how to file for unemployment",   // leads actual UI claims by ~1 week
+  "recession",
+  "how to file for unemployment",
+  // Inflation coping
+  "egg prices",
+  "dollar tree",
+  "coupon code",
+  // Housing distress
+  "rent assistance",
+  "home foreclosure",
+  "eviction notice",
+  // Credit stress
+  "401k withdrawal",
+  "credit card debt",
+  "bankruptcy",
+  // Income stress
+  "second job",
+  "medical bills",
+  "gig work",
 ];
 
 // Parse "Apr 14 – 20, 2025" → "2025-04-14" (ISO start-of-week date)
@@ -97,9 +116,10 @@ export default async function handler(req, res) {
     });
   }
 
+  // Weekly cadence — Google Trends bins are weekly; daily polling is wasted quota.
   res.setHeader(
     "Cache-Control",
-    "s-maxage=21600, stale-while-revalidate=86400"
+    "s-maxage=604800, stale-while-revalidate=1209600"
   );
 
   const results = await Promise.allSettled(
