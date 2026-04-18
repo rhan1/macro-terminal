@@ -15,33 +15,40 @@ export default function EscortHeatMap({ countries, totalWorldwide }) {
 
   const maxTotal = countries.reduce((m, c) => Math.max(m, c.total), 0);
 
-  // Quintile-ranked palette — cold (deep teal) → hot (amber) with distinct steps
-  // so different listing volumes are visually separable. Pure alpha scaling
-  // makes everything look the same cyan; discrete hue bands fix that.
+  // 10-band decile palette — deep navy → teal → cyan → green → lime → amber →
+  // hot red. Doubling the band count (was 5) lets 129 countries spread across
+  // ~13 per band instead of ~26, making adjacent-rank countries visually
+  // distinguishable. Hue sweep is continuous; lightness rises as values do.
   const TIER_COLORS = useMemo(
     () => [
-      "hsla(200, 55%, 28%, 0.85)",   // T0  — lowest quintile (deep teal)
-      "hsla(195, 65%, 42%, 0.9)",    // T1
-      "hsla(185, 75%, 55%, 0.95)",   // T2  — mid cyan
-      "hsla(90,  70%, 55%, 0.95)",   // T3  — cyan-to-lime
-      "hsla(35,  95%, 60%, 1.0)",    // T4  — top quintile (hot amber)
+      "hsla(225, 45%, 20%, 0.85)",   // T0 — bottom decile (deep navy)
+      "hsla(215, 55%, 28%, 0.85)",   // T1
+      "hsla(205, 60%, 36%, 0.88)",   // T2
+      "hsla(195, 70%, 44%, 0.9)",    // T3
+      "hsla(185, 75%, 52%, 0.92)",   // T4 — mid cyan
+      "hsla(165, 70%, 52%, 0.94)",   // T5 — teal-green
+      "hsla(135, 70%, 54%, 0.95)",   // T6 — green
+      "hsla(90,  75%, 56%, 0.97)",   // T7 — lime
+      "hsla(45,  92%, 58%, 1.0)",    // T8 — amber
+      "hsla(15,  92%, 58%, 1.0)",    // T9 — top decile (hot red)
     ],
     []
   );
+  const TIER_COUNT = TIER_COLORS.length;
 
-  // Rank countries by total, then assign each to a quintile (0..4).
-  // Pure rank-based (not value-based) bucketing so the top-5 stand out
-  // even when values are log-compressed.
+  // Rank countries by total, then assign each to a decile (0..9).
+  // Pure rank-based bucketing so the top tier stands out even when values
+  // are log-compressed against the long tail of small-country listings.
   const { fillCss, tierByIso, tierLabels } = useMemo(() => {
     const ranked = [...countries]
       .filter((c) => c.iso)
       .sort((a, b) => b.total - a.total);
     const n = ranked.length;
     const tiers = new Map();
-    const tierBounds = [[], [], [], [], []];
+    const tierBounds = Array.from({ length: TIER_COUNT }, () => []);
     ranked.forEach((c, idx) => {
-      // Top 20% → tier 4, next 20% → tier 3, ... bottom 20% → tier 0
-      const tier = 4 - Math.min(4, Math.floor((idx / n) * 5));
+      // Top 1/TIER_COUNT → tier = TIER_COUNT-1, ..., bottom → tier 0
+      const tier = (TIER_COUNT - 1) - Math.min(TIER_COUNT - 1, Math.floor((idx / n) * TIER_COUNT));
       tiers.set(c.iso, tier);
       tierBounds[tier].push(c.total);
     });
@@ -176,7 +183,7 @@ ${rules}
                 gap: 2,
               }}
             >
-              <div style={{ width: 36, height: 10, background: color, borderRadius: 1 }} />
+              <div style={{ width: 24, height: 10, background: color, borderRadius: 1 }} />
               <span
                 style={{
                   fontSize: 8,
