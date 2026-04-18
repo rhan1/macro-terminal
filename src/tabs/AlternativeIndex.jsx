@@ -449,26 +449,63 @@ export default function AlternativeIndex() {
       .catch(() => setViceLoading(false));
   }, [viceRange]);
 
-  // ── Fetch escorts (cascade: egs → tryst → escortdirectory) ────────────────
+  // ── Fetch escorts (egs primary; on failure, merge escortdirectory + tryst) ─
   useEffect(() => {
-    const SOURCES = [
-      { path: "/api/egs",     label: "eurogirlsescort.es" },
-      { path: "/api/tryst",   label: "tryst.link" },
-      { path: "/api/escorts", label: "escortdirectory.com" },
-    ];
     (async () => {
-      for (const src of SOURCES) {
+      const tryFetch = async (path) => {
         try {
-          const r = await fetch(src.path);
-          if (!r.ok) continue;
+          const r = await fetch(path);
+          if (!r.ok) return null;
           const d = await r.json();
-          if ((d?.countries?.length ?? 0) > 0) {
-            setEscortData({ ...d, activeLabel: src.label });
-            setEscortLoading(false);
-            return;
-          }
-        } catch { /* fall through */ }
+          if ((d?.countries?.length ?? 0) === 0) return null;
+          return d;
+        } catch { return null; }
+      };
+
+      // Primary: egs (129-country snapshot)
+      const egs = await tryFetch("/api/egs");
+      if (egs) {
+        setEscortData({ ...egs, activeLabel: "eurogirlsescort.es" });
+        setEscortLoading(false);
+        return;
       }
+
+      // Fallback: merge escortdirectory (base ~22 countries) with tryst gap-fill (14).
+      // Rule: escortdirectory value wins where present; tryst fills only gaps.
+      const [escorts, tryst] = await Promise.all([
+        tryFetch("/api/escorts"),
+        tryFetch("/api/tryst"),
+      ]);
+
+      if (!escorts && !tryst) {
+        setEscortLoading(false);
+        return;
+      }
+
+      const byIso = new Map();
+      for (const c of escorts?.countries ?? []) {
+        if (!c?.iso || c.total == null) continue;
+        byIso.set(c.iso.toLowerCase(), { ...c, iso: c.iso.toLowerCase(), _source: "escortdirectory.com" });
+      }
+      for (const c of tryst?.countries ?? []) {
+        const iso = (c?.iso || "").toLowerCase();
+        if (!iso || c.total == null) continue;
+        if (byIso.has(iso)) continue; // escortdirectory wins overlap
+        byIso.set(iso, { ...c, iso, _source: "tryst.link" });
+      }
+
+      const countries = [...byIso.values()].sort((a, b) => b.total - a.total);
+      const totalWorldwide = countries.reduce((s, c) => s + c.total, 0);
+      const sources = [];
+      if (escorts) sources.push("escortdirectory.com");
+      if (tryst) sources.push("tryst.link");
+
+      setEscortData({
+        countries,
+        totalWorldwide,
+        activeLabel: sources.join(" + "),
+        fetchedAt: escorts?.fetchedAt || tryst?.fetchedAt,
+      });
       setEscortLoading(false);
     })();
   }, []);
@@ -492,10 +529,21 @@ export default function AlternativeIndex() {
   // ── Derived vice stocks data ────────────────────────────────────────────────
   const stocksObj  = viceData?.stocks ?? {};
   const categories = viceData?.categories ?? {};
+  const groups     = viceData?.groups ?? null;
   const rickStock  = stocksObj.RICK ?? null;
 
-  // Ordered category list (preserving API key order)
-  const categoryEntries = Object.entries(categories);
+  // Back-compat fallback when API hasn't deployed the `groups` field yet.
+  const viceGroupNames = groups?.["Vice Stocks"]
+    ?? ["Adult Entertainment", "Gambling & Casinos", "Alcohol", "Dating", "Cannabis"];
+  const stressGroupNames = groups?.["Stress Economy"]
+    ?? ["Dollar Stores", "Pawn Shops"];
+
+  const viceCategoryEntries = viceGroupNames
+    .filter((name) => categories[name])
+    .map((name) => [name, categories[name]]);
+  const stressCategoryEntries = stressGroupNames
+    .filter((name) => categories[name])
+    .map((name) => [name, categories[name]]);
 
   // ── Derived Google Trends data ──────────────────────────────────────────────
   const trendsTerms    = trendsData?.terms ?? [];
@@ -512,7 +560,7 @@ export default function AlternativeIndex() {
           $ Alternative Index
         </div>
         <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>
-          — Vice Stocks, Escort Economy, Stress Signals
+          — Vice Stocks, Stress Economy, Escort Economy, Stress Signals
         </div>
       </div>
 
@@ -546,8 +594,8 @@ export default function AlternativeIndex() {
               </div>
             )}
 
-            {/* All other categories as compact price grids */}
-            {categoryEntries
+            {/* Remaining Vice categories as compact price grids */}
+            {viceCategoryEntries
               .filter(([cat]) => cat !== "Adult Entertainment")
               .map(([cat, tickers]) => (
                 <div key={cat}>
@@ -575,7 +623,45 @@ export default function AlternativeIndex() {
         )}
       </div>
 
-      {/* ── Section 2: Escort Economy Heatmap ── */}
+      {/* ── Section 2: Stress Economy (dollar stores + pawn) ── */}
+      {stressCategoryEntries.length > 0 && (
+        <div>
+          <SectionLabel>Stress Economy</SectionLabel>
+
+          {viceLoading ? (
+            <div style={{ padding: "20px 0" }}>
+              <Loading />
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              {stressCategoryEntries.map(([cat, tickers]) => (
+                <div key={cat}>
+                  <CategoryLabel>{cat}</CategoryLabel>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                      gap: 8,
+                    }}
+                  >
+                    {tickers.map((t) =>
+                      stocksObj[t] ? (
+                        <CompactStockCard key={t} ticker={t} stock={stocksObj[t]} />
+                      ) : (
+                        <div key={t} className="panel" style={{ padding: "10px 12px" }}>
+                          <div style={{ fontSize: 10, color: DIM }}>{t} — no data</div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Section 3: Escort Economy Heatmap ── */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
           <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
