@@ -5,6 +5,8 @@ import EscortHeatMap from "../components/EscortHeatMap";
 import IndicatorCard from "../components/IndicatorCard";
 import { useTsaData } from "../hooks/useTsaData";
 import { useBoxOfficeData } from "../hooks/useBoxOfficeData";
+import { useManheimData } from "../hooks/useManheimData";
+import { useFbxData } from "../hooks/useFbxData";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -443,6 +445,10 @@ export default function AlternativeIndex() {
   const { data: tsaData, loading: tsaLoading } = useTsaData();
   const { data: boxData, loading: boxLoading } = useBoxOfficeData();
 
+  // ── Goods & Supply Chain ───────────────────────────────────────────────────
+  const { data: manheimData, loading: manheimLoading } = useManheimData();
+  const { data: fbxData, loading: fbxLoading } = useFbxData();
+
   // ── Fetch vice stocks ───────────────────────────────────────────────────────
   useEffect(() => {
     setViceLoading(true);
@@ -567,7 +573,7 @@ export default function AlternativeIndex() {
           $ Alternative Index
         </div>
         <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>
-          — Vice Stocks, Stress Economy, Leisure & Travel, Escort Economy, Stress Signals
+          — Vice, Stress Economy, Leisure & Travel, Goods & Supply, Escort Economy, Stress Signals
         </div>
       </div>
 
@@ -755,7 +761,104 @@ export default function AlternativeIndex() {
         );
       })()}
 
-      {/* ── Section 4: Escort Economy Heatmap ── */}
+      {/* ── Section 4: Goods & Supply Chain (Manheim UVVI + FBX) ── */}
+      {(() => {
+        const ml = manheimData?.latest ?? null;
+        const mh = manheimData?.history ?? [];
+        const mSpark = [...mh]
+          .reverse()
+          .map((p) => ({ value: p.index }))
+          .filter((d) => d.value != null);
+        const mSignal = ml?.momPct == null
+          ? "neutral"
+          : ml.momPct > 0 ? "bearish" : "bullish"; // rising used-car prices = inflationary
+        const mDetail = ml?.index != null
+          ? `Manheim Used Vehicle Value Index hit ${ml.index} in ${ml.period}. ` +
+            (ml.momPct != null ? `${ml.momPct >= 0 ? "Up" : "Down"} ${Math.abs(ml.momPct)}% month-over-month. ` : "") +
+            (ml.yoyPct != null ? `${ml.yoyPct >= 0 ? "Up" : "Down"} ${Math.abs(ml.yoyPct)}% year-over-year. ` : "") +
+            "The MUVVI is a leading indicator of consumer auto purchasing power and subprime auto-credit stress. Rising used-vehicle prices support lender collateral values; falling prices pressure loss-given-default in auto ABS."
+          : "Manheim Used Vehicle Value Index — monthly wholesale used-vehicle price signal. A leading indicator of consumer auto purchasing power and auto-credit collateral health.";
+
+        const fl = fbxData?.latest ?? null;
+        const fh = fbxData?.history ?? [];
+        const fSpark = [...fh]
+          .reverse()
+          .map((p) => ({ value: p.value }))
+          .filter((d) => d.value != null);
+        const fSignal = fl?.dayChangePct == null && fl?.yoyPct == null
+          ? "neutral"
+          : (fl.yoyPct ?? fl.dayChangePct) > 0 ? "bearish" : "bullish"; // rising shipping = inflationary
+        const fDetail = fl?.value != null
+          ? `The global Freightos Baltic Index (FBX) was $${fl.value.toLocaleString()} per 40ft on ${fl.period}. ` +
+            (fl.dayChangePct != null ? `${fl.dayChangePct >= 0 ? "Up" : "Down"} ${Math.abs(fl.dayChangePct)}% day-over-day. ` : "") +
+            (fl.yoyPct != null ? `${fl.yoyPct >= 0 ? "Up" : "Down"} ${Math.abs(fl.yoyPct)}% year-over-year. ` : "") +
+            "Container shipping rates are a real-time supply-chain and goods-demand signal. The FBX spiked 10× during COVID, collapsed after, and remains a staple chart of alt-macro analysis."
+          : "Freightos Baltic Index — global containerized shipping rate in USD per 40-foot equivalent. Real-time supply-chain and goods-demand signal.";
+
+        const anyAvailable = manheimData || fbxData;
+        if (!anyAvailable) return null;
+        return (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                Goods & Supply Chain
+              </div>
+              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+                source: coxautoinc.com · freightos.com
+              </div>
+            </div>
+            {(manheimLoading || fbxLoading) && !manheimData && !fbxData ? (
+              <div style={{ padding: "20px 0" }}><Loading /></div>
+            ) : (
+              <div className="grid-2">
+                {manheimData && !manheimData.error && ml?.index != null && (
+                  <IndicatorCard
+                    label="Used Vehicle Value Index"
+                    value={ml.index}
+                    unit=""
+                    decimals={1}
+                    signal={mSignal}
+                    changeLabel={
+                      ml.momPct != null
+                        ? `${ml.momPct >= 0 ? "+" : ""}${ml.momPct}% m/m${ml.yoyPct != null ? ` · ${ml.yoyPct >= 0 ? "+" : ""}${ml.yoyPct}% y/y` : ""}`
+                        : ml.period
+                    }
+                    detail={mDetail}
+                    source={manheimData?.source ?? "Manheim / Cox Automotive"}
+                    sourceUrl={manheimData?.sourceUrl ?? "https://www.coxautoinc.com/insights/manheim-used-vehicle-value-index/"}
+                    dateLabel={ml.period}
+                    sparkData={mSpark}
+                  />
+                )}
+                {fbxData && !fbxData.error && fl?.value != null && (
+                  <IndicatorCard
+                    label="FBX Container Rate"
+                    value={fl.value}
+                    unit=""
+                    decimals={0}
+                    prefix="$"
+                    signal={fSignal}
+                    changeLabel={
+                      fl.yoyPct != null
+                        ? `${fl.yoyPct >= 0 ? "+" : ""}${fl.yoyPct}% y/y${fl.dayChangePct != null ? ` · ${fl.dayChangePct >= 0 ? "+" : ""}${fl.dayChangePct}% d/d` : ""}`
+                        : fl.dayChangePct != null
+                          ? `${fl.dayChangePct >= 0 ? "+" : ""}${fl.dayChangePct}% d/d`
+                          : (fl.period ?? "")
+                    }
+                    detail={fDetail}
+                    source={fbxData?.source ?? "Freightos Baltic Index"}
+                    sourceUrl={fbxData?.sourceUrl ?? "https://www.freightos.com/enterprise/terminal/freightos-baltic-index-global-container-pricing-index/"}
+                    dateLabel={fl.period}
+                    sparkData={fSpark}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Section 5: Escort Economy Heatmap ── */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
           <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
