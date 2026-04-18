@@ -1,5 +1,28 @@
 export default async function handler(req, res) {
-  const symbols = (req.query.symbols || "RICK,MGM,LVS,WYNN,CZR,DKNG,DEO,STZ,MTCH,TLRY,DG,DLTR,FIVE,EZPW,FCFS").split(",").map((s) => s.trim().toUpperCase());
+  // Default ticker universe spans vice-economy sub-sectors (adult, gambling,
+  // alcohol, tobacco, cannabis, firearms, dating) plus the recession-proxy
+  // Stress Economy tickers (dollar stores, pawn shops). Expanded 2026-04-18.
+  const DEFAULT_SYMBOLS = [
+    // Adult Entertainment
+    "RICK",
+    // Gambling & Casinos
+    "MGM", "LVS", "WYNN", "CZR", "DKNG", "PENN", "BYD", "BALY",
+    // Alcohol / Beer / Spirits
+    "DEO", "STZ", "BUD", "SAM", "TAP",
+    // Tobacco
+    "MO", "PM", "BTI",
+    // Cannabis
+    "TLRY", "CGC", "ACB", "CRON", "SNDL",
+    // Firearms & Ammo
+    "SWBI", "RGR", "VSTO", "OLN",
+    // Dating
+    "MTCH", "BMBL",
+    // Dollar Stores (Stress Economy)
+    "DG", "DLTR", "FIVE",
+    // Pawn Shops (Stress Economy)
+    "EZPW", "FCFS",
+  ];
+  const symbols = (req.query.symbols || DEFAULT_SYMBOLS.join(",")).split(",").map((s) => s.trim().toUpperCase());
   const range = req.query.range || "1y";
   const validRanges = ["1mo", "3mo", "6mo", "1y", "5y"];
   const safeRange = validRanges.includes(range) ? range : "1y";
@@ -65,17 +88,19 @@ export default async function handler(req, res) {
 
   const categories = {
     "Adult Entertainment": ["RICK"],
-    "Gambling & Casinos": ["MGM", "LVS", "WYNN", "CZR", "DKNG"],
-    "Alcohol": ["DEO", "STZ"],
-    "Dating": ["MTCH"],
-    "Cannabis": ["TLRY"],
+    "Gambling & Casinos": ["MGM", "LVS", "WYNN", "CZR", "DKNG", "PENN", "BYD", "BALY"],
+    "Alcohol": ["DEO", "STZ", "BUD", "SAM", "TAP"],
+    "Tobacco": ["MO", "PM", "BTI"],
+    "Cannabis": ["TLRY", "CGC", "ACB", "CRON", "SNDL"],
+    "Firearms & Ammo": ["SWBI", "RGR", "VSTO", "OLN"],
+    "Dating": ["MTCH", "BMBL"],
     "Dollar Stores": ["DG", "DLTR", "FIVE"],
     "Pawn Shops": ["EZPW", "FCFS"],
   };
 
   // Groups: which categories belong to which top-level section in the UI
   const groups = {
-    "Vice Stocks": ["Adult Entertainment", "Gambling & Casinos", "Alcohol", "Dating", "Cannabis"],
+    "Vice Stocks": ["Adult Entertainment", "Gambling & Casinos", "Alcohol", "Tobacco", "Cannabis", "Firearms & Ammo", "Dating"],
     "Stress Economy": ["Dollar Stores", "Pawn Shops"],
   };
 
