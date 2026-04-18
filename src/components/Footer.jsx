@@ -32,7 +32,7 @@ export default function Footer() {
         letterSpacing: "0.04em",
       }}
     >
-      <span>MACRO TERMINAL &middot; FRED &middot; Yahoo Finance &middot; ApeWisdom &middot; FearGreedChart &middot; MortgageNewsDaily &middot; IPOScoop &middot; Kalshi</span>
+      <span>MACRO TERMINAL &middot; FRED &middot; Yahoo Finance &middot; ApeWisdom &middot; FearGreedChart &middot; MortgageNewsDaily &middot; Nasdaq &middot; SEC EDGAR &middot; Google Trends &middot; TreasuryDirect &middot; Kalshi</span>
       <span style={{ fontSize: 9, color: "hsl(220,10%,38%)" }}>
         Sampled from Perplexity &mdash; Built upon by Kaza Rhan
       </span>
