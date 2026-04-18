@@ -619,18 +619,19 @@ export default function Overview() {
         >
           {!marketLoading && marketData
             ? [
-                { key: "SPY",  displayName: "S&P 500",        prefix: "$" },
-                { key: "QQQ",  displayName: "Nasdaq 100",     prefix: "$" },
-                { key: "TLT",  displayName: "20+ Yr Treasury", prefix: "$" },
-                { key: "GLD",  displayName: "Gold",           prefix: "$" },
-                { key: "USO",  displayName: "Crude Oil",      prefix: "$" },
-                { key: "HYG",  displayName: "High Yield Corp", prefix: "$" },
-                { key: "VIX",  displayName: "Volatility",     prefix: "" },
-                { key: "UNG",  displayName: "Nat Gas",        prefix: "$" },
-                { key: "CPER", displayName: "Copper",         prefix: "$" },
-                { key: "FXE",  displayName: "EUR/USD",        prefix: "$" },
-                { key: "FXY",  displayName: "JPY",            prefix: "$" },
-                { key: "FXB",  displayName: "GBP/USD",        prefix: "$" },
+                { key: "SPY",      displayName: "S&P 500",        prefix: "$" },
+                { key: "QQQ",      displayName: "Nasdaq 100",     prefix: "$" },
+                { key: "TLT",      displayName: "20+ Yr Treasury", prefix: "$" },
+                { key: "GLD",      displayName: "Gold",           prefix: "$" },
+                { key: "USO",      displayName: "Crude Oil",      prefix: "$" },
+                { key: "HYG",      displayName: "High Yield Corp", prefix: "$" },
+                { key: "VIX",      displayName: "Volatility",     prefix: "" },
+                { key: "UNG",      displayName: "Nat Gas",        prefix: "$" },
+                { key: "CPER",     displayName: "Copper",         prefix: "$" },
+                { key: "FXE",      displayName: "EUR/USD",        prefix: "$" },
+                { key: "FXY",      displayName: "JPY",            prefix: "$" },
+                { key: "FXB",      displayName: "GBP/USD",        prefix: "$" },
+                { key: "BTC-USD",  displayName: "Bitcoin",        prefix: "$" },
               ].map(({ key, displayName, prefix }) => {
                 const ticker = marketData[key];
                 const price = ticker?.price ?? null;
@@ -668,7 +669,9 @@ export default function Overview() {
                         fontVariantNumeric: "tabular-nums",
                       }}
                     >
-                      {price != null ? `${prefix}${price.toFixed(2)}` : "—"}
+                      {price != null
+                        ? `${prefix}${price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : "—"}
                     </div>
                     <div
                       style={{
