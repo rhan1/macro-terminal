@@ -10,6 +10,18 @@ const NEUTRAL = "hsl(220,10%,30%)";
 const STROKE = "hsl(220,15%,35%)";
 const LABEL = "hsl(220,15%,92%)";
 const TOP_ECONOMIES = new Set(["US", "CN", "JP", "DE", "GB", "IN", "FR", "IT", "BR", "CA"]);
+const LABEL_OFFSETS = {
+  US: [0, 0],
+  CN: [0, 0],
+  JP: [10, 0],
+  DE: [-10, -8],
+  GB: [-25, -5],
+  FR: [-15, 12],
+  IT: [8, 15],
+  IN: [0, 10],
+  BR: [0, 0],
+  CA: [0, -8],
+};
 const NUM_TO_ALPHA2 = {
   "36": "AU", "44": "BS", "76": "BR", "124": "CA", "156": "CN", "158": "TW", "250": "FR", "276": "DE",
   "344": "HK", "356": "IN", "380": "IT", "392": "JP", "410": "KR", "484": "MX", "528": "NL", "724": "ES",
@@ -18,6 +30,9 @@ const NUM_TO_ALPHA2 = {
 
 const WIDTH = 960;
 const HEIGHT = 500;
+const LABEL_PAD_X = 4;
+const LABEL_PAD_Y = 2;
+const LEADER_THRESHOLD = 10;
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 const fmtPct = (n) => (n == null ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`);
@@ -167,19 +182,45 @@ export default function WorldPerformanceMap({ indexData = {}, countries = [] }) 
           const data = feature.iso ? dataByCountry[feature.iso] : null;
           if (!feature.iso || !feature.centroid || !TOP_ECONOMIES.has(feature.iso) || data?.changePct == null) return null;
           const [x, y] = feature.centroid;
+          const [dx, dy] = LABEL_OFFSETS[feature.iso] || [0, 0];
+          const labelX = x + dx;
+          const labelY = y + dy;
+          const label = `${feature.iso} ${fmtLabelPct(data.changePct)}`;
+          const labelWidth = label.length * 5.5 + LABEL_PAD_X * 2;
+          const labelHeight = 9 + LABEL_PAD_Y * 2;
+          const needsLeader = Math.hypot(dx, dy) > LEADER_THRESHOLD;
           return (
-            <text
-              key={`label-${feature.iso}`}
-              x={x}
-              y={y}
-              fill={LABEL}
-              fontSize="9"
-              fontFamily='"JetBrains Mono", monospace'
-              textAnchor="middle"
-              dominantBaseline="middle"
-              pointerEvents="none"
-              style={{ textShadow: "0 1px 2px hsla(220,30%,5%,0.6)" }}
-            >{`${feature.iso} ${fmtLabelPct(data.changePct)}`}</text>
+            <g key={`label-${feature.iso}`} pointerEvents="none">
+              {needsLeader && (
+                <line
+                  x1={x}
+                  y1={y}
+                  x2={labelX}
+                  y2={labelY}
+                  stroke="hsla(220, 15%, 60%, 0.4)"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+              <rect
+                x={labelX - labelWidth / 2}
+                y={labelY - labelHeight / 2}
+                width={labelWidth}
+                height={labelHeight}
+                rx="3"
+                fill="hsla(220, 30%, 5%, 0.75)"
+              />
+              <text
+                x={labelX}
+                y={labelY}
+                fill={LABEL}
+                fontSize="9"
+                fontFamily='"JetBrains Mono", monospace'
+                textAnchor="middle"
+                dominantBaseline="middle"
+                style={{ textShadow: "0 1px 2px hsla(220,30%,5%,0.35)" }}
+              >{label}</text>
+            </g>
           );
         })}
       </svg>
