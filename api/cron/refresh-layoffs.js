@@ -113,18 +113,39 @@ export default async function handler(req, res) {
     const tickers = [...new Set(structured.map((x) => x.ticker).filter(Boolean))];
     let market = {};
     if (tickers.length) {
-      const host = process.env.VERCEL_URL || "macro-terminal-bice.vercel.app";
-      const base = `https://${host}/api/market`;
-      const quoteResp = await fetch(`${base}?symbols=${encodeURIComponent(tickers.join(","))}`, { signal: AbortSignal.timeout(8000) });
-      if (quoteResp.ok) market = await quoteResp.json();
+      // Call Yahoo Finance directly — the internal self-fetch to /api/market was
+      // intermittently failing (VERCEL_URL points at a deployment URL that
+      // sometimes isn't routable at cron time). Hitting Yahoo in parallel per
+      // ticker is simpler and identical to what /api/market does internally.
       await Promise.all(tickers.map(async (ticker) => {
         try {
-          const chartResp = await fetch(`${base}?chart=${encodeURIComponent(ticker)}&range=1mo`, { signal: AbortSignal.timeout(8000) });
-          const chartJson = chartResp.ok ? await chartResp.json() : null;
-          if (market[ticker]) market[ticker].chart = Array.isArray(chartJson?.points) ? chartJson.points : [];
-        } catch { if (market[ticker] && !market[ticker].chart) market[ticker].chart = []; }
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1mo`;
+          const resp = await fetch(url, {
+            headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36" },
+            signal: AbortSignal.timeout(8000),
+          });
+          if (!resp.ok) { market[ticker] = { chart: [], price: null, changePct: null }; return; }
+          const json = await resp.json();
+          const result = json?.chart?.result?.[0];
+          if (!result) { market[ticker] = { chart: [], price: null, changePct: null }; return; }
+          const ts = result.timestamp || [];
+          const closes = result.indicators?.quote?.[0]?.close || [];
+          const chart = [];
+          for (let i = 0; i < ts.length; i += 1) {
+            if (closes[i] != null) chart.push({ date: new Date(ts[i] * 1000).toISOString().slice(0, 10), close: closes[i] });
+          }
+          const prev = result.meta?.chartPreviousClose;
+          const price = result.meta?.regularMarketPrice;
+          market[ticker] = {
+            price: price ?? null,
+            changePct: prev ? ((price - prev) / Math.abs(prev)) * 100 : 0,
+            chart,
+          };
+        } catch {
+          market[ticker] = { chart: [], price: null, changePct: null };
+        }
       }));
-      structured = structured.map((item) => item.ticker && market[item.ticker] ? { ...item, marketData: { price: market[item.ticker].price ?? null, changePct: market[item.ticker].changePct ?? null, chart: market[item.ticker].chart || [] } } : item);
+      structured = structured.map((item) => item.ticker && market[item.ticker] ? { ...item, marketData: market[item.ticker] } : item);
     }
     if (structured.length < 3 && secHits.length < 3) {
       return res.status(502).json({ error: "not enough structured rows" });
