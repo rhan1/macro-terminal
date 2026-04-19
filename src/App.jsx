@@ -18,7 +18,7 @@ import IPO from "./tabs/IPO";
 import Auctions from "./tabs/Auctions";
 import AlternativeIndex from "./tabs/AlternativeIndex";
 
-const TAB_KEYS = ["overview", "rates", "inflation", "growth", "shipments", "labor", "global", "risk", "sentiment", "capitol", "realestate", "ipo", "auctions", "altindex"];
+const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "sentiment", "shipments", "capitol", "global", "realestate", "auctions", "ipo", "altindex"];
 
 function isTypingTarget(el) {
   if (!el) return false;
@@ -83,7 +83,7 @@ export default function App() {
           setActiveTab(TAB_KEYS[num - 1]);
         } else if (num === 0) {
           e.preventDefault();
-          setActiveTab("capitol");
+          setActiveTab(TAB_KEYS[9]);
         }
       }
     }

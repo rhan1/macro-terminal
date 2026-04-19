@@ -1,6 +1,22 @@
+import { useEffect, useState } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { useCbData } from "../hooks/useCbData";
 import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } from "../services/fred";
+
+// Keep Risk tab gold price aligned with Global tab (Yahoo GC=F futures)
+// instead of the FRED Nasdaq Gold Index which tracks a different series.
+function useGoldFutures() {
+  const [v, setV] = useState(null);
+  useEffect(() => {
+    let c = false;
+    fetch("/api/market?symbols=GC=F")
+      .then((r) => r.json())
+      .then((d) => { if (!c) setV(d?.["GC=F"] ?? null); })
+      .catch(() => {});
+    return () => { c = true; };
+  }, []);
+  return v;
+}
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
@@ -69,9 +85,9 @@ function heatMapInfo(category, data) {
     case "Geopolitical": {
       if (goldVal == null) return { level: "UNKNOWN", desc: "No gold data", trend: "stable" };
       const trend = goldPrev == null ? "stable" : goldVal > goldPrev ? "worsening" : goldVal < goldPrev ? "improving" : "stable";
-      if (goldVal > 2500) return { level: "HIGH",     desc: `Gold $${formatNum(goldVal, 0)} — extreme safe-haven bid`, trend };
-      if (goldVal > 2200) return { level: "ELEVATED", desc: `Gold $${formatNum(goldVal, 0)} — flight to safety`, trend };
-      if (goldVal > 1800) return { level: "MODERATE", desc: `Gold $${formatNum(goldVal, 0)} — modest safe-haven demand`, trend };
+      if (goldVal > 4500) return { level: "HIGH",     desc: `Gold $${formatNum(goldVal, 0)} — extreme safe-haven bid`, trend };
+      if (goldVal > 3800) return { level: "ELEVATED", desc: `Gold $${formatNum(goldVal, 0)} — flight to safety`, trend };
+      if (goldVal > 3000) return { level: "MODERATE", desc: `Gold $${formatNum(goldVal, 0)} — modest safe-haven demand`, trend };
       return                     { level: "LOW",      desc: `Gold $${formatNum(goldVal, 0)} — no safe-haven premium`, trend };
     }
 
@@ -153,7 +169,7 @@ const HEAT_MAP_CATEGORIES = [
 
 // ── Geopolitical Alert ────────────────────────────────────────────────────────
 function GeopoliticalAlert({ goldVal, vixVal }) {
-  const goldHigh = goldVal != null && goldVal > 2200;
+  const goldHigh = goldVal != null && goldVal > 3800;
   const vixHigh  = vixVal  != null && vixVal  > 25;
   if (!goldHigh && !vixHigh) return null;
 
@@ -303,6 +319,7 @@ export default function Risk() {
   });
   const { data: cbData, loading: cbLoading } = useCbData();
   const cbVal = cbData?.value ?? null;
+  const goldFut = useGoldFutures();
 
   if (loading && Object.keys(data).length === 0) return <Loading />;
   if (error) {
@@ -337,9 +354,12 @@ export default function Risk() {
   const sentPrev = prior(data.UMCSENT)?.value;
   const sentChg  = change(sentVal, sentPrev);
 
-  const goldVal  = latest(data.GOLD)?.value;
-  const goldPrev = prior(data.GOLD)?.value;
-  const goldChg  = change(goldVal, goldPrev);
+  // Prefer Yahoo GC=F futures (matches Global tab) with FRED fallback.
+  const fredGoldVal = latest(data.GOLD)?.value;
+  const fredGoldPrev = prior(data.GOLD)?.value;
+  const goldVal  = goldFut?.price ?? fredGoldVal;
+  const goldPrev = goldFut?.prevClose ?? fredGoldPrev;
+  const goldChg  = goldFut?.changePct != null ? goldFut.changePct : change(fredGoldVal, fredGoldPrev);
 
   const hyVal    = latest(data.HYSPREAD)?.value;
   const hyPrev   = prior(data.HYSPREAD)?.value;
@@ -361,7 +381,7 @@ export default function Risk() {
   // Indicator signals
   const vixSignal  = vixVal == null ? "neutral" : vixVal > 25 ? "bearish" : vixVal < 18 ? "bullish" : "neutral";
   const sentSignal = sentVal == null ? "neutral" : sentVal < 60 ? "bearish" : sentVal > 80 ? "bullish" : "neutral";
-  const goldSignal = goldVal == null ? "neutral" : goldVal > 2200 ? "bearish" : "neutral";
+  const goldSignal = goldVal == null ? "neutral" : goldVal > 3800 ? "bearish" : "neutral";
   const hySignal   = hyVal == null ? "neutral" : hyVal > 5 ? "bearish" : hyVal < 3 ? "bullish" : "neutral";
   const recSignal  = recVal == null ? "neutral" : recVal > 30 ? "bearish" : recVal < 10 ? "bullish" : "neutral";
   const sp500Signal = sp500Chg == null ? "neutral" : sp500Chg >= 0 ? "bullish" : "bearish";
