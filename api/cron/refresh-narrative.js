@@ -25,6 +25,57 @@ export default async function handler(req, res) {
     if (!apiKey) return res.status(500).json({ error: "PERPLEXITY_API_KEY not configured" });
     if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN not configured" });
 
+    // --- Fetch ground-truth market state before calling Perplexity -------------
+    const base = `https://${process.env.VERCEL_URL || "macro-terminal-bice.vercel.app"}`;
+    const mktResp = await fetch(`${base}/api/market?symbols=SPY,QQQ,^GSPC,^VIX,TLT,GLD,USO,HYG`, {
+      signal: AbortSignal.timeout(10000),
+    }).catch(() => null);
+    const mkt = mktResp?.ok ? await mktResp.json() : {};
+    const f = (k) => mkt[k] ? `${mkt[k].price?.toFixed(2)} (${mkt[k].changePct >= 0 ? "+" : ""}${mkt[k].changePct?.toFixed(2)}%)` : "unavailable";
+
+    let tenY = "unavailable";
+    try {
+      const fredResp = await fetch(`${base}/api/fred?series_id=DGS10&limit=1&sort_order=desc`, { signal: AbortSignal.timeout(8000) });
+      const fj = fredResp.ok ? await fredResp.json() : null;
+      const v = fj?.observations?.[0]?.value;
+      if (v && v !== ".") tenY = `${v}%`;
+    } catch {}
+
+    const groundTruth = [
+      `S&P 500 (^GSPC) = ${f("GSPC")}`,
+      `SPY = ${f("SPY")}`,
+      `QQQ = ${f("QQQ")}`,
+      `VIX = ${f("VIX")}`,
+      `10Y Treasury yield = ${tenY}`,
+      `TLT (long bonds) = ${f("TLT")}`,
+      `Gold (GLD) = ${f("GLD")}`,
+      `WTI oil (USO) = ${f("USO")}`,
+      `High-yield credit (HYG) = ${f("HYG")}`,
+    ].join("\n");
+
+    const systemPrompt = [
+      "You are a macro markets analyst for a Bloomberg-style terminal.",
+      "Write a market briefing in EXACTLY THREE short paragraphs, separated by blank lines.",
+      "Each paragraph 2–3 sentences (~45 words). Total ~140 words.",
+      "",
+      "GROUND TRUTH — today's live US market state (use these EXACT values for any reference to these instruments):",
+      groundTruth,
+      "",
+      "HARD RULES — violations disqualify the response:",
+      "1. If you reference a price, index level, yield, or percent move for any instrument listed above, it MUST match the ground-truth value character-for-character. Do NOT round, restate, or paraphrase differently.",
+      "2. If you reference any OTHER numeric value (individual ticker move, macro data release, earnings beat, rate-cut probability, CPI print, etc.), it MUST come from a cited news source. Do NOT invent thresholds, round numbers, or 'record high' levels.",
+      "3. Never claim a level was 'breached', 'hit a record', or 'crossed a threshold' unless the ground-truth value above supports it. The S&P 500 did NOT cross 7,150 if ground truth shows 7,126.",
+      "4. If live market data is 'unavailable' for a series, simply omit that instrument — do not guess.",
+      "",
+      "Use **bold** markdown ONLY for ticker symbols (e.g. **NVDA**) and numeric data points (e.g. **4.28%**, **$152M**, **+1.4%**). No headers, lists, italics, or other markdown.",
+      "",
+      "Paragraph 1 — Market state and movers: use the ground-truth values above for index/SPY/VIX context; then cite individual ticker movers from news sources.",
+      "Paragraph 2 — Policy and data: Fed policy expectations plus the latest macro data release (CPI, PPI, NFP, PCE, GDP, or FOMC) with cited numbers.",
+      "Paragraph 3 — Catalyst and outlook: dominant geopolitical or earnings catalyst, then a one-sentence forward-looking takeaway.",
+      "",
+      "Be specific. Skip platitudes. Prose only.",
+    ].join("\n");
+
     const perplexityResp = await fetch(PERPLEXITY_URL, {
       method: "POST",
       headers: {
@@ -36,19 +87,7 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "system",
-            content: [
-              "You are a macro markets analyst for a Bloomberg-style terminal.",
-              "Write a market briefing in EXACTLY THREE short paragraphs, separated by blank lines.",
-              "Each paragraph 2–3 sentences (~45 words). Total ~140 words.",
-              "",
-              "Use **bold** markdown ONLY for ticker symbols (e.g. **NVDA**) and key numeric data points (e.g. **4.28%**, **$152M**, **+1.4%**). Do not use headers, lists, italics, or any other markdown.",
-              "",
-              "Paragraph 1 — Market state and movers: overall US market direction right now, and the most-moved sectors and individual tickers with specific moves.",
-              "Paragraph 2 — Policy and data: Fed policy expectations plus the latest macro data release (CPI, PPI, NFP, PCE, GDP, or FOMC) with specific numbers.",
-              "Paragraph 3 — Catalyst and outlook: the dominant geopolitical or earnings catalyst, then a one-sentence forward-looking takeaway.",
-              "",
-              "Be specific. Skip platitudes. Prose only.",
-            ].join("\n"),
+            content: systemPrompt,
           },
           {
             role: "user",
