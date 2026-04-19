@@ -273,11 +273,11 @@ export default function Inflation() {
       {/* 3. CPI Component Breakdown */}
       <div className="panel">
         <div className="section-label">CPI Component Breakdown</div>
-        <div className="grid-2">
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {components.map(({ name, value }) => {
             const color = barColor(value);
             return (
-              <div key={name} style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 5, paddingBottom: 5 }}>
+              <div key={name} style={{ display: "grid", gridTemplateColumns: "120px minmax(0, 1fr) 36px", alignItems: "center", gap: 8, paddingTop: 5, paddingBottom: 5 }}>
                 <div style={{ width: 120, fontSize: 10, color: "hsl(220,10%,52%)", flexShrink: 0, textAlign: "right" }}>
                   {name}
                 </div>
