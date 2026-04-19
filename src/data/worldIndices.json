@@ -1,0 +1,21 @@
+[
+  { "symbol": "^GSPC",   "name": "S&P 500",         "country": "United States",   "countryCode": "US", "flag": "🇺🇸", "region": "Americas", "currency": "USD" },
+  { "symbol": "^DJI",    "name": "Dow Jones",       "country": "United States",   "countryCode": "US", "flag": "🇺🇸", "region": "Americas", "currency": "USD" },
+  { "symbol": "^IXIC",   "name": "Nasdaq",          "country": "United States",   "countryCode": "US", "flag": "🇺🇸", "region": "Americas", "currency": "USD" },
+  { "symbol": "^GSPTSE", "name": "TSX Composite",   "country": "Canada",          "countryCode": "CA", "flag": "🇨🇦", "region": "Americas", "currency": "CAD" },
+  { "symbol": "^BVSP",   "name": "Bovespa",         "country": "Brazil",          "countryCode": "BR", "flag": "🇧🇷", "region": "Americas", "currency": "BRL" },
+
+  { "symbol": "^STOXX",  "name": "STOXX 600",       "country": "Europe",          "countryCode": "EU", "flag": "🇪🇺", "region": "Europe",   "currency": "EUR" },
+  { "symbol": "^GDAXI",  "name": "DAX 40",          "country": "Germany",         "countryCode": "DE", "flag": "🇩🇪", "region": "Europe",   "currency": "EUR" },
+  { "symbol": "^FCHI",   "name": "CAC 40",          "country": "France",          "countryCode": "FR", "flag": "🇫🇷", "region": "Europe",   "currency": "EUR" },
+  { "symbol": "^FTSE",   "name": "FTSE 100",        "country": "United Kingdom",  "countryCode": "GB", "flag": "🇬🇧", "region": "Europe",   "currency": "GBP" },
+  { "symbol": "FTSEMIB.MI", "name": "FTSE MIB",     "country": "Italy",           "countryCode": "IT", "flag": "🇮🇹", "region": "Europe",   "currency": "EUR" },
+
+  { "symbol": "^N225",   "name": "Nikkei 225",      "country": "Japan",           "countryCode": "JP", "flag": "🇯🇵", "region": "Asia-Pacific", "currency": "JPY" },
+  { "symbol": "^HSI",    "name": "Hang Seng",       "country": "Hong Kong",       "countryCode": "HK", "flag": "🇭🇰", "region": "Asia-Pacific", "currency": "HKD" },
+  { "symbol": "000001.SS", "name": "Shanghai Comp", "country": "China",           "countryCode": "CN", "flag": "🇨🇳", "region": "Asia-Pacific", "currency": "CNY" },
+  { "symbol": "^KS11",   "name": "KOSPI",           "country": "South Korea",     "countryCode": "KR", "flag": "🇰🇷", "region": "Asia-Pacific", "currency": "KRW" },
+  { "symbol": "^AXJO",   "name": "ASX 200",         "country": "Australia",       "countryCode": "AU", "flag": "🇦🇺", "region": "Asia-Pacific", "currency": "AUD" },
+  { "symbol": "^BSESN",  "name": "Sensex",          "country": "India",           "countryCode": "IN", "flag": "🇮🇳", "region": "Asia-Pacific", "currency": "INR" },
+  { "symbol": "^TWII",   "name": "Taiwan Weighted", "country": "Taiwan",          "countryCode": "TW", "flag": "🇹🇼", "region": "Asia-Pacific", "currency": "TWD" }
+]
