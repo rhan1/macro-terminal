@@ -173,15 +173,21 @@ export default async function handler(req, res) {
       anyRows = true;
       const normalized = rawTrades.map(normTrade).filter((t) => t.politician && t.tradeDate && t.side);
       pageTrades.push(...normalized);
-      const oldest = normalized.map((x) => x.tradeDate).filter(Boolean).sort()[0] || null;
-      if (oldest && oldest < cutoff) break; // Stop when pagination reaches 365d+ old data
+      // Stop when the FILED date crosses the 365d cutoff. Using tradeDate breaks
+      // here because STOCK Act allows up to 45 days (and habitual late-filers
+      // hundreds of days) — so old txDates appear on every page and trigger an
+      // early exit at ~21 pages, capping the dataset at ~1,042 trades.
+      const oldestFiled = normalized.map((x) => x.filedDate).filter(Boolean).sort()[0] || null;
+      if (oldestFiled && oldestFiled < cutoff) break;
     }
 
     // Dedupe by composite key (CapitolTrades doesn't always fill txId for every row)
     const seen = new Set();
     const trades = [];
     for (const trade of pageTrades) {
-      if (trade.tradeDate < cutoff) continue;
+      // Filter by filedDate (when the disclosure entered the public record) so
+      // late-filed trades from prior years still count toward the 365-day window.
+      if ((trade.filedDate || trade.tradeDate) < cutoff) continue;
       const key = trade.txId != null ? `tx-${trade.txId}` : `${trade.politician}-${trade.ticker}-${trade.tradeDate}-${trade.side}`;
       if (seen.has(key)) continue;
       seen.add(key);
