@@ -40,8 +40,12 @@ export default function Capitol() {
       const d = new Date(t.filedDate).getTime();
       return (Date.now() - d) / 86_400_000 < 7;
     }).length,
-    netBuy: topBuys.reduce((n, t) => n + (t.netDollar || 0), 0),
-    netSell: topSells.reduce((n, t) => n + (t.netDollar || 0), 0),
+    netBuy: trades
+      .filter((t) => t.side === "buy")
+      .reduce((n, t) => n + (t.value || 0), 0),
+    netSell: trades
+      .filter((t) => t.side === "sell")
+      .reduce((n, t) => n + (t.value || 0), 0),
     mostActive: leaderboard[0]?.politician || "—",
   };
 
@@ -80,8 +84,6 @@ export default function Capitol() {
         </div>
       )}
 
-      <CapitolTradesTable trades={trades} />
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <CapitolTopMovers title={`TOP BUYS — ${period}D`} items={topBuys} side="buy" />
         <CapitolTopMovers title={`TOP SELLS — ${period}D`} items={topSells} side="sell" />
@@ -95,6 +97,8 @@ export default function Capitol() {
       <CapitolSectorFlow sectorFlow={sectorFlow} />
 
       <CapitolLeaderboard leaderboard={leaderboard} />
+
+      <CapitolTradesTable trades={trades} />
     </div>
   );
 }

@@ -546,7 +546,9 @@ export default function Sentiment() {
                 else if (vol >= 1e3) volLabel = `$${(vol / 1e3).toFixed(0)}K`;
                 else volLabel = `$${vol}`;
               }
-              const title = market.title ?? market.name ?? market.question ?? "—";
+              // Prefer market_title (the specific yes/no question) over title
+              // (the short category label) so probabilities read unambiguously.
+              const title = market.market_title ?? market.title ?? market.name ?? market.question ?? "—";
               const subtitle = market.subtitle ?? market.category ?? null;
               return (
                 <div key={market.id ?? i} style={{
