@@ -32,7 +32,13 @@ function daysSince(iso) {
 
 function sizeLabel(t) {
   if (t.sizeBracket) return t.sizeBracket.replace(/\$/g, "").replace(/,000/g, "K").replace(/ - /, "–");
-  if (t.sizeLow != null && t.sizeHigh != null) return `$${Math.round(t.sizeLow/1000)}K–$${Math.round(t.sizeHigh/1000)}K`;
+  if (t.sizeLow != null && t.sizeHigh != null) return `$${Math.round(t.sizeLow / 1000)}K–$${Math.round(t.sizeHigh / 1000)}K`;
+  if (typeof t.value === "number" && t.value > 0) {
+    // Flight payload gives us size-bracket midpoint in dollars. Format as $NK / $NM
+    if (t.value >= 1_000_000) return `$${(t.value / 1_000_000).toFixed(1)}M`;
+    if (t.value >= 1_000) return `$${Math.round(t.value / 1_000)}K`;
+    return `$${Math.round(t.value)}`;
+  }
   return "—";
 }
 
@@ -56,17 +62,18 @@ export default function CapitolTradesTable({ trades }) {
           (t.issuer || "").toLowerCase().includes(q)
       );
     }
+    const sizeValue = (t) => (typeof t.value === "number" && t.value > 0 ? t.value : ((t.sizeLow || 0) + (t.sizeHigh || 0)) / 2);
     const dir = sortDir === "desc" ? -1 : 1;
     out.sort((a, b) => {
       const va =
         sortKey === "filedDate" ? new Date(a.filedDate || 0).getTime() :
         sortKey === "tradeDate" ? new Date(a.tradeDate || 0).getTime() :
-        sortKey === "size" ? ((a.sizeLow || 0) + (a.sizeHigh || 0)) / 2 :
+        sortKey === "size" ? sizeValue(a) :
         (a.politician || "").localeCompare(b.politician || "");
       const vb =
         sortKey === "filedDate" ? new Date(b.filedDate || 0).getTime() :
         sortKey === "tradeDate" ? new Date(b.tradeDate || 0).getTime() :
-        sortKey === "size" ? ((b.sizeLow || 0) + (b.sizeHigh || 0)) / 2 :
+        sortKey === "size" ? sizeValue(b) :
         0;
       if (sortKey === "politician") return dir * (a.politician || "").localeCompare(b.politician || "");
       return dir * (va - vb);
