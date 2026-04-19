@@ -32,6 +32,14 @@
       "schedule": "0 13 * * *"
     },
     {
+      "path": "/api/cron/refresh-marad",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-portwatch",
+      "schedule": "0 10 * * 2"
+    },
+    {
       "path": "/api/cron/refresh-committees",
       "schedule": "0 8 1 * *"
     }

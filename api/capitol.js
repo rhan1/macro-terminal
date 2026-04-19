@@ -29,6 +29,8 @@ export default async function handler(req, res) {
     const blob = await resp.json();
 
     const allTrades = Array.isArray(blob.trades) ? blob.trades : [];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const filings7d = allTrades.filter((t) => t.filedDate && t.filedDate >= sevenDaysAgo).length;
     const scoped = allTrades
       .filter((t) => (t.tradeDate || "") >= cutoff)
       .slice(0, limit);
@@ -46,6 +48,7 @@ export default async function handler(req, res) {
         period,
         cutoff,
         fetchedAt: blob.fetchedAt,
+        filings7d,
       },
     });
   } catch {
