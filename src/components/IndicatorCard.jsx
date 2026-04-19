@@ -25,7 +25,7 @@ const SIGNAL_STYLES = {
   },
 };
 
-const DIR_ICONS = { up: "▲", down: "▼", flat: "◆" };
+const DIR_ICONS = { up: "▲", down: "▼", flat: "" };
 
 function Sparkline({ data, color, width = 100, height = 30 }) {
   if (!data || data.length < 2) return null;
