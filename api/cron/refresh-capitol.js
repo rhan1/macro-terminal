@@ -8,11 +8,42 @@
 // unescaped closing quote, JSON-parse once to unescape, then parse the
 // array directly.
 import { put } from "@vercel/blob";
+import committeesData from "../../src/data/committees.json" with { type: "json" };
 
 const BASE = "https://www.capitoltrades.com/trades";
 const YEAR_MS = 365 * 86400000;
 const SECTORS = ["Technology", "Financials", "Health Care", "Energy", "Industrials", "Consumer Discretionary", "Consumer Staples", "Utilities", "Real Estate", "Materials", "Communication Services"];
 const COMMITTEE_SECTORS = { "Armed Services": ["Industrials", "Defense"], Banking: ["Financials"], "Financial Services": ["Financials"], "Energy and Commerce": ["Energy", "Health Care"], "Energy and Natural Resources": ["Energy"], Agriculture: ["Consumer Staples"], Intelligence: ["Industrials", "Technology"], HELP: ["Health Care"], Health: ["Health Care"], Judiciary: [], "Transportation and Infrastructure": ["Industrials"], "Natural Resources": ["Energy", "Materials"] };
+function normalizeName(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/,?\s*(jr|sr|ii|iii|iv)\.?$/i, "")
+    .replace(/[^\w\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+const COMMITTEE_MAP = (() => {
+  const m = new Map();
+  for (const member of committeesData) {
+    const fullName = member.name || "";
+    const key = normalizeName(fullName);
+    const committees = (member.committees || []).map((c) => c.name || c).filter(Boolean);
+    if (key && committees.length) m.set(key, committees);
+  }
+  return m;
+})();
+const COMMITTEE_KEYWORDS = {
+  "Armed Services": ["LMT", "RTX", "BA", "GD", "NOC", "LHX", "HII", "TXT", "TDG", "AVAV"],
+  "Financial Services": ["JPM", "GS", "BAC", "WFC", "C", "MS", "USB", "PNC", "TFC", "COF", "BLK", "SCHW", "AXP", "V", "MA"],
+  "Energy and Commerce": ["XOM", "CVX", "COP", "EOG", "MPC", "VLO", "SLB", "OXY", "PSX", "PFE", "JNJ", "MRK", "UNH", "ABBV"],
+  "Banking, Housing, and Urban Affairs": ["JPM", "GS", "BAC", "WFC", "C", "MS", "USB", "PNC", "TFC", "COF"],
+};
+function inferCommitteeFromTicker(ticker) {
+  for (const [committee, tickers] of Object.entries(COMMITTEE_KEYWORDS)) {
+    if (tickers.includes(ticker)) return committee;
+  }
+  return null;
+}
 const TICKER_SECTORS = {
   LMT: "Industrials", RTX: "Industrials", GD: "Industrials", NOC: "Industrials", BA: "Industrials", LHX: "Industrials", HII: "Industrials",
   JPM: "Financials", BAC: "Financials", WFC: "Financials", C: "Financials", GS: "Financials", MS: "Financials",
@@ -22,8 +53,6 @@ const TICKER_SECTORS = {
   KO: "Consumer Staples", PEP: "Consumer Staples", COST: "Consumer Staples", WMT: "Consumer Staples", PG: "Consumer Staples",
   NEM: "Materials", FCX: "Materials", LIN: "Materials"
 };
-const DEFENSE = new Set(["LMT", "RTX", "GD", "NOC", "BA", "LHX", "HII"]);
-const FINANCIAL = new Set(["JPM", "BAC", "WFC", "C", "GS", "MS"]);
 const SECTOR_KEBAB_MAP = {
   "communication-services": "Communication Services",
   "consumer-discretionary": "Consumer Discretionary",
@@ -215,7 +244,17 @@ export default async function handler(req, res) {
         if (!row.issuer && trade.issuer) row.issuer = trade.issuer;
         clusterMap.set(trade.ticker, row);
       }
-      const proxyCommittee = trade.ticker && (DEFENSE.has(trade.ticker) ? "Armed Services" : FINANCIAL.has(trade.ticker) ? "Banking" : null);
+      const proxyCommittee = (() => {
+        const polCommittees = COMMITTEE_MAP.get(normalizeName(trade.politician)) || [];
+        const tickerCommittee = inferCommitteeFromTicker(trade.ticker);
+        if (tickerCommittee && polCommittees.some((pc) =>
+          pc.toLowerCase().includes(tickerCommittee.toLowerCase().split(",")[0]) ||
+          tickerCommittee.toLowerCase().includes(pc.toLowerCase().split(",")[0])
+        )) {
+          return tickerCommittee;
+        }
+        return null;
+      })();
       if (trade.tradeDate >= last60 && proxyCommittee) committeeAligned.push({ ...trade, committeeAligned: true, proxyCommittee, alignedSector: TICKER_SECTORS[trade.ticker] || COMMITTEE_SECTORS[proxyCommittee][0] || null });
 
       // Prefer the sector CapitolTrades gives us; fall back to ticker map then issuer name heuristic.
