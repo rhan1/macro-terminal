@@ -7,8 +7,9 @@ const TABS = [
   { key: "global", label: "GLOBAL", num: "6", subtitle: "World indices, FX, commodities, yields" },
   { key: "risk", label: "RISK", num: "7", subtitle: "VIX, credit spreads, financial stress" },
   { key: "sentiment", label: "SENTIMENT", num: "8", subtitle: "Fear & Greed, sectors, Reddit buzz" },
-  { key: "realestate", label: "REAL ESTATE", num: "9", subtitle: "Housing prices, supply, construction" },
-  { key: "auctions", label: "BOND AUCTIONS", num: "0", subtitle: "Treasury auction results" },
+  { key: "capitol", label: "CAPITOL", num: "9", subtitle: "Politician trading — STOCK Act filings" },
+  { key: "realestate", label: "REAL ESTATE", num: "0", subtitle: "Housing prices, supply, construction" },
+  { key: "auctions", label: "BOND AUCTIONS", num: "", subtitle: "Treasury auction results" },
   { key: "ipo", label: "IPOs", num: "", subtitle: "Pipeline and pricing calendar" },
   { key: "altindex", label: "ALT INDEX", num: "", subtitle: "Alternative data — vice, travel, shipping" },
 ];

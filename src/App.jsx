@@ -12,11 +12,12 @@ import Global from "./tabs/Global";
 import Risk from "./tabs/Risk";
 import RealEstate from "./tabs/RealEstate";
 import Sentiment from "./tabs/Sentiment";
+import Capitol from "./tabs/Capitol";
 import IPO from "./tabs/IPO";
 import Auctions from "./tabs/Auctions";
 import AlternativeIndex from "./tabs/AlternativeIndex";
 
-const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "global", "risk", "sentiment", "realestate", "ipo", "auctions", "altindex"];
+const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "global", "risk", "sentiment", "capitol", "realestate", "ipo", "auctions", "altindex"];
 
 function isTypingTarget(el) {
   if (!el) return false;
@@ -34,8 +35,9 @@ const TAB_COMPONENTS = {
   labor: Labor,
   global: Global,
   risk: Risk,
-  realestate: RealEstate,
   sentiment: Sentiment,
+  capitol: Capitol,
+  realestate: RealEstate,
   ipo: IPO,
   auctions: Auctions,
   altindex: AlternativeIndex,
@@ -79,7 +81,7 @@ export default function App() {
           setActiveTab(TAB_KEYS[num - 1]);
         } else if (num === 0) {
           e.preventDefault();
-          setActiveTab("auctions");
+          setActiveTab("realestate");
         }
       }
     }
