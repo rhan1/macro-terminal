@@ -35,11 +35,7 @@ export default function Capitol() {
   }).length;
 
   const kpi = {
-    filings7d: trades.filter((t) => {
-      if (!t.filedDate) return false;
-      const d = new Date(t.filedDate).getTime();
-      return (Date.now() - d) / 86_400_000 < 7;
-    }).length,
+    filings7d: data?.meta?.filings7d ?? 0,
     netBuy: trades
       .filter((t) => t.side === "buy")
       .reduce((n, t) => n + (t.value || 0), 0),

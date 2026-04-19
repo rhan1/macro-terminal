@@ -73,6 +73,11 @@ function fmtCardDate(dateStr) {
   return d === "01" ? `${MONTHS[mi]} ${y}` : `${MONTHS[mi]} ${parseInt(d, 10)}, ${y}`;
 }
 
+function formatMentionPct(pct) {
+  if (pct == null || !isFinite(pct) || Math.abs(pct) > 1000) return "N/A";
+  return `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`;
+}
+
 export default function Sentiment() {
   const { data: sentData, loading: sentLoading } = useSentimentData();
   const { data: fredData, loading: fredLoading } = useFredData({
@@ -301,7 +306,7 @@ export default function Sentiment() {
               const rankDelta = item.rank_24h_ago ? item.rank_24h_ago - item.rank : 0;
               const mentionDelta = item.mentions_24h_ago ? item.mentions - item.mentions_24h_ago : 0;
               const mentionPct = item.mentions_24h_ago && item.mentions_24h_ago > 0
-                ? ((mentionDelta / item.mentions_24h_ago) * 100).toFixed(0)
+                ? (mentionDelta / item.mentions_24h_ago) * 100
                 : null;
               const priceData = redditPrices[item.ticker];
               const price = priceData?.price;
@@ -343,7 +348,7 @@ export default function Sentiment() {
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       {mentionPct != null && (
                         <span style={{ fontSize: 9, color: mentionDelta >= 0 ? GREEN : RED }}>
-                          {mentionDelta >= 0 ? "+" : ""}{mentionPct}%
+                          {formatMentionPct(mentionPct)}
                         </span>
                       )}
                       {rankDelta !== 0 && (

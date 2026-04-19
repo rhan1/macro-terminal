@@ -207,7 +207,7 @@ export default function Inflation() {
               tick={{ fill: "hsl(220,10%,52%)", fontSize: 9, fontFamily: "inherit" }}
               tickLine={false}
               axisLine={{ stroke: "hsl(220,15%,14%)" }}
-              interval="preserveStartEnd"
+              interval={0}
             />
             <YAxis
               tick={{ fill: "hsl(220,10%,52%)", fontSize: 9, fontFamily: "inherit" }}

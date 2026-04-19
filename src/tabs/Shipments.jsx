@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useShipmentsData } from "../hooks/useShipmentsData";
+import { useMaradData } from "../hooks/useMaradData";
+import { usePortwatchData } from "../hooks/usePortwatchData";
 import ShipmentsMap from "../components/ShipmentsMap";
 
 const GREEN = "hsl(142,70%,55%)";
@@ -8,6 +10,28 @@ const AMBER = "hsl(45,90%,55%)";
 const CYAN = "hsl(185,70%,55%)";
 const DIM = "hsl(220,10%,52%)";
 const BORDER = "hsl(220,15%,14%)";
+const SURFACE = "hsl(220,20%,9%)";
+const REGION_COLORS = {
+  "Red Sea": "hsl(2,80%,58%)",
+  "Bab el-Mandeb": "hsl(24,85%,58%)",
+  "Gulf of Aden": "hsl(42,90%,55%)",
+  "Arabian Sea": "hsl(190,70%,52%)",
+  "Somali Basin": "hsl(166,60%,48%)",
+  "Strait of Hormuz": "hsl(286,58%,62%)",
+  "Persian Gulf": "hsl(320,65%,60%)",
+  "Gulf of Oman": "hsl(216,75%,60%)",
+  "Suez Canal": "hsl(138,58%,52%)",
+  "Black Sea": "hsl(212,48%,55%)",
+  "Sea of Azov": "hsl(232,40%,60%)",
+  "Indian Ocean": "hsl(176,55%,50%)",
+  "Gulf of Guinea": "hsl(34,85%,58%)",
+};
+const TYPE_COLORS = {
+  container: CYAN,
+  tanker: AMBER,
+  dryBulk: GREEN,
+  other: DIM,
+};
 
 function fmtDate(iso) {
   if (!iso) return "—";
@@ -28,6 +52,49 @@ function fatalityColor(n) {
   if (n >= 10) return RED;
   if (n >= 1) return AMBER;
   return DIM;
+}
+
+function formatCompactDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function sparklinePoints(data, width = 180, height = 42) {
+  if (!data || data.length < 2) return "";
+  const values = data.map((item) => Number(item.total) || 0);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return values.map((value, index) => {
+    const x = (index / (values.length - 1)) * width;
+    const y = height - ((value - min) / range) * (height - 6) - 3;
+    return `${x},${y}`;
+  }).join(" ");
+}
+
+function sumTrendSeries(chokepoints) {
+  const totalsByDate = new Map();
+  chokepoints.forEach((point) => {
+    (point?.trend90d || []).forEach((entry) => {
+      const current = totalsByDate.get(entry.date) || {
+        date: entry.date,
+        total: 0,
+        container: 0,
+        tanker: 0,
+        dryBulk: 0,
+        other: 0,
+      };
+      current.total += Number(entry.total) || 0;
+      current.container += Number(entry.container) || 0;
+      current.tanker += Number(entry.tanker) || 0;
+      current.dryBulk += Number(entry.dryBulk) || 0;
+      current.other += Number(entry.other) || 0;
+      totalsByDate.set(entry.date, current);
+    });
+  });
+  return [...totalsByDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function ChokepointCard({ name, stats }) {
@@ -63,6 +130,83 @@ function ChokepointCard({ name, stats }) {
           Latest: {fmtDate(latest)} ({daysAgo(latest)}d ago)
         </div>
       )}
+    </div>
+  );
+}
+
+function PortwatchCard({ point, totalLabel = "TOTAL TRANSITS" }) {
+  const latest = point?.trend90d?.[point.trend90d.length - 1] || null;
+  const byType = point?.byType || { container: 0, tanker: 0, dryBulk: 0, other: 0 };
+  const sparkline = sparklinePoints(point?.trend90d);
+  const typeItems = [
+    ["Container", "container"],
+    ["Tanker", "tanker"],
+    ["Dry Bulk", "dryBulk"],
+    ["Other", "other"],
+  ];
+
+  return (
+    <div
+      style={{
+        background: SURFACE,
+        border: `1px solid ${BORDER}`,
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        minHeight: 188,
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 10, color: DIM, fontWeight: 600, letterSpacing: "0.1em" }}>
+          {point?.name?.toUpperCase() || "—"}
+        </div>
+        <div style={{ marginTop: 6, fontFamily: '"JetBrains Mono", monospace', fontSize: 24, fontWeight: 600, color: "hsl(220,15%,92%)" }}>
+          {latest?.total ?? point?.totalCalls ?? 0}
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginTop: 2, fontSize: 9, color: DIM, letterSpacing: "0.06em" }}>
+          <span>{totalLabel}</span>
+          <span>{formatCompactDate(point?.latestDate || latest?.date)}</span>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+        {typeItems.map(([label, key]) => (
+          <div key={key} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: TYPE_COLORS[key],
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 10, color: DIM, minWidth: 0 }}>{label}</span>
+            <span style={{ marginLeft: "auto", fontFamily: '"JetBrains Mono", monospace', fontSize: 11, color: "hsl(220,15%,88%)" }}>
+              {byType[key] || 0}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: "auto" }}>
+        <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", marginBottom: 6 }}>90D TREND</div>
+        {sparkline ? (
+          <svg width="100%" height="42" viewBox="0 0 180 42" preserveAspectRatio="none" style={{ display: "block" }}>
+            <polyline
+              points={sparkline}
+              fill="none"
+              stroke={CYAN}
+              strokeWidth={1.75}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          </svg>
+        ) : (
+          <div style={{ fontSize: 10, color: DIM }}>No trend data.</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -109,14 +253,122 @@ function IncidentRow({ ev, i, last }) {
   );
 }
 
+function MaradAdvisoryRow({ advisory, last }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "118px minmax(0, 1fr) auto",
+        gap: 12,
+        alignItems: "start",
+        padding: "10px 0",
+        borderBottom: !last ? `1px solid ${BORDER}` : "none",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, color: DIM }}>
+          {fmtDate(advisory.issuedAt)}
+        </span>
+        <span
+          style={{
+            display: "inline-flex",
+            width: "fit-content",
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 9,
+            color: CYAN,
+            border: `1px solid ${BORDER}`,
+            background: SURFACE,
+            padding: "3px 6px",
+            letterSpacing: "0.05em",
+          }}
+        >
+          {advisory.advisoryNumber}
+        </span>
+      </div>
+
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            color: "hsl(220,15%,90%)",
+            fontSize: 13,
+            lineHeight: 1.35,
+            fontWeight: 600,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {advisory.title}
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+          {advisory.regionTags.map((tag) => (
+            <span
+              key={`${advisory.advisoryNumber}-${tag}`}
+              style={{
+                fontSize: 9,
+                color: REGION_COLORS[tag] || CYAN,
+                border: `1px solid ${REGION_COLORS[tag] || BORDER}`,
+                background: SURFACE,
+                padding: "2px 6px",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <a
+        href={advisory.url}
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          color: CYAN,
+          fontSize: 10,
+          textDecoration: "none",
+          letterSpacing: "0.08em",
+          whiteSpace: "nowrap",
+          paddingTop: 2,
+        }}
+      >
+        READ →
+      </a>
+    </div>
+  );
+}
+
 export default function Shipments() {
   const { data, loading } = useShipmentsData();
+  const { data: maradData, loading: maradLoading } = useMaradData();
+  const { data: portwatchData, loading: portwatchLoading } = usePortwatchData();
   const [filterChokepoint, setFilterChokepoint] = useState("ALL");
   const [query, setQuery] = useState("");
+  const [showAllAdvisories, setShowAllAdvisories] = useState(false);
 
   const incidents = Array.isArray(data?.incidents) ? data.incidents : [];
   const byChokepoint = data?.byChokepoint || {};
   const chokepointList = data?.chokepoints || [];
+  const advisories = Array.isArray(maradData?.advisories) ? maradData.advisories : [];
+  const visibleAdvisories = showAllAdvisories ? advisories.slice(0, 30) : advisories.slice(0, 10);
+  const portwatchChokepoints = Array.isArray(portwatchData?.chokepoints) ? portwatchData.chokepoints : [];
+  const globalTrend = sumTrendSeries(portwatchChokepoints);
+  const latestGlobal = globalTrend[globalTrend.length - 1] || null;
+  const globalCard = {
+    name: "Total Global Transits",
+    latestDate: latestGlobal?.date || null,
+    totalCalls: latestGlobal?.total || 0,
+    byType: latestGlobal
+      ? {
+          container: latestGlobal.container,
+          tanker: latestGlobal.tanker,
+          dryBulk: latestGlobal.dryBulk,
+          other: latestGlobal.other,
+        }
+      : { container: 0, tanker: 0, dryBulk: 0, other: 0 },
+    trend90d: globalTrend,
+  };
 
   const filtered = incidents.filter((ev) => {
     if (filterChokepoint !== "ALL" && ev.chokepoint !== filterChokepoint) return false;
@@ -162,6 +414,32 @@ export default function Shipments() {
         <Kpi label="WINDOW" value={`${data?.windowDays || 365}D`} color={DIM} small />
       </div>
 
+      <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 10, color: CYAN, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700 }}>
+            Chokepoint Transit Volumes
+          </span>
+          <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.06em" }}>
+            IMF PortWatch
+          </span>
+          <span style={{ marginLeft: "auto", fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+            {portwatchData?.updatedAt ? `Updated ${fmtDate(portwatchData.updatedAt)}` : "Waiting for seed"}
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+          {!portwatchLoading && portwatchChokepoints.length === 0 && (
+            <div style={{ fontSize: 11, color: DIM, gridColumn: "1 / -1" }}>
+              PortWatch feed not yet seeded.
+            </div>
+          )}
+          {portwatchChokepoints.map((point) => (
+            <PortwatchCard key={point.name} point={point} />
+          ))}
+          <PortwatchCard point={globalCard} totalLabel="TOTAL GLOBAL TRANSITS" />
+        </div>
+      </div>
+
       {/* Incident map */}
       <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
         <ShipmentsMap
@@ -198,11 +476,58 @@ export default function Shipments() {
         </div>
       </div>
 
+      <div className="panel" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: CYAN, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            Live Maritime Advisories
+          </span>
+          <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em", marginLeft: "auto" }}>
+            via maritime.dot.gov · refreshed every 6h
+          </span>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {maradLoading && <div style={{ fontSize: 11, color: DIM }}>Loading MARAD advisories…</div>}
+          {!maradLoading && maradData?.error === "not-yet-seeded" && (
+            <div style={{ fontSize: 11, color: DIM }}>Awaiting first MARAD refresh — runs every 6h</div>
+          )}
+          {!maradLoading && maradData?.error !== "not-yet-seeded" && advisories.length === 0 && (
+            <div style={{ fontSize: 11, color: DIM }}>No MARAD advisories available.</div>
+          )}
+          {visibleAdvisories.map((advisory, i) => (
+            <MaradAdvisoryRow
+              key={advisory.advisoryNumber || advisory.url || i}
+              advisory={advisory}
+              last={i === visibleAdvisories.length - 1}
+            />
+          ))}
+        </div>
+
+        {!maradLoading && advisories.length > 10 && (
+          <button
+            type="button"
+            onClick={() => setShowAllAdvisories((value) => !value)}
+            style={{
+              alignSelf: "flex-start",
+              background: "transparent",
+              border: `1px solid ${BORDER}`,
+              color: CYAN,
+              padding: "6px 10px",
+              fontSize: 10,
+              letterSpacing: "0.08em",
+              cursor: "pointer",
+            }}
+          >
+            {showAllAdvisories ? "SHOW LESS" : `SHOW MORE (${Math.min(advisories.length, 30) - 10})`}
+          </button>
+        )}
+      </div>
+
       {/* Incident feed */}
       <div className="panel" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: AMBER, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            Incident Feed
+            ACLED Historical (12-Mo Rolling)
           </span>
           <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em", marginLeft: "auto" }}>
             via ACLED · maritime-filtered

@@ -31,6 +31,26 @@ export default function CapitolCommitteeBox({ items }) {
         <div style={{ fontSize: 11, color: DIM }}>No committee-aligned trades in last 60 days.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "auto 1fr auto auto auto",
+              gap: 10,
+              alignItems: "baseline",
+              padding: "0 8px 4px",
+              fontSize: 9,
+              color: DIM,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              borderBottom: `1px solid ${BORDER}`,
+            }}
+          >
+            <span>DATE</span>
+            <span>POLITICIAN</span>
+            <span style={{ fontSize: 10, color: "hsl(45, 90%, 55%)", letterSpacing: "0.05em" }}>COMMITTEE</span>
+            <span>TICKER</span>
+            <span>SIDE</span>
+          </div>
           {rows.map((t, i) => {
             const sideColor = t.side === "buy" ? GREEN : RED;
             const partyColor = PARTY_COLOR[t.party] || DIM;
@@ -39,7 +59,7 @@ export default function CapitolCommitteeBox({ items }) {
                 key={`${t.politician}-${t.ticker}-${i}`}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "auto 1fr auto auto",
+                  gridTemplateColumns: "auto 1fr auto auto auto",
                   gap: 10,
                   alignItems: "baseline",
                   padding: "5px 8px",
@@ -58,6 +78,9 @@ export default function CapitolCommitteeBox({ items }) {
                     {t.party}
                   </span>
                 </div>
+                <span style={{ fontSize: 10, color: "hsl(45, 90%, 55%)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {t.proxyCommittee || "—"}
+                </span>
                 <a
                   href={t.ticker ? `https://finance.yahoo.com/quote/${encodeURIComponent(t.ticker)}` : "#"}
                   target="_blank"
