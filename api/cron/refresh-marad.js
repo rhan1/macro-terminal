@@ -6,6 +6,7 @@ const UKMTO_URL = "https://www.ukmto.org/ukmto-products/advisories/2026";
 const BLOB_PATH = "shipments/advisories.json";
 const MAX_ADVISORIES = 30;
 const PAGE_COUNT = 3;
+const SCRAPINGBEE_API_KEY = process.env.SCRAPINGBEE_API_KEY;
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const HTML_HEADERS = {
   "User-Agent": UA,
@@ -109,9 +110,21 @@ function parseUkmtoAdvisories(html) {
   return advisories;
 }
 
+async function scrapingBeeFetch(targetUrl, opts = {}) {
+  if (!SCRAPINGBEE_API_KEY) {
+    return fetch(targetUrl, opts);
+  }
+
+  // Route through ScrapingBee because maritime.dot.gov blocks direct cron scraping.
+  const beeUrl =
+    `https://app.scrapingbee.com/api/v1/?api_key=${SCRAPINGBEE_API_KEY}` +
+    `&url=${encodeURIComponent(targetUrl)}&render_js=false&premium_proxy=true&country_code=us`;
+  return fetch(beeUrl, { signal: opts.signal });
+}
+
 async function fetchPage(page) {
   const url = page === 0 ? LIST_URL : `${LIST_URL}?page=${page}`;
-  const resp = await fetch(url, {
+  const resp = await scrapingBeeFetch(url, {
     headers: HTML_HEADERS,
     signal: AbortSignal.timeout(15000),
   });
@@ -120,7 +133,7 @@ async function fetchPage(page) {
 }
 
 async function fetchUkmtoPage() {
-  const resp = await fetch(UKMTO_URL, {
+  const resp = await scrapingBeeFetch(UKMTO_URL, {
     headers: HTML_HEADERS,
     signal: AbortSignal.timeout(15000),
   });

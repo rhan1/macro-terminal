@@ -58,7 +58,14 @@ function pctSinceTrade(item) {
 
 function Sparkline({ item }) {
   const chart = item?.marketData?.chart;
-  if (!Array.isArray(chart) || chart.length < 2) return <span style={{ color: DIM, fontSize: 10 }}>—</span>;
+  if (!Array.isArray(chart) || chart.length === 0) {
+    return (
+      <span style={{ color: DIM, fontSize: 9, letterSpacing: "0.04em" }}>
+        no chart data
+      </span>
+    );
+  }
+  if (chart.length < 2) return <span style={{ color: DIM, fontSize: 10 }}>—</span>;
   const since = pctSinceTrade(item);
   const color = since == null ? DIM : since >= 0 ? GREEN : RED;
   const target = item?.announcement_date ? new Date(item.announcement_date).getTime() : null;
