@@ -14,6 +14,8 @@ function fmtNum(n) {
 
 function fmtDelta(pct) {
   if (pct == null || !isFinite(pct)) return "—";
+  // Guard against division-by-near-zero: prior-period had ~0 layoffs.
+  if (Math.abs(pct) > 1000) return "N/A";
   const sign = pct >= 0 ? "+" : "";
   return `${sign}${pct.toFixed(1)}%`;
 }
