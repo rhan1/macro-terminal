@@ -240,6 +240,20 @@ function bpsLabel(cur, prv) {
   return `${n > 0 ? "+" : ""}${b} bps`;
 }
 
+function buildSpreadSeries(longSeries, shortSeries) {
+  const shortByDate = new Map((shortSeries || []).map((point) => [point.date, point.value]));
+  return (longSeries || [])
+    .map((point) => {
+      const shortValue = shortByDate.get(point.date);
+      if (shortValue == null || point.value == null) return null;
+      return {
+        date: point.date,
+        value: point.value - shortValue,
+      };
+    })
+    .filter(Boolean);
+}
+
 // ── MAIN ──
 export default function Rates() {
   const { data, loading, error } = useFredData(SERIES_MAP);
@@ -253,8 +267,9 @@ export default function Rates() {
   const d10Prv = prior(data.DGS10 || []);
   const d2Cur = latest(data.DGS2 || []);
   const d2Prv = prior(data.DGS2 || []);
-  const t10y2yCur = latest(data.T10Y2Y || []);
-  const t10y2yPrv = prior(data.T10Y2Y || []);
+  const spread2s10s = buildSpreadSeries(data.DGS10 || [], data.DGS2 || []);
+  const t10y2yCur = latest(spread2s10s);
+  const t10y2yPrv = prior(spread2s10s);
   const t10y3mCur = latest(data.T10Y3M || []);
   const t10y3mPrv = prior(data.T10Y3M || []);
   const d10Chg = change(d10Cur?.value, d10Prv?.value);
@@ -363,7 +378,7 @@ export default function Rates() {
           sourceUrl="https://fred.stlouisfed.org/series/T10Y2Y"
           decimals={0}
           prefix="+"
-          sparkData={data.T10Y2Y?.slice(0, 12)}
+          sparkData={spread2s10s.slice(0, 12)}
         />
         <IndicatorCard
           label="10Y-3M Spread"

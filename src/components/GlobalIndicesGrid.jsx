@@ -45,6 +45,8 @@ function ytdPct(chart) {
 function IndexCard({ meta, quote }) {
   const pct = quote?.changePct;
   const chart = quote?.chart || [];
+  const weekly = weekPct(chart);
+  const ytd = ytdPct(chart);
   const accent = REGION_ACCENT[meta.region] || DIM;
   const pctColor = pct == null ? DIM : pct >= 0 ? GREEN : RED;
   const sparkColor = pct == null ? DIM : pct >= 0 ? GREEN : RED;
@@ -76,10 +78,12 @@ function IndexCard({ meta, quote }) {
           {fmtPct(pct)}
         </span>
       </div>
-      <div style={{ display: "flex", gap: 10, fontSize: 9, color: DIM, fontFamily: '"JetBrains Mono", monospace' }}>
-        <span>1W {fmtPct(weekPct(chart))}</span>
-        <span>YTD {fmtPct(ytdPct(chart))}</span>
-      </div>
+      {(weekly != null || ytd != null) && (
+        <div style={{ display: "flex", gap: 10, fontSize: 9, color: DIM, fontFamily: '"JetBrains Mono", monospace' }}>
+          {weekly != null && <span>1W {fmtPct(weekly)}</span>}
+          {ytd != null && <span>YTD {fmtPct(ytd)}</span>}
+        </div>
+      )}
       <div style={{ height: 22, marginTop: 2 }}>
         {chart.length > 1 && (
           <ResponsiveContainer width="100%" height="100%">

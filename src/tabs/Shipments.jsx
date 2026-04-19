@@ -134,7 +134,7 @@ function ChokepointCard({ name, stats }) {
   );
 }
 
-function PortwatchCard({ point, totalLabel = "TOTAL TRANSITS" }) {
+function PortwatchCard({ point, totalLabel = "TOTAL TRANSITS", subtitle = null }) {
   const latest = point?.trend90d?.[point.trend90d.length - 1] || null;
   const byType = point?.byType || { container: 0, tanker: 0, dryBulk: 0, other: 0 };
   const sparkline = sparklinePoints(point?.trend90d);
@@ -168,6 +168,11 @@ function PortwatchCard({ point, totalLabel = "TOTAL TRANSITS" }) {
           <span>{totalLabel}</span>
           <span>{formatCompactDate(point?.latestDate || latest?.date)}</span>
         </div>
+        {subtitle && (
+          <div style={{ marginTop: 3, fontSize: 9, color: DIM }}>
+            {subtitle}
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
@@ -182,8 +187,10 @@ function PortwatchCard({ point, totalLabel = "TOTAL TRANSITS" }) {
                 flexShrink: 0,
               }}
             />
-            <span style={{ fontSize: 10, color: DIM, minWidth: 0 }}>{label}</span>
-            <span style={{ marginLeft: "auto", fontFamily: '"JetBrains Mono", monospace', fontSize: 11, color: "hsl(220,15%,88%)" }}>
+            <span style={{ fontSize: 10, color: DIM, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {label}
+            </span>
+            <span style={{ marginLeft: "auto", paddingLeft: 4, fontFamily: '"JetBrains Mono", monospace', fontSize: 11, color: "hsl(220,15%,88%)", flexShrink: 0 }}>
               {byType[key] || 0}
             </span>
           </div>
@@ -353,7 +360,8 @@ export default function Shipments() {
   const advisories = Array.isArray(maradData?.advisories) ? maradData.advisories : [];
   const visibleAdvisories = showAllAdvisories ? advisories.slice(0, 30) : advisories.slice(0, 10);
   const portwatchChokepoints = Array.isArray(portwatchData?.chokepoints) ? portwatchData.chokepoints : [];
-  const globalTrend = sumTrendSeries(portwatchChokepoints);
+  const uniquePortwatchChokepoints = portwatchChokepoints.filter((point) => point?.unique !== false);
+  const globalTrend = sumTrendSeries(uniquePortwatchChokepoints);
   const latestGlobal = globalTrend[globalTrend.length - 1] || null;
   const globalCard = {
     name: "Total Global Transits",
@@ -433,10 +441,10 @@ export default function Shipments() {
               PortWatch feed not yet seeded.
             </div>
           )}
-          {portwatchChokepoints.map((point) => (
+          {uniquePortwatchChokepoints.map((point) => (
             <PortwatchCard key={point.name} point={point} />
           ))}
-          <PortwatchCard point={globalCard} totalLabel="TOTAL GLOBAL TRANSITS" />
+          <PortwatchCard point={globalCard} totalLabel="TOTAL GLOBAL TRANSITS" subtitle="(unique sources only)" />
         </div>
       </div>
 
