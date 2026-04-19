@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useShipmentsData } from "../hooks/useShipmentsData";
+import ShipmentsMap from "../components/ShipmentsMap";
 
 const GREEN = "hsl(142,70%,55%)";
 const RED = "hsl(0,72%,55%)";
@@ -159,6 +160,25 @@ export default function Shipments() {
         <Kpi label="RECENT 30D" value={recentCount} color={recentCount > 10 ? RED : AMBER} />
         <Kpi label="CHOKEPOINTS" value={chokepointList.length} color={CYAN} small />
         <Kpi label="WINDOW" value={`${data?.windowDays || 365}D`} color={DIM} small />
+      </div>
+
+      {/* Incident map */}
+      <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
+        <ShipmentsMap
+          incidents={incidents
+            .filter((ev) => ev.lat != null && ev.lon != null)
+            .slice(0, 200)
+            .map((ev) => ({
+              lat: Number(ev.lat),
+              lng: Number(ev.lon),
+              location: ev.location,
+              eventType: ev.subType || ev.eventType,
+              fatalities: Number(ev.fatalities) || 0,
+              date: ev.date,
+            }))}
+          width={1200}
+          height={500}
+        />
       </div>
 
       {/* Chokepoint grid */}
