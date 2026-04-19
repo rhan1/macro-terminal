@@ -2,13 +2,14 @@
 // as a Bearer to seed freshly-deployed crons in sequence without needing to
 // curl each one individually. Returns a per-cron status map.
 const CRONS = [
-  { path: "/api/cron/refresh-egs",         name: "egs" },
-  { path: "/api/cron/refresh-narrative",   name: "narrative" },
-  { path: "/api/cron/refresh-layoffs",     name: "layoffs" },
-  { path: "/api/cron/refresh-capitol",     name: "capitol" },
-  { path: "/api/cron/refresh-committees",  name: "committees" },
+  { path: "/api/cron/refresh-egs",           name: "egs" },
+  { path: "/api/cron/refresh-narrative",     name: "narrative" },
+  { path: "/api/cron/refresh-layoffs",       name: "layoffs" },
+  { path: "/api/cron/refresh-capitol",       name: "capitol" },
+  { path: "/api/cron/refresh-committees",    name: "committees" },
   { path: "/api/cron/refresh-global-yields", name: "globalYields" },
   { path: "/api/cron/refresh-central-banks", name: "centralBanks" },
+  { path: "/api/cron/refresh-acled",         name: "acled" },
 ];
 
 export default async function handler(req, res) {
