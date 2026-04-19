@@ -13,6 +13,7 @@ import { put } from "@vercel/blob";
 const OAUTH_URL = "https://acleddata.com/oauth/token";
 const READ_URL = "https://acleddata.com/api/acled/read";
 const BLOB_PATH = "shipments/incidents.json";
+const NEWS_RSS_URL = 'https://news.google.com/rss/search?q=%22strait+of+hormuz%22+OR+%22red+sea%22+OR+%22suez+canal%22+OR+houthi+OR+%22shipping+incident%22+OR+%22cargo+ship%22+OR+%22tanker%22&hl=en-US&gl=US&ceid=US:en';
 
 // Countries bordering Red Sea / Bab el-Mandeb / Gulf of Aden / Hormuz.
 const REGION_COUNTRIES = [
@@ -42,6 +43,11 @@ const MARITIME_KEYWORDS = [
   "maritime", "coast guard", "naval", "strait", "port", "harbor", "harbour",
   "red sea", "bab el-mandeb", "bab al-mandab", "hormuz", "suez", "aden",
   "houthi", "missile", "anti-ship", "unmanned surface", "kamikaze",
+];
+
+const EXCLUDE_KEYWORDS = [
+  "darfur", "khartoum", "omdurman", "el fasher", "eid al hadd", "rsf",
+  "saf", "el obeid", "bara", "idp camp",
 ];
 
 function isoDaysAgo(days) {
@@ -95,9 +101,57 @@ function chokepointFor(lat, lon) {
 function isMaritime(ev) {
   const lat = Number(ev.latitude);
   const lon = Number(ev.longitude);
-  if (chokepointFor(lat, lon)) return true;
+  const excludeHay = `${ev.location || ""} ${ev.notes || ""}`.toLowerCase();
   const hay = `${ev.notes || ""} ${ev.sub_event_type || ""} ${ev.actor1 || ""} ${ev.actor2 || ""} ${ev.location || ""}`.toLowerCase();
-  return MARITIME_KEYWORDS.some((kw) => hay.includes(kw));
+  if (EXCLUDE_KEYWORDS.some((kw) => excludeHay.includes(kw))) return false;
+  const maritimeTagged = MARITIME_KEYWORDS.some((kw) => hay.includes(kw));
+  if (maritimeTagged) return true;
+  if (Number.isNaN(lat) || Number.isNaN(lon)) return false;
+  return CHOKEPOINT_BOXES.some((c) =>
+    lat >= c.latMin - 0.45 && lat <= c.latMax + 0.45 && lon >= c.lonMin - 0.45 && lon <= c.lonMax + 0.45
+  );
+}
+
+function decodeXml(text = "") {
+  return text
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim();
+}
+
+async function fetchGoogleNews() {
+  try {
+    const resp = await fetch(NEWS_RSS_URL, { signal: AbortSignal.timeout(10000) });
+    if (!resp.ok) throw new Error(`Google News RSS ${resp.status}`);
+    const xml = await resp.text();
+    const seen = new Set();
+    const minTs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => {
+      const item = m[1];
+      const pick = (tag) => decodeXml(item.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"))?.[1] || "");
+      const link = pick("link");
+      const pubDate = pick("pubDate");
+      return {
+        title: pick("title"),
+        link,
+        source: pick("source") || (pick("title").split(" - ").slice(1).join(" - ") || "Google News"),
+        pubDate,
+        description: pick("description").replace(/<[^>]+>/g, "").slice(0, 400),
+      };
+    }).filter((item) => {
+      const ts = Date.parse(item.pubDate);
+      if (!item.link || seen.has(item.link) || Number.isNaN(ts) || ts < minTs) return false;
+      seen.add(item.link);
+      return true;
+    }).sort((a, b) => Date.parse(b.pubDate) - Date.parse(a.pubDate)).slice(0, 30);
+  } catch (err) {
+    console.error("Google News RSS fetch failed:", err?.message ?? err);
+    return [];
+  }
 }
 
 function normalize(ev) {
@@ -168,6 +222,8 @@ export default async function handler(req, res) {
       .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
       .slice(0, 500);
 
+    const news = await fetchGoogleNews();
+
     // Per-chokepoint aggregates for quick UI rendering.
     const byChokepoint = {};
     for (const c of CHOKEPOINT_BOXES) byChokepoint[c.name] = { incidents: 0, fatalities: 0, latest: null };
@@ -189,6 +245,13 @@ export default async function handler(req, res) {
       byChokepoint,
       countries: REGION_COUNTRIES,
       chokepoints: CHOKEPOINT_BOXES.map((c) => c.name),
+      news,
+      meta: {
+        windowDays: daysParam,
+        fetchedAt,
+        newsFetchedAt: fetchedAt,
+        errors: Object.keys(errors).length ? errors : undefined,
+      },
       windowDays: daysParam,
       fetchedAt,
       errors: Object.keys(errors).length ? errors : undefined,
