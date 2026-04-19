@@ -3,6 +3,7 @@ import { SERIES, latest, prior, change, formatNum, formatPct } from "../services
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
+import AsOfPill from "../components/AsOfPill";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -114,9 +115,12 @@ function YieldCurveShape({ data }) {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-          {latestDate ? `As of ${latestDate}` : ""}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            {latestDate ? `As of ${latestDate}` : ""}
+          </span>
+          <AsOfPill date={latestDate} />
+        </div>
         {/* Legend */}
         <div style={{ display: "flex", gap: 12 }}>
           {[
