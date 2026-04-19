@@ -6,6 +6,7 @@ import CapitolClusterBox from "../components/CapitolClusterBox";
 import CapitolCommitteeBox from "../components/CapitolCommitteeBox";
 import CapitolSectorFlow from "../components/CapitolSectorFlow";
 import CapitolLeaderboard from "../components/CapitolLeaderboard";
+import AsOfPill from "../components/AsOfPill";
 
 const GREEN = "hsl(142,70%,55%)";
 const AMBER = "hsl(45,90%,55%)";
@@ -25,6 +26,12 @@ export default function Capitol() {
   const sectorFlow = data?.sectorFlow || [];
   const leaderboard = data?.leaderboard || [];
   const total = data?.meta?.total || 0;
+  const latestTradeDate = trades.reduce((latestDate, trade) => {
+    const candidate = trade?.tradeDate || null;
+    if (!candidate) return latestDate;
+    if (!latestDate) return candidate;
+    return candidate > latestDate ? candidate : latestDate;
+  }, null);
 
   const hasData = total > 0;
   const cluster7d = clusters.filter((c) => {
@@ -65,12 +72,18 @@ export default function Capitol() {
       )}
 
       {/* KPI row */}
-      <div className="panel" style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+      <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", textTransform: "uppercase" }}>Latest filed trade</span>
+          <AsOfPill date={latestTradeDate} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
         <Kpi label="FILINGS 7D" value={kpi.filings7d} />
         <Kpi label={`NET BUY (${period}D)`} value={`$${(kpi.netBuy / 1_000_000).toFixed(1)}M`} color={GREEN} />
         <Kpi label={`NET SELL (${period}D)`} value={`$${(kpi.netSell / 1_000_000).toFixed(1)}M`} color="hsl(0,72%,55%)" />
         <Kpi label="MOST ACTIVE" value={kpi.mostActive} color={CYAN} small />
         <PeriodToggle period={period} onChange={setPeriod} />
+        </div>
       </div>
 
       {!hasData && !loading && (

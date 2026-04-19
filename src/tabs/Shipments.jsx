@@ -3,6 +3,7 @@ import { useShipmentsData } from "../hooks/useShipmentsData";
 import { useMaradData } from "../hooks/useMaradData";
 import { usePortwatchData } from "../hooks/usePortwatchData";
 import ShipmentsMap from "../components/ShipmentsMap";
+import AsOfPill from "../components/AsOfPill";
 
 const GREEN = "hsl(142,70%,55%)";
 const RED = "hsl(0,72%,55%)";
@@ -363,6 +364,12 @@ export default function Shipments() {
   const uniquePortwatchChokepoints = portwatchChokepoints.filter((point) => point?.unique !== false);
   const globalTrend = sumTrendSeries(uniquePortwatchChokepoints);
   const latestGlobal = globalTrend[globalTrend.length - 1] || null;
+  const latestPortwatchDate = uniquePortwatchChokepoints.reduce((latestDate, point) => {
+    const candidate = point?.latestDate || point?.trend90d?.[point.trend90d.length - 1]?.date || null;
+    if (!candidate) return latestDate;
+    if (!latestDate) return candidate;
+    return candidate > latestDate ? candidate : latestDate;
+  }, null);
   const globalCard = {
     name: "Total Global Transits",
     latestDate: latestGlobal?.date || null,
@@ -430,6 +437,7 @@ export default function Shipments() {
           <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.06em" }}>
             IMF PortWatch
           </span>
+          <AsOfPill date={latestPortwatchDate} />
           <span style={{ marginLeft: "auto", fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
             {portwatchData?.updatedAt ? `Updated ${fmtDate(portwatchData.updatedAt)}` : "Waiting for seed"}
           </span>
