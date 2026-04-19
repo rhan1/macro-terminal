@@ -1,5 +1,5 @@
 import { useFredData } from "../hooks/useFredData";
-import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
+import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
@@ -121,19 +121,19 @@ export default function Inflation() {
 
   const cpiLatest     = latest(cpiData);
   const cpiPriorVal   = prior(cpiData);
-  const cpiChange     = change(cpiLatest?.value, cpiPriorVal?.value);
+  const cpiChange     = diff(cpiLatest?.value, cpiPriorVal?.value);
 
   const coreCpiLatest = latest(coreCpiData);
   const coreCpiPrior  = prior(coreCpiData);
-  const coreCpiChange = change(coreCpiLatest?.value, coreCpiPrior?.value);
+  const coreCpiChange = diff(coreCpiLatest?.value, coreCpiPrior?.value);
 
   const corePceLatest = latest(corePceData);
   const corePcePrior  = prior(corePceData);
-  const corePceChange = change(corePceLatest?.value, corePcePrior?.value);
+  const corePceChange = diff(corePceLatest?.value, corePcePrior?.value);
 
   const ppiLatest  = latest(ppiData);
   const ppiPrior   = prior(ppiData);
-  const ppiChange  = change(ppiLatest?.value, ppiPrior?.value);
+  const ppiChange  = diff(ppiLatest?.value, ppiPrior?.value);
 
   const oilLatest  = latest(oilData);
   const oilPrior   = prior(oilData);
@@ -142,7 +142,7 @@ export default function Inflation() {
   const breakevenData = data.BREAKEVEN || [];
   const breakevenLatest = latest(breakevenData);
   const breakevenPrior = prior(breakevenData);
-  const breakevenChange = change(breakevenLatest?.value, breakevenPrior?.value);
+  const breakevenChange = diff(breakevenLatest?.value, breakevenPrior?.value);
 
   const chartData  = buildChartData(cpiData, coreCpiData);
   const components = getComponentsFromData(data);
@@ -318,7 +318,7 @@ export default function Inflation() {
           value={cpiLatest?.value}
           unit="%"
           change={cpiChange}
-          changeLabel={cpiChange != null ? formatPct(cpiChange) : undefined}
+          changeLabel={cpiChange != null ? formatPP(cpiChange) : undefined}
           direction={cpiChange != null ? (cpiChange > 0 ? "up" : cpiChange < 0 ? "down" : "flat") : undefined}
           signal={cpiSignal(cpiLatest?.value)}
           detail="Headline Consumer Price Index, year-over-year. Measures price changes across the full CPI basket including food, energy, and shelter. The broadest measure of US consumer inflation."
@@ -333,7 +333,7 @@ export default function Inflation() {
           value={coreCpiLatest?.value}
           unit="%"
           change={coreCpiChange}
-          changeLabel={coreCpiChange != null ? formatPct(coreCpiChange) : undefined}
+          changeLabel={coreCpiChange != null ? formatPP(coreCpiChange) : undefined}
           direction={coreCpiChange != null ? (coreCpiChange > 0 ? "up" : coreCpiChange < 0 ? "down" : "flat") : undefined}
           signal={cpiSignal(coreCpiLatest?.value)}
           detail="CPI excluding food and energy. Strips volatile components to show the underlying inflation trend. When core remains sticky while headline falls, disinflation may stall without further restrictive policy."
@@ -348,7 +348,7 @@ export default function Inflation() {
           value={corePceLatest?.value}
           unit="%"
           change={corePceChange}
-          changeLabel={corePceChange != null ? formatPct(corePceChange) : undefined}
+          changeLabel={corePceChange != null ? formatPP(corePceChange) : undefined}
           direction={corePceChange != null ? (corePceChange > 0 ? "up" : corePceChange < 0 ? "down" : "flat") : undefined}
           signal={corePceSignal(corePceLatest?.value)}
           detail="The Federal Reserve's preferred inflation measure. Uses a broader spending basket than CPI and adjusts for consumer substitution behavior. The FOMC's official 2% inflation target is expressed in Core PCE terms."
@@ -363,7 +363,7 @@ export default function Inflation() {
           value={ppiLatest?.value}
           unit="%"
           change={ppiChange}
-          changeLabel={ppiChange != null ? formatPct(ppiChange) : undefined}
+          changeLabel={ppiChange != null ? formatPP(ppiChange) : undefined}
           direction={ppiChange != null ? (ppiChange > 0 ? "up" : ppiChange < 0 ? "down" : "flat") : undefined}
           signal={ppiSignal(ppiLatest?.value)}
           detail="Producer Price Index for all commodities. Measures price changes at the wholesale level. PPI leads CPI by 3–6 months — upstream cost pressures flow through to consumer prices. Negative PPI is a disinflationary tailwind."
@@ -378,7 +378,7 @@ export default function Inflation() {
           value={breakevenLatest?.value}
           unit="%"
           change={breakevenChange}
-          changeLabel={breakevenChange != null ? formatPct(breakevenChange) : undefined}
+          changeLabel={breakevenChange != null ? formatPP(breakevenChange) : undefined}
           direction={breakevenChange != null ? (breakevenChange > 0 ? "up" : breakevenChange < 0 ? "down" : "flat") : undefined}
           signal={breakevenLatest?.value == null ? "neutral" : breakevenLatest.value > 2.5 ? "bearish" : breakevenLatest.value < 2.0 ? "bullish" : "neutral"}
           detail="The 10-year Treasury breakeven inflation rate — the market's real-time expectation for average annual CPI over the next decade. Derived from the spread between nominal and TIPS yields. Above 2.5% signals the market expects inflation to remain sticky; below 2.0% signals deflation risk."

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { useChallengerData } from "../hooks/useChallengerData";
-import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
+import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
@@ -83,9 +83,9 @@ export default function Labor() {
   const claimsValRaw = latestClaims?.value ?? null;
   const claimsVal = claimsValRaw != null ? claimsValRaw / 1000 : null;
 
-  const unrateChange = change(unrateVal, priorUnrate?.value);
+  const unrateChange = diff(unrateVal, priorUnrate?.value);
   const payemsChange = change(payemsVal, priorPayems?.value);
-  const wagesChange  = change(wagesVal,  priorWages?.value);
+  const wagesChange  = diff(wagesVal,  priorWages?.value);
   const claimsChange = change(claimsVal, priorClaims?.value != null ? priorClaims.value / 1000 : null);
 
   // Unrate chart header: current + change in pp
@@ -187,7 +187,7 @@ export default function Labor() {
   const priorLayoffLevel  = prior(layoffLevelArr, 1);
   const layoffRateVal  = latestLayoffRate?.value ?? null;
   const layoffLevelVal = latestLayoffLevel?.value ?? null;
-  const layoffRateChange  = change(layoffRateVal,  priorLayoffRate?.value);
+  const layoffRateChange  = diff(layoffRateVal,  priorLayoffRate?.value);
   const layoffLevelChange = change(layoffLevelVal, priorLayoffLevel?.value);
   const layoffRateSignal =
     layoffRateVal == null ? "neutral" :
@@ -511,6 +511,7 @@ export default function Labor() {
           value={unrateVal}
           unit="%"
           change={unrateChange}
+          changeLabel={unrateChange != null ? formatPP(unrateChange, 1) : undefined}
           decimals={1}
           signal={unrateSignal}
           detail={
@@ -551,6 +552,7 @@ export default function Labor() {
           value={wagesVal}
           unit="% YoY"
           change={wagesChange}
+          changeLabel={wagesChange != null ? formatPP(wagesChange, 1) : undefined}
           decimals={1}
           signal={wagesSignal}
           detail={
@@ -660,6 +662,7 @@ export default function Labor() {
           value={layoffRateVal}
           unit="%"
           change={layoffRateChange}
+          changeLabel={layoffRateChange != null ? formatPP(layoffRateChange, 1) : undefined}
           decimals={1}
           signal={layoffRateSignal}
           detail="BLS Job Openings & Labor Turnover Survey — layoffs and discharges as a share of total employment. The lowest-volatility cyclical labor indicator. Sustained rates above 1.5% historically coincide with recessions; below 1.0% signals a tight labor market with low involuntary churn."

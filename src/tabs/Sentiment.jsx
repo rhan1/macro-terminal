@@ -696,9 +696,9 @@ export default function Sentiment() {
           changeLabel={stlfsiChange != null ? formatPct(stlfsiChange) : undefined}
           direction={stlfsiChange == null ? "flat" : stlfsiChange > 0 ? "up" : "down"}
           signal={stlfsiLatest?.value == null ? "neutral" : stlfsiLatest.value > 1 ? "bearish" : stlfsiLatest.value < 0 ? "bullish" : "neutral"}
-          detail="St. Louis Fed Financial Stress Index. Zero = normal conditions. Above 1.5 = notable stress. Uses 18 weekly data series: 7 interest rate, 6 yield spreads, and 5 other indicators."
-          source="St. Louis Fed / FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/STLFSI2"
+          detail="Chicago Fed Adjusted National Financial Conditions Index (ANFCI) — isolates the component of financial conditions uncorrelated with economic activity. Zero = average conditions; positive = tighter than normal; negative = looser."
+          source="Chicago Fed / FRED"
+          sourceUrl="https://fred.stlouisfed.org/series/ANFCI"
           dateLabel={fmtCardDate(stlfsiLatest?.date)}
           sparkData={(fredData.STLFSI || [])?.slice(0, 12)}
         />

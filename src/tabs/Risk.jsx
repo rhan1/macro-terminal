@@ -1,6 +1,6 @@
 import { useFredData } from "../hooks/useFredData";
 import { useCbData } from "../hooks/useCbData";
-import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
+import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
@@ -347,7 +347,7 @@ export default function Risk() {
 
   const recVal   = latest(data.RECESSION)?.value;
   const recPrev  = prior(data.RECESSION)?.value;
-  const recChg   = change(recVal, recPrev);
+  const recChg   = diff(recVal, recPrev);
 
   const sp500Val  = latest(data.SP500)?.value;
   const sp500Prev = prior(data.SP500)?.value;
@@ -630,6 +630,7 @@ export default function Risk() {
           value={recVal}
           unit="%"
           change={recChg}
+          changeLabel={recChg != null ? formatPP(recChg, 1) : undefined}
           decimals={1}
           signal={recSignal}
           detail="NY Fed smoothed recession probability from a probit model using the 10Y-3M Treasury spread. Above 30% = elevated risk; above 40% = historically aligns with confirmed NBER recession dates. The model has predicted all 8 recessions since 1960. Lags by ~1 quarter due to data reporting delays."

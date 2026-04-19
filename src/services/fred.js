@@ -84,6 +84,13 @@ export function change(current, previous) {
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
+// For series that are already percentages/rates (CPI YoY, unemployment, GDP SAAR %, etc.).
+// Returns the absolute percentage-point difference, not a relative-% change.
+export function diff(current, previous) {
+  if (current == null || previous == null) return null;
+  return current - previous;
+}
+
 export function formatNum(n, decimals = 2) {
   if (n == null || isNaN(n)) return "—";
   return n.toFixed(decimals);
@@ -92,6 +99,12 @@ export function formatNum(n, decimals = 2) {
 export function formatPct(n, decimals = 2) {
   if (n == null || isNaN(n)) return "—";
   return `${n >= 0 ? "+" : ""}${n.toFixed(decimals)}%`;
+}
+
+// Percentage-point formatter (e.g. "+0.3pp", "-0.2pp"). Use when comparing two rates.
+export function formatPP(n, decimals = 2) {
+  if (n == null || isNaN(n)) return "—";
+  return `${n >= 0 ? "+" : ""}${n.toFixed(decimals)}pp`;
 }
 
 export const SERIES = {
@@ -158,7 +171,7 @@ export const SERIES = {
   HYSPREAD: { id: "BAMLH0A0HYM2", frequency: "d", limit: 60 },
   RECESSION: { id: "RECPROUSM156N", frequency: "m", limit: 12 },
   NFCI: { id: "NFCI", frequency: "d", limit: 52 },
-  STLFSI: { id: "STLFSI2", frequency: "d", limit: 52 },
+  STLFSI: { id: "ANFCI", frequency: "w", limit: 52 },
   WALCL: { id: "WALCL", frequency: "d", limit: 52 },
   RRPONTSYD: { id: "RRPONTSYD", frequency: "d", limit: 60 },
 
