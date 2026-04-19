@@ -3,12 +3,12 @@ import { put } from "@vercel/blob";
 const BLOB_PATH = "shipments/portwatch.json";
 const BASE_URL = "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0/query";
 const SOURCE_MAP = [
-  { name: "Suez Canal", portname: "Suez Canal" },
-  { name: "Bab el-Mandeb", portname: "Bab el-Mandeb Strait" },
-  { name: "Strait of Hormuz", portname: "Strait of Hormuz" },
-  { name: "Red Sea South", portname: "Bab el-Mandeb Strait" },
-  { name: "Red Sea North", portname: "Suez Canal" },
-  { name: "Gulf of Aden", portname: "Bab el-Mandeb Strait" },
+  { name: "Suez Canal", portname: "Suez Canal", unique: true, sourceChokepoint: null },
+  { name: "Bab el-Mandeb", portname: "Bab el-Mandeb Strait", unique: true, sourceChokepoint: null },
+  { name: "Strait of Hormuz", portname: "Strait of Hormuz", unique: true, sourceChokepoint: null },
+  { name: "Red Sea South", portname: "Bab el-Mandeb Strait", unique: false, sourceChokepoint: "Bab el-Mandeb" },
+  { name: "Red Sea North", portname: "Suez Canal", unique: false, sourceChokepoint: "Suez Canal" },
+  { name: "Gulf of Aden", portname: "Bab el-Mandeb Strait", unique: false, sourceChokepoint: "Bab el-Mandeb" },
 ];
 
 function formatDate(value) {
@@ -54,11 +54,13 @@ async function fetchPortwatchSeries(portname) {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function summarizeChokepoint(name, trend90d) {
+function summarizeChokepoint({ name, unique, sourceChokepoint }, trend90d) {
   const latest = trend90d[trend90d.length - 1];
   if (!latest) {
     return {
       name,
+      unique,
+      sourceChokepoint,
       latestDate: null,
       totalCalls: 0,
       byType: { container: 0, tanker: 0, dryBulk: 0, other: 0 },
@@ -68,6 +70,8 @@ function summarizeChokepoint(name, trend90d) {
 
   return {
     name,
+    unique,
+    sourceChokepoint,
     latestDate: latest.date,
     totalCalls: latest.total,
     byType: {
@@ -97,11 +101,11 @@ export default async function handler(req, res) {
     );
 
     const errors = {};
-    const chokepoints = SOURCE_MAP.map(({ name }, index) => {
+    const chokepoints = SOURCE_MAP.map((meta, index) => {
       const result = settled[index];
-      if (result.status === "fulfilled") return summarizeChokepoint(name, result.value.trend90d);
-      errors[name] = result.reason?.message || "failed";
-      return summarizeChokepoint(name, []);
+      if (result.status === "fulfilled") return summarizeChokepoint(meta, result.value.trend90d);
+      errors[meta.name] = result.reason?.message || "failed";
+      return summarizeChokepoint(meta, []);
     });
 
     const payload = {
@@ -115,6 +119,7 @@ export default async function handler(req, res) {
       contentType: "application/json",
       token,
       addRandomSuffix: false,
+      allowOverwrite: true,
     });
 
     return res.status(200).json({
@@ -122,6 +127,8 @@ export default async function handler(req, res) {
       updatedAt: payload.updatedAt,
       chokepoints: chokepoints.map((item) => ({
         name: item.name,
+        unique: item.unique,
+        sourceChokepoint: item.sourceChokepoint,
         latestDate: item.latestDate,
         totalCalls: item.totalCalls,
       })),
