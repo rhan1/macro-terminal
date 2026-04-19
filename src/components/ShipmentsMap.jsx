@@ -24,6 +24,14 @@ const CHOKEPOINTS = [
   { name: "GULF OF ADEN", bounds: { north: 15, south: 11, west: 43, east: 52 } },
   { name: "STRAIT OF HORMUZ", bounds: { north: 27, south: 25, west: 55, east: 58 } },
 ];
+const CHOKEPOINT_LABEL_OFFSETS = {
+  "SUEZ CANAL": { x: 0, y: -6 },
+  "RED SEA NORTH": { x: 0, y: -20 },
+  "RED SEA SOUTH": { x: 35, y: 0 },
+  "BAB EL-MANDEB": { x: 0, y: 18 },
+  "GULF OF ADEN": { x: 30, y: 25 },
+  "STRAIT OF HORMUZ": { x: 0, y: -22 },
+};
 
 function mercatorPoint(lon, lat, width, height) {
   const safeLat = clamp(lat, -85, 85);
@@ -111,14 +119,34 @@ export default function ShipmentsMap({ incidents, width = WIDTH, height = HEIGHT
         const se = mercatorPoint(item.bounds.east, item.bounds.south, width, height);
         const x = Math.min(nw[0], se[0]);
         const y = Math.min(nw[1], se[1]);
+        const rectWidth = Math.max(8, Math.abs(se[0] - nw[0]));
+        const rectHeight = Math.max(8, Math.abs(se[1] - nw[1]));
+        const offset = CHOKEPOINT_LABEL_OFFSETS[item.name] || { x: 0, y: -6 };
+        const centerX = x + rectWidth / 2;
+        const centerY = y + rectHeight / 2;
+        const labelX = centerX + offset.x;
+        const labelY = Math.max(12, y - 6 + offset.y);
+        const labelWidth = item.name.length * 5.1 + 4;
+        const labelHeight = 12;
+        const dx = labelX - centerX;
+        const dy = labelY - centerY;
+        const leaderLength = Math.hypot(dx, dy);
+        const scale = leaderLength ? 1 / Math.max(Math.abs(dx) / (rectWidth / 2), Math.abs(dy) / (rectHeight / 2)) : 0;
         return {
           ...item,
           x,
           y,
-          rectWidth: Math.max(8, Math.abs(se[0] - nw[0])),
-          rectHeight: Math.max(8, Math.abs(se[1] - nw[1])),
-          labelX: x + Math.abs(se[0] - nw[0]) / 2,
-          labelY: Math.max(12, y - 6),
+          rectWidth,
+          rectHeight,
+          labelX,
+          labelY,
+          labelWidth,
+          labelHeight,
+          showLeader: leaderLength > 10,
+          leaderX1: centerX + dx * scale,
+          leaderY1: centerY + dy * scale,
+          leaderX2: labelX,
+          leaderY2: labelY - 4,
         };
       }),
     [width, height]
@@ -193,6 +221,25 @@ export default function ShipmentsMap({ incidents, width = WIDTH, height = HEIGHT
               strokeWidth="1"
               vectorEffect="non-scaling-stroke"
             />
+            {point.showLeader && (
+              <line
+                x1={point.leaderX1}
+                y1={point.leaderY1}
+                x2={point.leaderX2}
+                y2={point.leaderY2}
+                stroke="hsla(45, 90%, 55%, 0.5)"
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            <rect
+              x={point.labelX - point.labelWidth / 2}
+              y={point.labelY - point.labelHeight + 2}
+              width={point.labelWidth}
+              height={point.labelHeight}
+              rx="2"
+              fill="hsla(220, 30%, 5%, 0.75)"
+            />
             <text
               x={point.labelX}
               y={point.labelY}
@@ -222,12 +269,18 @@ export default function ShipmentsMap({ incidents, width = WIDTH, height = HEIGHT
 
         <g transform={`translate(14 ${height - 34})`}>
           <rect x="0" y="-14" width="180" height="24" fill="hsla(220,20%,8%,0.92)" stroke={BORDER} strokeWidth="1" />
-          <circle cx="12" cy="-2" r="3" fill={AMBER} />
-          <text x="22" y="1" fill={DIM} fontSize="9" fontFamily='"JetBrains Mono", monospace'>0 fatalities</text>
-          <circle cx="82" cy="-2" r="3" fill={ORANGE} />
-          <text x="92" y="1" fill={DIM} fontSize="9" fontFamily='"JetBrains Mono", monospace'>1-5</text>
-          <circle cx="124" cy="-2" r="3" fill={RED} />
-          <text x="134" y="1" fill={DIM} fontSize="9" fontFamily='"JetBrains Mono", monospace'>&gt;5 fatalities</text>
+          <g transform="translate(12 -2)">
+            <circle r="3" fill={AMBER} />
+            <text x="9" y="3" fill={DIM} fontSize="9" fontFamily='"JetBrains Mono", monospace'>0 fatalities</text>
+          </g>
+          <g transform="translate(88 -2)">
+            <circle r="3" fill={ORANGE} />
+            <text x="9" y="3" fill={DIM} fontSize="9" fontFamily='"JetBrains Mono", monospace'>1-5</text>
+          </g>
+          <g transform="translate(124 -2)">
+            <circle r="3" fill={RED} />
+            <text x="9" y="3" fill={DIM} fontSize="9" fontFamily='"JetBrains Mono", monospace'>&gt;5 fatalities</text>
+          </g>
         </g>
 
         {isLoading && (
