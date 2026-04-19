@@ -1,9 +1,11 @@
-// Recent named-company layoff headlines via Google News RSS.
-// No auth, no API key, reliable — pivoted here after layoffs.fyi proved
-// unreachable and TrueUp sits behind a Cloudflare managed challenge.
+// Serves structured layoff data from a Blob written by the
+// /api/cron/refresh-layoffs cron. Falls back to live Google News RSS
+// if the Blob is missing or stale, so the UI never shows a dead tab.
+import { head } from "@vercel/blob";
 
 const FEED_URL =
   "https://news.google.com/rss/search?q=layoffs+company&hl=en-US&gl=US&ceid=US:en";
+const BLOB_PATH = "labor/layoffs-structured.json";
 
 function decodeEntities(s) {
   if (!s) return "";
@@ -17,12 +19,6 @@ function decodeEntities(s) {
     .replace(/&nbsp;/g, " ");
 }
 
-function stripTags(s) {
-  return decodeEntities(String(s).replace(/<[^>]+>/g, "").trim());
-}
-
-// Titles come as "Headline - Source" from Google News. Split off the source
-// suffix when possible.
 function splitTitleAndSource(raw) {
   const title = decodeEntities(raw);
   const sepIdx = title.lastIndexOf(" - ");
@@ -35,7 +31,7 @@ function splitTitleAndSource(raw) {
   return { title, source: "" };
 }
 
-function parseItems(xml, limit) {
+function parseRssItems(xml, limit) {
   const items = [];
   const re = /<item>([\s\S]*?)<\/item>/g;
   let m;
@@ -56,7 +52,6 @@ function parseItems(xml, limit) {
       const d = new Date(pubDate);
       if (!isNaN(d.getTime())) date = d.toISOString();
     }
-    // Use the explicit <source> tag when present (overrides the suffix split)
     const explicitSource = pick("source");
     items.push({
       title,
@@ -68,12 +63,7 @@ function parseItems(xml, limit) {
   return items;
 }
 
-export default async function handler(req, res) {
-  res.setHeader(
-    "Cache-Control",
-    "s-maxage=900, stale-while-revalidate=3600" // 15 min fresh, 1 hour stale
-  );
-
+async function fetchRawRss() {
   try {
     const resp = await fetch(FEED_URL, {
       headers: {
@@ -83,28 +73,53 @@ export default async function handler(req, res) {
       },
       signal: AbortSignal.timeout(8000),
     });
-
-    if (!resp.ok) {
-      return res.status(200).json({
-        items: [],
-        source: "Google News RSS",
-        error: `Upstream HTTP ${resp.status}`,
-      });
-    }
-
+    if (!resp.ok) return [];
     const xml = await resp.text();
-    const items = parseItems(xml, 15);
+    return parseRssItems(xml, 15);
+  } catch {
+    return [];
+  }
+}
 
-    return res.status(200).json({
-      items,
-      source: "Google News RSS · query: layoffs company",
-      fetchedAt: new Date().toISOString(),
+async function fetchStructuredBlob(token) {
+  try {
+    const meta = await head(BLOB_PATH, { token });
+    const resp = await fetch(meta.url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000),
     });
-  } catch (err) {
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch {
+    return null;
+  }
+}
+
+export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
+
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const blob = token ? await fetchStructuredBlob(token) : null;
+
+  if (blob && Array.isArray(blob.structured) && blob.structured.length > 0) {
     return res.status(200).json({
-      items: [],
-      source: "Google News RSS",
-      error: err?.message || "Unknown error",
+      structured: blob.structured,
+      aggregates: blob.aggregates || null,
+      rawNews: blob.rawNews || [],
+      items: blob.rawNews || [],
+      source: "SEC 8-K + Claude Haiku + Google News RSS",
+      fetchedAt: blob.fetchedAt,
+      model: blob.model || null,
     });
   }
+
+  const rss = await fetchRawRss();
+  return res.status(200).json({
+    structured: [],
+    aggregates: null,
+    rawNews: rss,
+    items: rss,
+    source: "Google News RSS (Blob not yet seeded)",
+    fetchedAt: new Date().toISOString(),
+  });
 }
