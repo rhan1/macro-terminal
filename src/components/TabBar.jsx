@@ -4,11 +4,12 @@ const TABS = [
   { key: "inflation", label: "INFLATION", num: "3", subtitle: "CPI, PCE, and price components" },
   { key: "growth", label: "GROWTH", num: "4", subtitle: "GDP, ISM PMI, output indicators" },
   { key: "labor", label: "LABOR", num: "5", subtitle: "Unemployment, payrolls, claims, layoffs" },
-  { key: "risk", label: "RISK", num: "6", subtitle: "VIX, credit spreads, financial stress" },
-  { key: "sentiment", label: "SENTIMENT", num: "7", subtitle: "Fear & Greed, sectors, Reddit buzz" },
-  { key: "realestate", label: "REAL ESTATE", num: "8", subtitle: "Housing prices, supply, construction" },
-  { key: "ipo", label: "IPOs", num: "9", subtitle: "Pipeline and pricing calendar" },
+  { key: "global", label: "GLOBAL", num: "6", subtitle: "World indices, FX, commodities, yields" },
+  { key: "risk", label: "RISK", num: "7", subtitle: "VIX, credit spreads, financial stress" },
+  { key: "sentiment", label: "SENTIMENT", num: "8", subtitle: "Fear & Greed, sectors, Reddit buzz" },
+  { key: "realestate", label: "REAL ESTATE", num: "9", subtitle: "Housing prices, supply, construction" },
   { key: "auctions", label: "BOND AUCTIONS", num: "0", subtitle: "Treasury auction results" },
+  { key: "ipo", label: "IPOs", num: "", subtitle: "Pipeline and pricing calendar" },
   { key: "altindex", label: "ALT INDEX", num: "", subtitle: "Alternative data — vice, travel, shipping" },
 ];
 
