@@ -3,6 +3,7 @@
 // the last-good Blob. Falls back to the bundled static JSON if the Blob
 // has never been seeded.
 import { put, head } from "@vercel/blob";
+import seedData from "../../src/data/centralBanks.json" with { type: "json" };
 
 const BLOB_PATH = "global/central-banks.json";
 const BIS_URL = "https://www.bis.org/statistics/cbpol.htm";
@@ -73,23 +74,20 @@ export default async function handler(req, res) {
 
     const scraped = await fetchBisRates();
     const prior = await loadLastGood(token);
-    const priorBanks = prior?.banks || [];
+    // On first run (no prior Blob), seed from the bundled static JSON so the
+    // UI has something to render even if the BIS scrape returns empty.
+    const priorBanks = prior?.banks?.length ? prior.banks : (seedData.banks || []);
 
     // Merge: keep prior shape, update currentRate if scraped value differs.
-    const banks = priorBanks.length
-      ? priorBanks.map((b) => {
-          const rate = scraped[b.countryCode];
-          if (rate != null && Math.abs(rate - b.currentRate) > 0.001) {
-            return { ...b, currentRate: rate, lastRefresh: new Date().toISOString().slice(0, 10) };
-          }
-          return b;
-        })
-      : [];
+    const banks = priorBanks.map((b) => {
+      const rate = scraped[b.countryCode];
+      if (rate != null && Math.abs(rate - b.currentRate) > 0.001) {
+        return { ...b, currentRate: rate, lastRefresh: new Date().toISOString().slice(0, 10) };
+      }
+      return b;
+    });
 
     const scrapeCount = Object.keys(scraped).length;
-    if (!banks.length && scrapeCount < 3) {
-      return res.status(502).json({ error: "no prior Blob and scrape returned <3 countries" });
-    }
 
     const body = {
       banks,
