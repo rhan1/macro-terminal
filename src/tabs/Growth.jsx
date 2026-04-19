@@ -1,6 +1,6 @@
 import { useFredData } from "../hooks/useFredData";
 import { useIsmData } from "../hooks/useIsmData";
-import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
+import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
@@ -148,15 +148,15 @@ export default function Growth() {
 
   const gdpLatest      = latest(gdpRaw);
   const gdpPrior       = prior(gdpRaw);
-  const gdpChange      = change(gdpLatest?.value, gdpPrior?.value);
+  const gdpChange      = diff(gdpLatest?.value, gdpPrior?.value);
 
   const m2Latest       = latest(m2Raw);
   const m2Prior        = prior(m2Raw);
-  const m2Change       = change(m2Latest?.value, m2Prior?.value);
+  const m2Change       = diff(m2Latest?.value, m2Prior?.value);
 
   const indproLatest   = latest(indproRaw);
   const indproPrior    = prior(indproRaw);
-  const indproChange   = change(indproLatest?.value, indproPrior?.value);
+  const indproChange   = diff(indproLatest?.value, indproPrior?.value);
 
   // Derive a GDP forecast value from the last two readings (simple trend extrapolation)
   const gdpPrior2 = prior(gdpRaw, 2);
@@ -541,7 +541,7 @@ export default function Growth() {
           value={gdpLatest?.value}
           unit="%"
           change={gdpChange}
-          changeLabel={gdpChange != null ? formatPct(gdpChange) : undefined}
+          changeLabel={gdpChange != null ? formatPP(gdpChange) : undefined}
           direction={gdpChange == null ? "flat" : gdpChange > 0 ? "up" : "down"}
           signal={gdpSignal}
           detail={`Annualized real GDP growth rate for ${gdpLatest ? toQuarterLabel(gdpLatest.date) : "the most recent quarter"} — the broadest measure of U.S. economic output. The post-2010 average is ~2.3% annualized. Sustained readings above 3% historically coincide with tightening Fed policy and rising long-end yields. Sub-2% growth often presages earnings downgrades and sector rotation toward defensives.`}
@@ -557,7 +557,7 @@ export default function Growth() {
           value={indproLatest?.value}
           unit="% YoY"
           change={indproChange}
-          changeLabel={indproChange != null ? formatPct(indproChange) : undefined}
+          changeLabel={indproChange != null ? formatPP(indproChange) : undefined}
           direction={indproChange == null ? "flat" : indproChange > 0 ? "up" : "down"}
           signal={indproSignal}
           detail={`Year-over-year change in industrial output across manufacturing, mining, and electric/gas utilities. INDPRO is a real-time proxy for goods-economy activity and is one of the four coincident indicators used by the NBER to date recessions. Persistent negative readings (especially alongside soft PMIs) are a reliable recession signal. The goods sector has faced inventory-cycle headwinds post-pandemic.`}
@@ -573,7 +573,7 @@ export default function Growth() {
           value={m2Latest?.value}
           unit="% YoY"
           change={m2Change}
-          changeLabel={m2Change != null ? formatPct(m2Change) : undefined}
+          changeLabel={m2Change != null ? formatPP(m2Change) : undefined}
           direction={m2Change == null ? "flat" : m2Change > 0 ? "up" : "down"}
           signal="neutral"
           detail={`Year-over-year change in M2 money supply, a broad monetary aggregate covering cash, checking, savings, and money market balances. Milton Friedman's rule of thumb linked M2 growth to nominal GDP growth with a ~12–18 month lag. Rapid M2 expansion preceded the 2021–2022 inflation spike; current trajectory matters for the medium-term inflation outlook.`}

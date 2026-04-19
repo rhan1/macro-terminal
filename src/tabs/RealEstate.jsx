@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useFredData } from "../hooks/useFredData";
-import { SERIES, latest, prior, change, formatNum, formatPct } from "../services/fred";
+import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } from "../services/fred";
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
@@ -235,7 +235,7 @@ export default function RealEstate() {
   // ── Latest / prior values ──
   const csLatest        = latest(csArr);
   const csPrior         = prior(csArr);
-  const csChange        = change(csLatest?.value, csPrior?.value);
+  const csChange        = diff(csLatest?.value, csPrior?.value);
 
   const supplyLatest    = latest(supplyArr);
   const supplyPrior     = prior(supplyArr);
@@ -252,7 +252,7 @@ export default function RealEstate() {
 
   const mortgageLatest  = latest(mortgageArr);
   const mortgagePrior   = prior(mortgageArr);
-  const mortgageChange  = change(mortgageLatest?.value, mortgagePrior?.value);
+  const mortgageChange  = diff(mortgageLatest?.value, mortgagePrior?.value);
 
   const salesLatest     = latest(salesArr);
   const salesPrior      = prior(salesArr);
@@ -830,7 +830,7 @@ export default function RealEstate() {
           unit="%"
           decimals={1}
           change={csChange}
-          changeLabel={csChange != null ? formatPct(csChange) : undefined}
+          changeLabel={csChange != null ? formatPP(csChange) : undefined}
           direction={csChange != null ? (csChange > 0 ? "up" : csChange < 0 ? "down" : "flat") : undefined}
           signal={csSignal(csLatest?.value)}
           detail="Case-Shiller National Home Price Index, year-over-year % change. The gold standard gauge of US home price appreciation. Readings above 10% signal bubble-like conditions fueled by excess demand or rate-driven distortions. Readings below 0% signal a correction cycle, often coinciding with rising inventory and tightening credit. A 2–5% range is healthy — tracking nominal income growth and keeping affordability stable. Shelter is typically the largest component of household wealth, so a sustained price decline has significant knock-on effects for consumer confidence and bank collateral quality."
@@ -842,7 +842,7 @@ export default function RealEstate() {
 
         <IndicatorCard
           label="Existing Home Sales"
-          value={salesLatest?.value != null ? salesLatest.value / 1000 : null}
+          value={salesLatest?.value != null ? salesLatest.value / 1_000_000 : null}
           unit="M SAAR"
           decimals={2}
           change={salesChange}

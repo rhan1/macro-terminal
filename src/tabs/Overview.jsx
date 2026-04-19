@@ -1391,7 +1391,7 @@ function NarrativePanel({ spyChangePct }) {
         <p
           key={i}
           style={{
-            margin: i === 0 ? "0 0 8px 0" : "0 0 8px 0",
+            margin: i === paragraphs.length - 1 ? 0 : "0 0 14px 0",
             fontSize: 11,
             color: "var(--color-term-text)",
             lineHeight: 1.7,
