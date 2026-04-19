@@ -5,6 +5,8 @@ import { SERIES, latest, prior, change, formatNum, formatPct } from "../services
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
+import LayoffsAggregateStrip from "../components/LayoffsAggregateStrip";
+import LayoffsStructuredTable from "../components/LayoffsStructuredTable";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -682,14 +684,14 @@ export default function Labor() {
         />
       </div>
 
-      <LayoffNewsPanel />
+      <LayoffsPanelStack />
 
     </div>
   );
 }
 
-// ── Layoff news feed (Google News RSS via /api/layoffs) ───────────────────────
-function LayoffNewsPanel() {
+// ── Layoffs panel stack — aggregate strip + structured table + raw RSS tail ───
+function LayoffsPanelStack() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -702,11 +704,47 @@ function LayoffNewsPanel() {
     return () => { cancelled = true; };
   }, []);
 
-  const items = data?.items ?? [];
+  const structured = Array.isArray(data?.structured) ? data.structured : [];
+  const rawNews = Array.isArray(data?.rawNews) ? data.rawNews : [];
+  const hasStructured = structured.length > 0;
+
+  if (loading) {
+    return (
+      <div className="panel" style={{ padding: "14px 16px", fontSize: 11, color: "hsl(220,10%,52%)" }}>
+        Loading layoff data…
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {hasStructured && <LayoffsAggregateStrip aggregates={data?.aggregates} />}
+      {hasStructured ? (
+        <LayoffsStructuredTable items={structured} />
+      ) : (
+        <div
+          className="panel"
+          style={{
+            padding: "14px 16px",
+            fontSize: 11,
+            color: "hsl(220,10%,52%)",
+          }}
+        >
+          Structured feed not yet seeded — showing raw headlines below.
+        </div>
+      )}
+      {rawNews.length > 0 && (
+        <RawNewsTail items={rawNews} defaultOpen={!hasStructured} source={data?.source} />
+      )}
+    </div>
+  );
+}
+
+function RawNewsTail({ items, defaultOpen = false, source }) {
+  const [open, setOpen] = useState(defaultOpen);
   const DIM    = "hsl(220,10%,52%)";
   const BORDER = "hsl(220,15%,14%)";
   const AMBER  = "hsl(45,90%,55%)";
-  const RED    = "hsl(0,72%,55%)";
 
   function formatDate(iso) {
     if (!iso) return "";
@@ -725,17 +763,31 @@ function LayoffNewsPanel() {
       className="panel"
       style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          fontFamily: "inherit",
+          textAlign: "left",
+          display: "flex",
+          alignItems: "baseline",
+          gap: 10,
+          width: "100%",
+        }}
+      >
         <span
           style={{
             fontSize: 10,
             fontWeight: 700,
-            color: RED,
+            color: DIM,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
           }}
         >
-          Recent Layoff Announcements
+          {open ? "▾" : "▸"} Raw headlines ({items.length}) · unstructured
         </span>
         <span
           style={{
@@ -745,19 +797,13 @@ function LayoffNewsPanel() {
             marginLeft: "auto",
           }}
         >
-          {data?.source ?? "Google News RSS"}
+          {source ?? "Google News RSS"}
         </span>
-      </div>
+      </button>
 
-      {loading ? (
-        <div style={{ fontSize: 11, color: DIM }}>Loading headlines…</div>
-      ) : items.length === 0 ? (
-        <div style={{ fontSize: 11, color: DIM }}>
-          {data?.error ?? "No recent layoff headlines."}
-        </div>
-      ) : (
+      {open && (
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {items.slice(0, 12).map((it, i) => (
+          {items.slice(0, 15).map((it, i) => (
             <a
               key={i}
               href={it.url}
@@ -769,7 +815,7 @@ function LayoffNewsPanel() {
                 gap: 10,
                 alignItems: "baseline",
                 padding: "6px 0",
-                borderBottom: i < Math.min(items.length, 12) - 1 ? `1px solid ${BORDER}` : "none",
+                borderBottom: i < Math.min(items.length, 15) - 1 ? `1px solid ${BORDER}` : "none",
                 fontSize: 11,
                 color: "var(--color-term-text)",
                 textDecoration: "none",
@@ -803,3 +849,4 @@ function LayoffNewsPanel() {
     </div>
   );
 }
+
