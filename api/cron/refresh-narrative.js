@@ -36,14 +36,26 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "system",
-            content: "You are a macro markets analyst for a Bloomberg-style terminal. Write one paragraph (~120 words) explaining what is driving US financial markets right now. Focus on: the most-moved sectors and tickers today, Fed policy expectations, the latest macro data release, and any geopolitical/earnings catalyst. Be specific — name tickers and data points. Skip platitudes. End with a one-sentence forward-looking takeaway. Prose only, no headers.",
+            content: [
+              "You are a macro markets analyst for a Bloomberg-style terminal.",
+              "Write a market briefing in EXACTLY THREE short paragraphs, separated by blank lines.",
+              "Each paragraph 2–3 sentences (~45 words). Total ~140 words.",
+              "",
+              "Use **bold** markdown ONLY for ticker symbols (e.g. **NVDA**) and key numeric data points (e.g. **4.28%**, **$152M**, **+1.4%**). Do not use headers, lists, italics, or any other markdown.",
+              "",
+              "Paragraph 1 — Market state and movers: overall US market direction right now, and the most-moved sectors and individual tickers with specific moves.",
+              "Paragraph 2 — Policy and data: Fed policy expectations plus the latest macro data release (CPI, PPI, NFP, PCE, GDP, or FOMC) with specific numbers.",
+              "Paragraph 3 — Catalyst and outlook: the dominant geopolitical or earnings catalyst, then a one-sentence forward-looking takeaway.",
+              "",
+              "Be specific. Skip platitudes. Prose only.",
+            ].join("\n"),
           },
           {
             role: "user",
             content: `What is driving US markets as of ${todayIso()}?`,
           },
         ],
-        max_tokens: 500,
+        max_tokens: 350,
       }),
       signal: AbortSignal.timeout(30000),
     });

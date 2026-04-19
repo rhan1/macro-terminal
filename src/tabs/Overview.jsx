@@ -566,7 +566,7 @@ export default function Overview() {
         </div>
 
         {/* Perplexity-sourced live narrative — today's market drivers */}
-        <NarrativePanel />
+        <NarrativePanel spyChangePct={spyChangePct} />
 
         {/* Analytical bullets */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -577,7 +577,7 @@ export default function Overview() {
                 style={{
                   margin: 0,
                   fontSize: 11,
-                  color: "var(--color-term-dim)",
+                  color: "hsl(220,12%,78%)",
                   lineHeight: 1.65,
                   display: "flex",
                   gap: 7,
@@ -1269,8 +1269,71 @@ export default function Overview() {
   );
 }
 
-// ── Today's Market Drivers — Perplexity Sonar-sourced paragraph ───────────────
-function NarrativePanel() {
+// ── Today's Market Drivers — Perplexity Sonar-sourced narrative ───────────────
+function tintFromPct(pct) {
+  if (pct == null) return { accent: "hsl(185,70%,55%)", border: "hsl(220,15%,14%)" };
+  if (pct > 0.3) return { accent: "hsl(142,70%,55%)", border: "hsla(142,70%,45%,0.35)" };
+  if (pct < -0.3) return { accent: "hsl(0,72%,55%)", border: "hsla(0,72%,45%,0.35)" };
+  return { accent: "hsl(185,70%,55%)", border: "hsl(220,15%,14%)" };
+}
+
+function hostnameFrom(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ""); }
+  catch { return url; }
+}
+
+function renderWithBoldAndCitations(text, sources) {
+  const pieces = [];
+  let key = 0;
+
+  const tokens = text.split(/(\*\*[^*]+\*\*|(?:\[\d+\])+)/g);
+  for (const tok of tokens) {
+    if (!tok) continue;
+    const boldMatch = tok.match(/^\*\*([^*]+)\*\*$/);
+    if (boldMatch) {
+      pieces.push(
+        <strong key={`b${key++}`} style={{ color: "hsl(220,15%,95%)", fontWeight: 600 }}>
+          {boldMatch[1]}
+        </strong>
+      );
+      continue;
+    }
+    if (/^(\[\d+\])+$/.test(tok)) {
+      const nums = [...tok.matchAll(/\[(\d+)\]/g)].map((m) => parseInt(m[1], 10));
+      const firstUrl = sources[nums[0] - 1]?.url;
+      const label = nums.length === 1 ? `[${nums[0]}]` : `[${nums.join(",")}]`;
+      if (firstUrl) {
+        pieces.push(
+          <a
+            key={`c${key++}`}
+            href={firstUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: "hsl(185,70%,60%)",
+              textDecoration: "none",
+              fontSize: 9,
+              verticalAlign: "super",
+              margin: "0 2px",
+              padding: "0 3px",
+              borderRadius: 2,
+              background: "hsla(185,70%,55%,0.1)",
+            }}
+          >
+            {label}
+          </a>
+        );
+      } else {
+        pieces.push(<span key={`c${key++}`}>{label}</span>);
+      }
+      continue;
+    }
+    pieces.push(<span key={`t${key++}`}>{tok}</span>);
+  }
+  return pieces;
+}
+
+function NarrativePanel({ spyChangePct }) {
   const { data, loading } = useOverviewNarrative();
 
   if (loading) return null;
@@ -1286,41 +1349,24 @@ function NarrativePanel() {
     return `${hrs}h ago`;
   })();
 
-  // Replace Perplexity's [1], [2] inline markers with superscript links to the citation URLs.
-  const renderWithCitations = (text) => {
-    const parts = text.split(/(\[\d+\])/g);
-    return parts.map((part, i) => {
-      const m = part.match(/^\[(\d+)\]$/);
-      if (!m) return part;
-      const idx = parseInt(m[1], 10) - 1;
-      const src = sources[idx];
-      if (!src?.url) return part;
-      return (
-        <a
-          key={i}
-          href={src.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            color: "hsl(185,70%,55%)",
-            textDecoration: "none",
-            fontSize: 9,
-            verticalAlign: "super",
-            margin: "0 1px",
-          }}
-        >
-          [{m[1]}]
-        </a>
-      );
-    });
-  };
+  const tint = tintFromPct(spyChangePct);
+  const paragraphs = data.paragraph.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
+  const uniqueSources = [];
+  const seenHosts = new Set();
+  for (const s of sources) {
+    if (!s?.url) continue;
+    const h = hostnameFrom(s.url);
+    if (seenHosts.has(h)) continue;
+    seenHosts.add(h);
+    uniqueSources.push({ url: s.url, host: h });
+  }
 
   return (
     <div
       style={{
         marginBottom: 14,
         paddingBottom: 12,
-        borderBottom: "1px solid hsl(220,15%,14%)",
+        borderBottom: `1px solid ${tint.border}`,
       }}
     >
       <div
@@ -1328,7 +1374,7 @@ function NarrativePanel() {
           fontSize: 9,
           textTransform: "uppercase",
           letterSpacing: "0.12em",
-          color: "hsl(185,70%,55%)",
+          color: tint.accent,
           fontWeight: 600,
           marginBottom: 6,
           display: "flex",
@@ -1341,16 +1387,51 @@ function NarrativePanel() {
           via Perplexity Sonar · {fetchedAgo}
         </span>
       </div>
-      <p
-        style={{
-          margin: 0,
-          fontSize: 11,
-          color: "var(--color-term-text)",
-          lineHeight: 1.7,
-        }}
-      >
-        {renderWithCitations(data.paragraph)}
-      </p>
+      {paragraphs.map((p, i) => (
+        <p
+          key={i}
+          style={{
+            margin: i === 0 ? "0 0 8px 0" : "0 0 8px 0",
+            fontSize: 11,
+            color: "var(--color-term-text)",
+            lineHeight: 1.7,
+          }}
+        >
+          {renderWithBoldAndCitations(p, sources)}
+        </p>
+      ))}
+      {uniqueSources.length > 0 && (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 9,
+            color: "hsl(220,10%,52%)",
+            letterSpacing: "0.04em",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 4,
+            alignItems: "baseline",
+          }}
+        >
+          <span style={{ color: "hsl(220,10%,42%)" }}>SOURCES</span>
+          {uniqueSources.map((s, i) => (
+            <span key={s.host} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              {i > 0 && <span style={{ color: "hsl(220,10%,28%)" }}>·</span>}
+              <a
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "hsl(185,70%,58%)",
+                  textDecoration: "none",
+                }}
+              >
+                {s.host}
+              </a>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
