@@ -41,18 +41,28 @@ function fgLabel(score) {
   return "EXTREME FEAR";
 }
 
-function sectorColor(pct) {
-  if (pct > 1.5) return "hsla(142,70%,55%,0.6)";
-  if (pct > 0.5) return "hsla(142,70%,55%,0.3)";
-  if (pct > -0.5) return "hsla(220,10%,40%,0.2)";
-  if (pct > -1.5) return "hsla(0,72%,55%,0.3)";
-  return "hsla(0,72%,55%,0.6)";
+const SECTOR_CLAMP = 3;
+const SECTOR_FILL = "hsl(220,20%,9%)";
+const SECTOR_NAME_COLOR = "hsl(220,15%,82%)";
+const SECTOR_PRICE_COLOR = "hsl(220,12%,58%)";
+
+function sectorBarHeight(pct) {
+  const clamped = Math.min(Math.abs(pct), SECTOR_CLAMP);
+  return clamped / SECTOR_CLAMP;
 }
 
-function sectorTextColor(pct) {
-  if (pct > 0.5) return GREEN;
-  if (pct > -0.5) return DIM;
-  return RED;
+function sectorBarColor(pct) {
+  if (Math.abs(pct) < 0.05) return "hsl(220,10%,45%)";
+  const hue = pct >= 0 ? 142 : 0;
+  const sat = pct >= 0 ? 70 : 72;
+  const mag = Math.min(Math.abs(pct), SECTOR_CLAMP);
+  const lightness = 45 + (mag / SECTOR_CLAMP) * 15;
+  return `hsl(${hue},${sat}%,${lightness}%)`;
+}
+
+function sectorPctColor(pct) {
+  if (Math.abs(pct) < 0.05) return "hsl(220,10%,75%)";
+  return pct >= 0 ? "hsl(142,70%,62%)" : "hsl(0,72%,62%)";
 }
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -243,20 +253,34 @@ export default function Sentiment() {
           {SECTOR_ETFS.map((sym) => {
             const d = sectorData?.[sym];
             const pct = d?.changePct ?? 0;
+            const barH = sectorBarHeight(pct);
+            const barColor = sectorBarColor(pct);
             return (
               <div key={sym} style={{
-                background: sectorColor(pct),
-                padding: "10px 6px",
+                position: "relative",
+                background: SECTOR_FILL,
+                padding: "10px 8px 10px 14px",
                 textAlign: "center",
                 border: `1px solid ${BORDER}`,
+                overflow: "hidden",
               }}>
-                <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.06em", marginBottom: 2 }}>
+                <div style={{
+                  position: "absolute",
+                  left: 0,
+                  bottom: 0,
+                  width: 4,
+                  height: `${barH * 100}%`,
+                  background: barColor,
+                  boxShadow: `0 0 6px ${barColor}`,
+                  transition: "height 300ms ease, background 300ms ease",
+                }} />
+                <div style={{ fontSize: 9, color: SECTOR_NAME_COLOR, letterSpacing: "0.06em", marginBottom: 2 }}>
                   {SECTOR_NAMES[sym] || sym}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: sectorTextColor(pct), fontFamily: '"JetBrains Mono", monospace' }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: sectorPctColor(pct), fontFamily: '"JetBrains Mono", monospace' }}>
                   {pct >= 0 ? "+" : ""}{pct.toFixed(2)}%
                 </div>
-                <div style={{ fontSize: 9, color: DIM }}>
+                <div style={{ fontSize: 9, color: SECTOR_PRICE_COLOR }}>
                   ${d?.price?.toFixed(2) ?? "—"}
                 </div>
               </div>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import Header from "./components/Header";
-import TabBar from "./components/TabBar";
+import TabBar, { TABS } from "./components/TabBar";
 import Footer from "./components/Footer";
+import CommandPalette from "./components/CommandPalette";
 import Overview from "./tabs/Overview";
 import Rates from "./tabs/Rates";
 import Inflation from "./tabs/Inflation";
@@ -15,6 +16,14 @@ import Auctions from "./tabs/Auctions";
 import AlternativeIndex from "./tabs/AlternativeIndex";
 
 const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "sentiment", "realestate", "ipo", "auctions", "altindex"];
+
+function isTypingTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (el.isContentEditable) return true;
+  return false;
+}
 
 const TAB_COMPONENTS = {
   overview: Overview,
@@ -32,11 +41,37 @@ const TAB_COMPONENTS = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("overview");
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
     function handleKey(e) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((p) => !p);
+        return;
+      }
+      if (isTypingTarget(e.target)) return;
+
+      if (e.key === "]" && !mod && !e.altKey) {
+        e.preventDefault();
+        setActiveTab((curr) => {
+          const idx = TAB_KEYS.indexOf(curr);
+          return TAB_KEYS[(idx + 1) % TAB_KEYS.length];
+        });
+        return;
+      }
+      if (e.key === "[" && !mod && !e.altKey) {
+        e.preventDefault();
+        setActiveTab((curr) => {
+          const idx = TAB_KEYS.indexOf(curr);
+          return TAB_KEYS[(idx - 1 + TAB_KEYS.length) % TAB_KEYS.length];
+        });
+        return;
+      }
+
       const num = parseInt(e.key, 10);
-      if (!isNaN(num) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (!isNaN(num) && !mod && !e.altKey) {
         if (num >= 1 && num <= 9) {
           e.preventDefault();
           setActiveTab(TAB_KEYS[num - 1]);
@@ -78,6 +113,12 @@ export default function App() {
         </div>
         <Footer />
       </main>
+      <CommandPalette
+        tabs={TABS}
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onSelect={setActiveTab}
+      />
     </div>
   );
 }

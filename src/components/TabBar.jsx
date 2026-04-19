@@ -1,15 +1,15 @@
 const TABS = [
-  { key: "overview", label: "OVERVIEW", num: "1" },
-  { key: "rates", label: "RATES", num: "2" },
-  { key: "inflation", label: "INFLATION", num: "3" },
-  { key: "growth", label: "GROWTH", num: "4" },
-  { key: "labor", label: "LABOR", num: "5" },
-  { key: "risk", label: "RISK", num: "6" },
-  { key: "sentiment", label: "SENTIMENT", num: "7" },
-  { key: "realestate", label: "REAL ESTATE", num: "8" },
-  { key: "ipo", label: "IPOs", num: "9" },
-  { key: "auctions", label: "BOND AUCTIONS", num: "0" },
-  { key: "altindex", label: "ALT INDEX", num: "" },
+  { key: "overview", label: "OVERVIEW", num: "1", subtitle: "Macro regime + today's market drivers" },
+  { key: "rates", label: "RATES", num: "2", subtitle: "Yield curve and Treasury rates" },
+  { key: "inflation", label: "INFLATION", num: "3", subtitle: "CPI, PCE, and price components" },
+  { key: "growth", label: "GROWTH", num: "4", subtitle: "GDP, ISM PMI, output indicators" },
+  { key: "labor", label: "LABOR", num: "5", subtitle: "Unemployment, payrolls, claims, layoffs" },
+  { key: "risk", label: "RISK", num: "6", subtitle: "VIX, credit spreads, financial stress" },
+  { key: "sentiment", label: "SENTIMENT", num: "7", subtitle: "Fear & Greed, sectors, Reddit buzz" },
+  { key: "realestate", label: "REAL ESTATE", num: "8", subtitle: "Housing prices, supply, construction" },
+  { key: "ipo", label: "IPOs", num: "9", subtitle: "Pipeline and pricing calendar" },
+  { key: "auctions", label: "BOND AUCTIONS", num: "0", subtitle: "Treasury auction results" },
+  { key: "altindex", label: "ALT INDEX", num: "", subtitle: "Alternative data — vice, travel, shipping" },
 ];
 
 export default function TabBar({ active, onSelect }) {
@@ -76,7 +76,7 @@ export default function TabBar({ active, onSelect }) {
         })}
       </div>
       <span className="keys-hint" style={{ fontSize: 10, color: "hsl(220,10%,52%)", letterSpacing: "0.05em" }}>
-        KEYS [1-9, 0] TO NAVIGATE
+        KEYS 1-9/0 · ⌘K SEARCH · [ ] NAV
       </span>
     </nav>
   );
