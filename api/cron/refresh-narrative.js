@@ -230,10 +230,14 @@ export default async function handler(req, res) {
           },
           {
             role: "user",
-            content: `List exactly 6 of the most important, concrete news items driving US equity, rates, and macro positioning decisions today (${todayIso()}). For each: one sentence of what happened, one sentence of WHY it matters for a macro investor's positioning. Cite sources. No generic summaries, no platitudes. Just facts and their positioning implications.`,
+            content: `List exactly 6 of the most important, concrete news items driving US equity, rates, and macro positioning decisions today (${todayIso()}). For each: one sentence of what happened, one sentence of WHY it matters for a macro investor's positioning.
+
+Cite from mainstream financial news (Bloomberg, Reuters, WSJ, FT, CNBC, MarketWatch, Barron's) or primary/official sources (Federal Reserve, Treasury, SEC, IMF, BLS, BEA). Do NOT cite YouTube, Twitter/X, blogs, Reddit, or forums.
+
+No generic summaries, no platitudes. Just facts and their positioning implications.`,
           },
         ],
-        max_tokens: 350,
+        max_tokens: 600,
       }),
       signal: AbortSignal.timeout(20000),
     });
@@ -264,17 +268,15 @@ export default async function handler(req, res) {
       "Paragraph 2: policy and macro data.",
       "Paragraph 3: dominant catalyst and forward-looking positioning setup.",
       "",
-      "Preserve the citation URLs from Perplexity as inline [source N] references in the paragraph text.",
+      "The Perplexity text already contains inline citation markers like [1], [2]. You MUST preserve these markers exactly as-is in your rewrite. Do NOT convert them to [source N] or any other format. Do NOT add new markers or remove existing ones.",
     ].join("\n");
 
     const anthropicUser = [
       `News items from Perplexity:\n${rawOutput}`,
       "",
-      `Perplexity citation URLs:\n${citationUrls.map((url, idx) => `[source ${idx + 1}] ${url}`).join("\n") || "None provided."}`,
-      "",
       `Ground truth:\n${groundTruth}`,
       "",
-      "Rewrite these into the required 3-paragraph briefing, using ONLY the ground-truth values for any SPY/QQQ/VIX/TLT/GLD/USO/HYG/10Y reference. Preserve the citation URLs from Perplexity in the text as [source N] references.",
+      "Rewrite these into the required 3-paragraph briefing, using ONLY the ground-truth values for any SPY/QQQ/VIX/TLT/GLD/USO/HYG/10Y reference.",
       "",
       "Return a JSON object with EXACTLY these keys:",
       "{",

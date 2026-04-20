@@ -630,21 +630,18 @@ export default function Overview() {
               MACRO REGIME: {regimeLabel}
             </span>
           </div>
-          {spyChangePct != null && (
-            <span style={{
-              fontSize: 10,
-              padding: "2px 8px",
-              borderRadius: 3,
-              fontFamily: '"JetBrains Mono", monospace',
-              letterSpacing: "0.04em",
-              color: spyChangePct >= 0 ? "var(--color-term-green)" : "var(--color-term-red)",
-              border: `1px solid ${spyChangePct >= 0 ? "hsla(142,70%,45%,0.35)" : "hsla(0,72%,45%,0.35)"}`,
-              background: spyChangePct >= 0 ? "hsla(142,70%,45%,0.06)" : "hsla(0,72%,45%,0.06)",
-              flexShrink: 0,
-            }}>
-              SPY {spyChangePct >= 0 ? "▲" : "▼"} {spyChangePct >= 0 ? "+" : ""}{spyChangePct.toFixed(2)}%
-            </span>
-          )}
+          <span style={{
+            fontSize: 10,
+            padding: "2px 8px",
+            borderRadius: 3,
+            fontFamily: '"JetBrains Mono", monospace',
+            letterSpacing: "0.04em",
+            color: "hsla(45,90%,55%,1)",
+            border: "1px solid hsla(45,90%,55%,0.35)",
+            background: "hsla(45,90%,55%,0.06)",
+          }}>
+            {TODAY}
+          </span>
         </div>
 
         {/* Reason line: WHY this regime is classified */}
@@ -689,7 +686,7 @@ export default function Overview() {
                   alignItems: "flex-start",
                 }}
               >
-                <span style={{ color: "var(--color-term-green)", flexShrink: 0, marginTop: 1 }}>&gt;</span>
+                <span style={{ color: "var(--color-term-dim)", flexShrink: 0, marginTop: 1 }}>&gt;</span>
                 <span>{bullet}</span>
               </p>
             ))}
