@@ -6,7 +6,6 @@ import { SERIES, latest, prior, change, formatNum, formatPct } from "../services
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
-import AsOfPill from "../components/AsOfPill";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -125,30 +124,158 @@ function DeltaArrow({ current, prior, bullish }) {
   return <span style={{ color, marginLeft: 3, fontSize: 10 }}>{up ? "▲" : "▼"}</span>;
 }
 
-function FredRow({ label, value, prior, unit, bullish }) {
-  const diff = (value != null && prior != null) ? value - prior : null;
-  const hasDiff = diff != null && Math.abs(diff) > 1e-6;
-  let arrowColor = "var(--color-term-dim)";
-  let arrow = "▬";
-  if (hasDiff) {
-    const up = diff > 0;
-    arrow = up ? "▲" : "▼";
-    if (bullish === null) arrowColor = "var(--color-term-dim)";
-    else if ((up && bullish) || (!up && !bullish)) arrowColor = "var(--color-term-green)";
-    else arrowColor = "var(--color-term-red)";
+// ── Analytical Bullets ────────────────────────────────────────────────────────
+function buildBullets(data) {
+  const gdpVal = val(data, "GDP");
+  const gdpPrior = prior(data.GDP)?.value;
+  const cpiVal = val(data, "CPI");
+  const cpiPrior = prior(data.CPI)?.value;
+  const pceVal = val(data, "COREPCE");
+  const pcePrior = prior(data.COREPCE)?.value;
+  const unrateVal = val(data, "UNRATE");
+  const unratePrior = prior(data.UNRATE)?.value;
+  const payemsVal = val(data, "PAYEMS");
+  const payemsPrior = prior(data.PAYEMS)?.value;
+  const fedVal = val(data, "FEDFUNDS");
+  const t10Val = val(data, "DGS10");
+  const t10y2yVal = val(data, "T10Y2Y");
+  const recVal = val(data, "RECESSION");
+
+  const bullets = [];
+
+  if (gdpVal != null) {
+    const regimeCall =
+      gdpVal >= 3.0 ? "a pace that historically sustains broad cyclical exposure" :
+      gdpVal >= 2.5 ? "above potential, which favors cyclical overweight but not indiscriminate risk-on" :
+      gdpVal >= 2.0 ? "still above trend, though the margin for error is narrowing" :
+      gdpVal >= 0.5 ? "below trend - the economy is decelerating into stall-speed territory" :
+      gdpVal >= 0 ? "near-stall, where the probability of outright contraction rises sharply" :
+      "contraction - technical recession criteria are being met";
+    const momentumNote =
+      gdpPrior != null
+        ? gdpVal > gdpPrior
+          ? `accelerating from a prior ${formatNum(gdpPrior, 1)}%, which strengthens the expansion case`
+          : gdpVal < gdpPrior
+          ? `decelerating from ${formatNum(gdpPrior, 1)}% - the direction of travel matters as much as the level`
+          : `unchanged from the prior ${formatNum(gdpPrior, 1)}%, offering no incremental signal`
+        : null;
+    const positionNote =
+      gdpVal < 1 ? "At sub-1%, the playbook shifts decisively to defensives and duration." :
+      gdpVal >= 2.5 ? "This pace supports selective cyclical exposure while maintaining quality discipline." :
+      "Mid-cycle velocity argues for quality over momentum and patience over conviction.";
+    bullets.push(
+      <>
+        The U.S. economy grew at{" "}
+        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(gdpVal, 1)}%</strong>
+        <DeltaArrow current={gdpVal} prior={gdpPrior} bullish={true} /> annualized,
+        {momentumNote ? ` ${momentumNote} - ` : " "}
+        {regimeCall}. Growth velocity sets the risk-asset regime, and the current trajectory is the
+        primary variable to watch. {positionNote}
+      </>
+    );
+  } else {
+    bullets.push("GDP data is not yet available from FRED - the growth regime cannot be assessed with confidence.");
   }
-  return (
-    <>
-      <span style={{ color: "var(--color-term-dim)", fontSize: 10, letterSpacing: "0.06em" }}>{label}</span>
-      <span style={{ color: "var(--color-term-text)" }}>
-        {value != null ? value.toFixed(2) + unit : "—"}
-      </span>
-      <span style={{ color: arrowColor, textAlign: "center" }}>{arrow}</span>
-      <span style={{ color: "var(--color-term-dim)", fontSize: 10 }}>
-        {prior != null ? `from ${prior.toFixed(2)}${unit}` : ""}
-      </span>
-    </>
-  );
+
+  if (cpiVal != null || pceVal != null) {
+    const inf = cpiVal ?? pceVal;
+    const lbl = cpiVal != null ? "CPI" : "Core PCE";
+    const gap = inf - 2.0;
+    const gapStr = gap > 0 ? `${formatNum(gap, 1)}pp above` : `${formatNum(Math.abs(gap), 1)}pp below`;
+    const lastMileNote =
+      inf > 4.0 ? "Rate cuts are off the table until the Fed sees sustained, material disinflation - the policy path is unambiguously higher for longer." :
+      inf > 3.0 ? "The last mile of disinflation is proving sticky, and a premature pivot would risk a second inflation wave. The Fed cannot afford to blink." :
+      inf > 2.5 ? "Disinflation is progressing, but the final leg back to 2% has historically been the hardest. The Fed retains a tightening bias." :
+      inf > 1.5 ? "Inflation is functionally on target, giving the Fed meaningful optionality to ease without sacrificing credibility." :
+      "Inflation has undershot the target - disinflationary forces are dominant, and the easing case is building.";
+    bullets.push(
+      <>
+        Inflation remains the binding constraint for policy. {lbl} is running at{" "}
+        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(inf, 2)}%</strong>
+        <DeltaArrow current={cpiVal != null ? cpiVal : pceVal} prior={cpiVal != null ? cpiPrior : pcePrior} bullish={false} />,{" "}
+        {gapStr} the Fed&apos;s 2% target. {lastMileNote}
+        {pceVal != null && (
+          <>
+            {" "}Core PCE at{" "}
+            <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(pceVal, 2)}%</strong>
+            <DeltaArrow current={pceVal} prior={pcePrior} bullish={false} /> - the Fed&apos;s
+            preferred gauge - confirms the picture.
+          </>
+        )}
+      </>
+    );
+  } else {
+    bullets.push("Inflation data is not yet available from FRED - the policy constraint cannot be fully assessed.");
+  }
+
+  if (unrateVal != null) {
+    const nairu = 4.2;
+    const gap = unrateVal - nairu;
+    const laborRead =
+      gap < -0.5 ? `${formatNum(Math.abs(gap), 1)}pp below NAIRU, embedding wage pressure that keeps the Fed's hands tied` :
+      gap < 0.3 ? "essentially at NAIRU - labor supply and demand are in rough balance" :
+      gap < 1.0 ? `${formatNum(gap, 1)}pp above NAIRU, with slack beginning to build and wage growth softening` :
+      `${formatNum(gap, 1)}pp above NAIRU - meaningful slack has opened up, and consumer demand is feeling the pressure`;
+    const payNote = payemsVal != null
+      ? (
+          <>
+            {" "}Monthly payrolls are tracking around{" "}
+            <strong style={{ color: "hsl(220,15%,95%)" }}>{Math.round(payemsVal)}K</strong>
+            <DeltaArrow current={payemsVal} prior={payemsPrior} bullish={true} /> - above the ~100K
+            break-even needed to absorb new labor force entrants.
+          </>
+        )
+      : "";
+    const sahmNote =
+      unrateVal > 5.5
+        ? "History shows that unemployment at this level compresses consumer spending with a 6-12 month lag - the second-order effects are worth watching."
+        : "Tight labor market conditions are the primary support for consumer resilience, but they also keep inflation from falling cleanly.";
+    bullets.push(
+      <>
+        Unemployment stands at{" "}
+        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(unrateVal, 1)}%</strong>
+        <DeltaArrow current={unrateVal} prior={unratePrior} bullish={false} />, {laborRead}.
+        {payNote} The Sahm Rule - triggered by a 0.5pp rise from the 12-month low - remains the
+        cleanest real-time recession signal. {sahmNote}
+      </>
+    );
+  } else {
+    bullets.push("Unemployment data is not yet available from FRED - labor market conditions cannot be assessed.");
+  }
+
+  if (fedVal != null) {
+    const realRate = cpiVal != null ? fedVal - cpiVal : null;
+    const rateRead =
+      fedVal >= 5.0 ? "deeply in restrictive territory - financial conditions are meaningfully tight" :
+      fedVal >= 3.5 ? "in restrictive territory, actively restraining credit and investment" :
+      fedVal >= 2.5 ? "at the boundary of neutral - neither stimulative nor clearly restrictive" :
+      fedVal >= 1.5 ? "accommodative, providing a tailwind to risk assets and credit" :
+      "at emergency-level accommodation - the Fed is in crisis-fighting mode";
+    const realRateNote = realRate != null
+      ? ` The real rate - Fed Funds minus CPI - sits at ${realRate > 0 ? "+" : ""}${formatNum(realRate, 2)}%, the truest measure of how tight conditions actually are.`
+      : "";
+    const curveNote =
+      t10y2yVal != null
+        ? t10y2yVal < -0.5
+          ? ` The curve remains deeply inverted (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) - historically the most reliable recession signal, with a 12-18 month average lead time.`
+          : t10y2yVal < 0
+          ? ` A shallow inversion persists (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) - the recessionary signal is there, but timing is uncertain.`
+          : t10y2yVal < 0.5
+          ? ` The curve is normalizing (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) - disinversion is underway, but a return to expansion-phase steepness is not confirmed.`
+          : ` The curve has re-steepened (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) - an expansion-phase structure that is supportive of credit conditions.`
+        : "";
+    const recNote = recVal != null
+      ? ` FRED's recession probability model is at ${formatNum(recVal, 1)}% - ${recVal > 30 ? "an elevated reading that has historically preceded recession within 12 months" : recVal > 10 ? "a moderate risk reading that warrants monitoring" : "a subdued reading, below levels that historically demand defensive repositioning"}.`
+      : "";
+    bullets.push(
+      `Fed Funds at ${formatNum(fedVal, 2)}% places policy ${rateRead}. ` +
+      `The 10Y Treasury is ${t10Val != null ? `at ${formatNum(t10Val, 3)}%` : "unavailable"}.${realRateNote}${curveNote}${recNote}`
+    );
+  } else {
+    bullets.push("Fed Funds rate data is not yet available from FRED - the policy stance cannot be assessed.");
+  }
+
+  return bullets;
 }
 
 // ── Upcoming Events ───────────────────────────────────────────────────────────
@@ -341,16 +468,7 @@ export default function Overview() {
   // ── Regime ────────────────────────────────────────────────────────────────
   const regimeLabel = getMacroRegime(cpiVal, gdpVal, vixVal);
   const regimeReasonText = regimeReason(regimeLabel, { cpiVal, gdpVal, vixVal, unrateVal, t10y2yVal });
-  const latestFredDate = [
-    latest(data.CPI)?.date,
-    latest(data.GDP)?.date,
-    latest(data.UNRATE)?.date,
-    latest(data.FEDFUNDS)?.date,
-    latest(data.DGS10)?.date,
-  ]
-    .filter(Boolean)
-    .sort()
-    .at(-1);
+  const bullets = buildBullets(data);
 
   // ── S&P 500 chart data (Yahoo Finance 1Y) ────────────────────────────────
   const spChartData = spyChart?.points
@@ -505,30 +623,28 @@ export default function Overview() {
           borderRadius: 4,
         }}
       >
-        {/* Header row: icon + regime label + SPY pill + AS-OF pill (right) */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span className="glow-amber" style={{ fontSize: 18, color: regimeTint.accent, lineHeight: 1 }}>⚠</span>
             <span className="glow-amber" style={{ fontSize: 14, fontWeight: "bold", color: regimeTint.accent, letterSpacing: "0.08em" }}>
               MACRO REGIME: {regimeLabel}
             </span>
-            {spyChangePct != null && (
-              <span style={{
-                fontSize: 10,
-                padding: "2px 8px",
-                borderRadius: 3,
-                fontFamily: '"JetBrains Mono", monospace',
-                letterSpacing: "0.04em",
-                color: spyChangePct >= 0 ? "var(--color-term-green)" : "var(--color-term-red)",
-                border: `1px solid ${spyChangePct >= 0 ? "hsla(142,70%,45%,0.35)" : "hsla(0,72%,45%,0.35)"}`,
-                background: spyChangePct >= 0 ? "hsla(142,70%,45%,0.06)" : "hsla(0,72%,45%,0.06)",
-              }}>
-                SPY {spyChangePct >= 0 ? "▲" : "▼"} {spyChangePct >= 0 ? "+" : ""}{spyChangePct.toFixed(2)}%
-              </span>
-            )}
           </div>
-          {/* Use the most recent FRED observation date as the canonical "as of" for this box */}
-          {latestFredDate && <AsOfPill date={latestFredDate} />}
+          {spyChangePct != null && (
+            <span style={{
+              fontSize: 10,
+              padding: "2px 8px",
+              borderRadius: 3,
+              fontFamily: '"JetBrains Mono", monospace',
+              letterSpacing: "0.04em",
+              color: spyChangePct >= 0 ? "var(--color-term-green)" : "var(--color-term-red)",
+              border: `1px solid ${spyChangePct >= 0 ? "hsla(142,70%,45%,0.35)" : "hsla(0,72%,45%,0.35)"}`,
+              background: spyChangePct >= 0 ? "hsla(142,70%,45%,0.06)" : "hsla(0,72%,45%,0.06)",
+              flexShrink: 0,
+            }}>
+              SPY {spyChangePct >= 0 ? "▲" : "▼"} {spyChangePct >= 0 ? "+" : ""}{spyChangePct.toFixed(2)}%
+            </span>
+          )}
         </div>
 
         {/* Reason line: WHY this regime is classified */}
@@ -545,7 +661,6 @@ export default function Overview() {
 
         <NarrativePanel spyChangePct={spyChangePct} />
 
-        {/* FRED LATEST — compact table */}
         <div style={{
           marginTop: 14,
           paddingTop: 12,
@@ -558,13 +673,26 @@ export default function Overview() {
             color: "hsl(220,10%,42%)",
             marginBottom: 8,
           }}>
-            FRED Latest
+            Analytical Brief · via FRED
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 40px 60px", rowGap: 6, columnGap: 12, fontSize: 11, color: "var(--color-term-text)", fontFamily: '"JetBrains Mono", monospace' }}>
-            <FredRow label="GDP (QoQ %)" value={gdpVal} prior={gdpPriorVal} unit="%" bullish={true} />
-            <FredRow label="CPI (YoY %)" value={cpiVal} prior={cpiPriorVal} unit="%" bullish={false} />
-            <FredRow label="Unemployment" value={unrateVal} prior={unratePrior} unit="%" bullish={false} />
-            <FredRow label="Fed Funds" value={fedVal} prior={fedPriorVal} unit="%" bullish={null} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {bullets.map((bullet, i) => (
+              <p
+                key={i}
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  color: "var(--color-term-text)",
+                  lineHeight: 1.65,
+                  display: "flex",
+                  gap: 7,
+                  alignItems: "flex-start",
+                }}
+              >
+                <span style={{ color: "var(--color-term-green)", flexShrink: 0, marginTop: 1 }}>&gt;</span>
+                <span>{bullet}</span>
+              </p>
+            ))}
           </div>
         </div>
       </div>
@@ -1439,14 +1567,14 @@ function NarrativePanel({ spyChangePct }) {
         <div style={{
           marginTop: 10,
           padding: "8px 10px",
-          borderLeft: `3px solid var(--color-term-green)`,
-          background: "hsla(142,70%,45%,0.06)",
+          borderLeft: `3px solid ${tint.accent}`,
+          background: "hsla(220,15%,11%,0.5)",
           fontSize: 11,
           color: "var(--color-term-text)",
           lineHeight: 1.6,
           fontWeight: 500,
         }}>
-          <span style={{ color: "var(--color-term-green)", fontWeight: 700, letterSpacing: "0.08em", marginRight: 8, fontSize: 9 }}>
+          <span style={{ color: tint.accent, fontWeight: 700, letterSpacing: "0.08em", marginRight: 8, fontSize: 9 }}>
             POSITIONING ▸
           </span>
           {renderWithBoldAndCitations(data.takeaway, sources)}
