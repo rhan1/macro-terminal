@@ -13,6 +13,43 @@ const PERPLEXITY_MODEL = "sonar-pro";
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const FINAL_MODEL = "sonar-pro+claude-haiku-4-5";
 const FALLBACK_MODEL = "sonar-pro-fallback";
+const SONAR_SEARCH_DOMAIN_FILTER = [
+  "bloomberg.com",
+  "reuters.com",
+  "wsj.com",
+  "ft.com",
+  "cnbc.com",
+  "marketwatch.com",
+  "barrons.com",
+  "economist.com",
+  "bls.gov",
+  "bea.gov",
+  "federalreserve.gov",
+  "treasury.gov",
+  "sec.gov",
+  "imf.org",
+  "worldbank.org",
+  "nytimes.com",
+  "washingtonpost.com",
+  "axios.com",
+  "yahoo.com",
+];
+const DISALLOWED_CITATION_HOSTNAMES = new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "twitter.com",
+  "www.twitter.com",
+  "x.com",
+  "www.x.com",
+  "reddit.com",
+  "www.reddit.com",
+  "tiktok.com",
+  "www.tiktok.com",
+  "facebook.com",
+  "www.facebook.com",
+  "instagram.com",
+  "www.instagram.com",
+]);
 // Example: sanitizeParagraph("S&P 500 above 7,150", { "S&P 500": 7101 }) should replace "7,150" with "7,101"
 
 const SANITIZER_CONFIG = {
@@ -106,6 +143,14 @@ function parseJsonObject(text) {
 function normalizeSources(urls) {
   return [...new Set((Array.isArray(urls) ? urls : []).filter(Boolean).map((url) => String(url).trim()))]
     .map((url) => ({ url, title: null }));
+}
+
+function isDisallowedCitationUrl(url) {
+  try {
+    return DISALLOWED_CITATION_HOSTNAMES.has(new URL(url).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
 }
 
 function sanitizeParagraph(text, lookup) {
@@ -232,12 +277,13 @@ export default async function handler(req, res) {
             role: "user",
             content: `List exactly 6 of the most important, concrete news items driving US equity, rates, and macro positioning decisions today (${todayIso()}). For each: one sentence of what happened, one sentence of WHY it matters for a macro investor's positioning.
 
-Cite from mainstream financial news (Bloomberg, Reuters, WSJ, FT, CNBC, MarketWatch, Barron's) or primary/official sources (Federal Reserve, Treasury, SEC, IMF, BLS, BEA). Do NOT cite YouTube, Twitter/X, blogs, Reddit, or forums.
+Cite from mainstream financial news (Bloomberg, Reuters, WSJ, FT, CNBC, MarketWatch, Barron's) or primary/official sources (Federal Reserve, Treasury, SEC, IMF, BLS, BEA).
 
 No generic summaries, no platitudes. Just facts and their positioning implications.`,
           },
         ],
         max_tokens: 600,
+        search_domain_filter: SONAR_SEARCH_DOMAIN_FILTER,
       }),
       signal: AbortSignal.timeout(20000),
     });
@@ -248,7 +294,15 @@ No generic summaries, no platitudes. Just facts and their positioning implicatio
     const perplexityPayload = await perplexityResp.json();
     const rawOutput = perplexityPayload?.choices?.[0]?.message?.content?.trim() ?? "";
     const citationUrls = Array.isArray(perplexityPayload?.citations) ? perplexityPayload.citations : [];
-    const fallbackSources = normalizeSources(citationUrls);
+    const filteredCitationUrls = citationUrls.filter((url) => !isDisallowedCitationUrl(url));
+    const filteredCount = citationUrls.length - filteredCitationUrls.length;
+    if (filteredCount > 0) {
+      console.warn(`[narrative] filtered ${filteredCount} disallowed-domain citations`);
+    }
+    const fallbackSources = normalizeSources(filteredCitationUrls);
+    if (fallbackSources.length === 0) {
+      console.warn("[narrative] zero sources after filter");
+    }
     if (rawOutput.length < 80) return res.status(502).json({ error: "paragraph too short" });
 
     const anthropicSystem = [
