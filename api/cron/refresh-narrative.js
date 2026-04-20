@@ -13,18 +13,6 @@ const PERPLEXITY_MODEL = "sonar-pro";
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const FINAL_MODEL = "sonar-pro+claude-haiku-4-5";
 const FALLBACK_MODEL = "sonar-pro-fallback";
-const SONAR_SEARCH_DOMAIN_FILTER = [
-  "bloomberg.com",
-  "reuters.com",
-  "wsj.com",
-  "ft.com",
-  "cnbc.com",
-  "marketwatch.com",
-  "federalreserve.gov",
-  "treasury.gov",
-  "bls.gov",
-  "bea.gov",
-];
 const DISALLOWED_CITATION_HOSTNAMES = new Set([
   "youtube.com",
   "www.youtube.com",
@@ -260,11 +248,7 @@ export default async function handler(req, res) {
         },
         {
           role: "user",
-          content: `List exactly 6 of the most important, concrete news items driving US equity, rates, and macro positioning decisions today (${todayIso()}). For each: one sentence of what happened, one sentence of WHY it matters for a macro investor's positioning.
-
-Cite from mainstream financial news (Bloomberg, Reuters, WSJ, FT, CNBC, MarketWatch, Barron's) or primary/official sources (Federal Reserve, Treasury, SEC, IMF, BLS, BEA).
-
-No generic summaries, no platitudes. Just facts and their positioning implications.`,
+          content: `What are the most important news items driving US markets today (${todayIso()})? Provide detailed context for each development — what happened, who is affected, and why it matters for macro positioning. Cite all sources.`,
         },
       ],
       max_tokens: 600,
@@ -288,36 +272,20 @@ No generic summaries, no platitudes. Just facts and their positioning implicatio
 
     let perplexityPayload;
     try {
-      perplexityPayload = await fetchPerplexity({
-        ...perplexityBody,
-        search_domain_filter: SONAR_SEARCH_DOMAIN_FILTER,
-      });
+      perplexityPayload = await fetchPerplexity(perplexityBody);
     } catch (error) {
       return res.status(502).json({ error: error.message });
     }
 
     let rawOutput = perplexityPayload?.choices?.[0]?.message?.content?.trim() ?? "";
     let citationUrls = Array.isArray(perplexityPayload?.citations) ? perplexityPayload.citations : [];
-    let filteredCitationUrls = citationUrls.filter((url) => !isDisallowedCitationUrl(url));
-    let fallbackSources = normalizeSources(filteredCitationUrls);
-
-    if (citationUrls.length === 0 || fallbackSources.length === 0) {
-      console.warn("[narrative] search_domain_filter returned 0 sources, retrying without filter");
-      try {
-        perplexityPayload = await fetchPerplexity(perplexityBody);
-      } catch (error) {
-        return res.status(502).json({ error: error.message });
-      }
-      rawOutput = perplexityPayload?.choices?.[0]?.message?.content?.trim() ?? "";
-      citationUrls = Array.isArray(perplexityPayload?.citations) ? perplexityPayload.citations : [];
-      filteredCitationUrls = citationUrls.filter((url) => !isDisallowedCitationUrl(url));
-      fallbackSources = normalizeSources(filteredCitationUrls);
-    }
-
-    const filteredCount = citationUrls.length - filteredCitationUrls.length;
+    const preFilterCount = citationUrls.length;
+    citationUrls = citationUrls.filter((url) => !isDisallowedCitationUrl(url));
+    const filteredCount = preFilterCount - citationUrls.length;
     if (filteredCount > 0) {
       console.warn(`[narrative] filtered ${filteredCount} disallowed-domain citations`);
     }
+    const fallbackSources = normalizeSources(citationUrls);
     console.info(`[narrative] sources after filter: ${fallbackSources.length}`);
     if (fallbackSources.length === 0) {
       console.warn("[narrative] zero sources after filter");
