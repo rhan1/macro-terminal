@@ -40,6 +40,10 @@
       "schedule": "0 10 * * 2"
     },
     {
+      "path": "/api/cron/refresh-trends",
+      "schedule": "0 11 * * 1"
+    },
+    {
       "path": "/api/cron/refresh-committees",
       "schedule": "0 8 1 * *"
     }
