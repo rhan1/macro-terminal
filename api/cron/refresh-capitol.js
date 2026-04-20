@@ -177,6 +177,15 @@ function aggregateTickerTrades(trades, side, days) {
   return [...map.values()].sort((a, b) => b.netDollar - a.netDollar).slice(0, 10).map((x) => ({ ...x, politicians: [...x.politicians] }));
 }
 
+function tradeDedupKey(trade) {
+  return [
+    trade?.politician || "",
+    trade?.ticker || "",
+    trade?.side || "",
+    trade?.tradeDate || "",
+  ].join("|");
+}
+
 export default async function handler(req, res) {
   try {
     if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) return res.status(401).json({ error: "unauthorized" });
@@ -212,16 +221,24 @@ export default async function handler(req, res) {
 
     // Dedupe by composite key (CapitolTrades doesn't always fill txId for every row)
     const seen = new Set();
+    const seenStable = new Set();
     const trades = [];
+    let duplicateCount = 0;
     for (const trade of pageTrades) {
       // Filter by filedDate (when the disclosure entered the public record) so
       // late-filed trades from prior years still count toward the 365-day window.
       if ((trade.filedDate || trade.tradeDate) < cutoff) continue;
       const key = trade.txId != null ? `tx-${trade.txId}` : `${trade.politician}-${trade.ticker}-${trade.tradeDate}-${trade.side}`;
-      if (seen.has(key)) continue;
+      const stableKey = tradeDedupKey(trade);
+      if (seen.has(key) || seenStable.has(stableKey)) {
+        duplicateCount += 1;
+        continue;
+      }
       seen.add(key);
+      seenStable.add(stableKey);
       trades.push(trade);
     }
+    if (duplicateCount > 0) console.debug(`[capitol] dropped ${duplicateCount} duplicate trades`);
     if (!anyRows || trades.length < 30) return res.status(502).json({ error: "too few trades parsed", tradeCount: trades.length });
 
     const last14 = isoDaysAgo(14);

@@ -14,8 +14,23 @@ function fmtDate(iso) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function committeeTradeDedupKey(trade) {
+  return [
+    trade?.politician || "",
+    trade?.ticker || "",
+    trade?.side || "",
+    trade?.tradeDate || "",
+  ].join("|");
+}
+
 export default function CapitolCommitteeBox({ items }) {
-  const rows = (items || []).slice(0, 10);
+  const sourceRows = items || [];
+  const dedupedRows = sourceRows.filter(
+    (trade, index, arr) => arr.findIndex((t) => committeeTradeDedupKey(t) === committeeTradeDedupKey(trade)) === index,
+  );
+  const duplicateCount = sourceRows.length - dedupedRows.length;
+  if (duplicateCount > 0) console.debug(`[capitol] dropped ${duplicateCount} duplicate trades`);
+  const rows = dedupedRows.slice(0, 10);
   return (
     <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
