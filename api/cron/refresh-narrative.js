@@ -20,19 +20,10 @@ const SONAR_SEARCH_DOMAIN_FILTER = [
   "ft.com",
   "cnbc.com",
   "marketwatch.com",
-  "barrons.com",
-  "economist.com",
-  "bls.gov",
-  "bea.gov",
   "federalreserve.gov",
   "treasury.gov",
-  "sec.gov",
-  "imf.org",
-  "worldbank.org",
-  "nytimes.com",
-  "washingtonpost.com",
-  "axios.com",
-  "yahoo.com",
+  "bls.gov",
+  "bea.gov",
 ];
 const DISALLOWED_CITATION_HOSTNAMES = new Set([
   "youtube.com",
@@ -260,46 +251,74 @@ export default async function handler(req, res) {
       `High-yield credit (HYG) = ${f("HYG")}`,
     ].join("\n");
 
-    const perplexityResp = await fetch(PERPLEXITY_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${perplexityKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: PERPLEXITY_MODEL,
-        messages: [
-          {
-            role: "system",
-            content: "Include citations.",
-          },
-          {
-            role: "user",
-            content: `List exactly 6 of the most important, concrete news items driving US equity, rates, and macro positioning decisions today (${todayIso()}). For each: one sentence of what happened, one sentence of WHY it matters for a macro investor's positioning.
+    const perplexityBody = {
+      model: PERPLEXITY_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "Include citations.",
+        },
+        {
+          role: "user",
+          content: `List exactly 6 of the most important, concrete news items driving US equity, rates, and macro positioning decisions today (${todayIso()}). For each: one sentence of what happened, one sentence of WHY it matters for a macro investor's positioning.
 
 Cite from mainstream financial news (Bloomberg, Reuters, WSJ, FT, CNBC, MarketWatch, Barron's) or primary/official sources (Federal Reserve, Treasury, SEC, IMF, BLS, BEA).
 
 No generic summaries, no platitudes. Just facts and their positioning implications.`,
-          },
-        ],
-        max_tokens: 600,
-        search_domain_filter: SONAR_SEARCH_DOMAIN_FILTER,
-      }),
-      signal: AbortSignal.timeout(20000),
-    });
-    if (!perplexityResp.ok) {
-      return res.status(502).json({ error: `Perplexity HTTP ${perplexityResp.status}` });
+        },
+      ],
+      max_tokens: 600,
+    };
+
+    async function fetchPerplexity(payload) {
+      const response = await fetch(PERPLEXITY_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${perplexityKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!response.ok) {
+        throw new Error(`Perplexity HTTP ${response.status}`);
+      }
+      return response.json();
     }
 
-    const perplexityPayload = await perplexityResp.json();
-    const rawOutput = perplexityPayload?.choices?.[0]?.message?.content?.trim() ?? "";
-    const citationUrls = Array.isArray(perplexityPayload?.citations) ? perplexityPayload.citations : [];
-    const filteredCitationUrls = citationUrls.filter((url) => !isDisallowedCitationUrl(url));
+    let perplexityPayload;
+    try {
+      perplexityPayload = await fetchPerplexity({
+        ...perplexityBody,
+        search_domain_filter: SONAR_SEARCH_DOMAIN_FILTER,
+      });
+    } catch (error) {
+      return res.status(502).json({ error: error.message });
+    }
+
+    let rawOutput = perplexityPayload?.choices?.[0]?.message?.content?.trim() ?? "";
+    let citationUrls = Array.isArray(perplexityPayload?.citations) ? perplexityPayload.citations : [];
+    let filteredCitationUrls = citationUrls.filter((url) => !isDisallowedCitationUrl(url));
+    let fallbackSources = normalizeSources(filteredCitationUrls);
+
+    if (citationUrls.length === 0 || fallbackSources.length === 0) {
+      console.warn("[narrative] search_domain_filter returned 0 sources, retrying without filter");
+      try {
+        perplexityPayload = await fetchPerplexity(perplexityBody);
+      } catch (error) {
+        return res.status(502).json({ error: error.message });
+      }
+      rawOutput = perplexityPayload?.choices?.[0]?.message?.content?.trim() ?? "";
+      citationUrls = Array.isArray(perplexityPayload?.citations) ? perplexityPayload.citations : [];
+      filteredCitationUrls = citationUrls.filter((url) => !isDisallowedCitationUrl(url));
+      fallbackSources = normalizeSources(filteredCitationUrls);
+    }
+
     const filteredCount = citationUrls.length - filteredCitationUrls.length;
     if (filteredCount > 0) {
       console.warn(`[narrative] filtered ${filteredCount} disallowed-domain citations`);
     }
-    const fallbackSources = normalizeSources(filteredCitationUrls);
+    console.info(`[narrative] sources after filter: ${fallbackSources.length}`);
     if (fallbackSources.length === 0) {
       console.warn("[narrative] zero sources after filter");
     }
