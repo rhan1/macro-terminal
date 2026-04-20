@@ -4,6 +4,7 @@ import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } f
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
+import AsOfPill from "../components/AsOfPill";
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line, BarChart, Bar,
   XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine,
@@ -838,6 +839,7 @@ export default function RealEstate() {
           sourceUrl="https://fred.stlouisfed.org/series/CSUSHPINSA"
           dateLabel={fmtCardDate(latest(csArr)?.date)}
           sparkData={csArr?.slice(0, 12)}
+          headerRight={csLatest?.date ? <AsOfPill date={csLatest.date} /> : undefined}
         />
 
         <IndicatorCard

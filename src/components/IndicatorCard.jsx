@@ -57,6 +57,7 @@ function Sparkline({ data, color, width = 100, height = 30 }) {
 
 export default function IndicatorCard({
   label,
+  headerRight,
   value,
   unit = "",
   change,
@@ -93,8 +94,11 @@ export default function IndicatorCard({
       {/* Top: label+value (left) + badge (right, top-aligned) */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
         <div>
-          <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,52%)", marginBottom: 2 }}>
-            {label}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+            <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "hsl(220,10%,52%)" }}>
+              {label}
+            </div>
+            {headerRight}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span

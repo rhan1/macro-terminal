@@ -4,6 +4,7 @@ import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } f
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
+import AsOfPill from "../components/AsOfPill";
 import {
   ResponsiveContainer,
   BarChart,
@@ -550,6 +551,7 @@ export default function Growth() {
           decimals={1}
           dateLabel={fmtCardQuarter(latest(gdpRaw)?.date)}
           sparkData={gdpRaw?.slice(0, 12)}
+          headerRight={gdpLatest?.date ? <AsOfPill date={gdpLatest.date} /> : undefined}
         />
 
         <IndicatorCard

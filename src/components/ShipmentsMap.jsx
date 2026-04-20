@@ -10,13 +10,12 @@ const BORDER = "hsl(220,15%,14%)";
 const DIM = "var(--color-term-dim, hsl(220,10%,52%))";
 const TEXT = "var(--color-term-text, hsl(220,15%,88%))";
 const AMBER = "hsl(45, 90%, 55%)";
-const AMBER_FILL = "hsla(45, 90%, 55%, 0.18)";
 const ORANGE = "hsl(20, 80%, 55%)";
 const RED = "hsl(0, 72%, 55%)";
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
-const CHOKEPOINTS = [
+export const CHOKEPOINTS = [
   { name: "BAB EL-MANDEB", bounds: { north: 13, south: 12, west: 43, east: 44 } },
   { name: "RED SEA SOUTH", bounds: { north: 20, south: 13, west: 38, east: 43 } },
   { name: "RED SEA NORTH", bounds: { north: 30, south: 20, west: 32, east: 38 } },
@@ -24,14 +23,6 @@ const CHOKEPOINTS = [
   { name: "GULF OF ADEN", bounds: { north: 15, south: 11, west: 43, east: 52 } },
   { name: "STRAIT OF HORMUZ", bounds: { north: 27, south: 25, west: 55, east: 58 } },
 ];
-const CHOKEPOINT_LABEL_OFFSETS = {
-  "SUEZ CANAL": { x: 0, y: -6 },
-  "RED SEA NORTH": { x: 0, y: -20 },
-  "RED SEA SOUTH": { x: 35, y: 0 },
-  "BAB EL-MANDEB": { x: 0, y: 18 },
-  "GULF OF ADEN": { x: 30, y: 25 },
-  "STRAIT OF HORMUZ": { x: 0, y: -22 },
-};
 
 function mercatorPoint(lon, lat, width, height) {
   const safeLat = clamp(lat, -85, 85);
@@ -93,10 +84,11 @@ function tooltipLabel(incident) {
   return `${incident.location || "Unknown"} · ${incident.eventType || "Incident"} · ${formatFatalities(incident.fatalities)} K · ${incident.date || "—"}`;
 }
 
-export default function ShipmentsMap({ incidents, width = WIDTH, height = HEIGHT }) {
+export default function ShipmentsMap({ incidents, chokepoints, width = WIDTH, height = HEIGHT }) {
   const [tooltip, setTooltip] = useState(null);
   const incidentList = Array.isArray(incidents) ? incidents : [];
   const isLoading = incidents == null;
+  const chokepointStats = Array.isArray(chokepoints) ? chokepoints : [];
 
   const features = useMemo(() => {
     const { arcs, transform, objects } = worldTopology;
@@ -112,44 +104,34 @@ export default function ShipmentsMap({ incidents, width = WIDTH, height = HEIGHT
     });
   }, [width, height]);
 
-  const chokepoints = useMemo(
+  const renderedChokepoints = useMemo(
     () =>
-      CHOKEPOINTS.map((item) => {
+      CHOKEPOINTS.map((item, index) => {
+        const stats = chokepointStats.find(
+          (entry) => entry?.name?.trim().toUpperCase() === item.name.toUpperCase()
+        );
         const nw = mercatorPoint(item.bounds.west, item.bounds.north, width, height);
         const se = mercatorPoint(item.bounds.east, item.bounds.south, width, height);
         const x = Math.min(nw[0], se[0]);
         const y = Math.min(nw[1], se[1]);
         const rectWidth = Math.max(8, Math.abs(se[0] - nw[0]));
         const rectHeight = Math.max(8, Math.abs(se[1] - nw[1]));
-        const offset = CHOKEPOINT_LABEL_OFFSETS[item.name] || { x: 0, y: -6 };
         const centerX = x + rectWidth / 2;
         const centerY = y + rectHeight / 2;
-        const labelX = centerX + offset.x;
-        const labelY = Math.max(12, y - 6 + offset.y);
-        const labelWidth = item.name.length * 5.1 + 4;
-        const labelHeight = 12;
-        const dx = labelX - centerX;
-        const dy = labelY - centerY;
-        const leaderLength = Math.hypot(dx, dy);
-        const scale = leaderLength ? 1 / Math.max(Math.abs(dx) / (rectWidth / 2), Math.abs(dy) / (rectHeight / 2)) : 0;
         return {
           ...item,
+          index: index + 1,
+          transits7d: stats?.transits7d ?? null,
+          transitsPerDay: stats?.transitsPerDay ?? null,
           x,
           y,
           rectWidth,
           rectHeight,
-          labelX,
-          labelY,
-          labelWidth,
-          labelHeight,
-          showLeader: leaderLength > 10,
-          leaderX1: centerX + dx * scale,
-          leaderY1: centerY + dy * scale,
-          leaderX2: labelX,
-          leaderY2: labelY - 4,
+          centerX,
+          centerY,
         };
       }),
-    [width, height]
+    [chokepointStats, width, height]
   );
 
   const plottedIncidents = useMemo(() => {
@@ -209,47 +191,42 @@ export default function ShipmentsMap({ incidents, width = WIDTH, height = HEIGHT
           />
         ))}
 
-        {chokepoints.map((point) => (
+        {renderedChokepoints.map((point) => (
           <g key={point.name}>
             <rect
               x={point.x}
               y={point.y}
               width={point.rectWidth}
               height={point.rectHeight}
-              fill={AMBER_FILL}
+              fill="none"
               stroke={AMBER}
               strokeWidth="1"
               vectorEffect="non-scaling-stroke"
             />
-            {point.showLeader && (
-              <line
-                x1={point.leaderX1}
-                y1={point.leaderY1}
-                x2={point.leaderX2}
-                y2={point.leaderY2}
-                stroke="hsla(45, 90%, 55%, 0.5)"
-                strokeWidth="1"
-                vectorEffect="non-scaling-stroke"
-              />
-            )}
-            <rect
-              x={point.labelX - point.labelWidth / 2}
-              y={point.labelY - point.labelHeight + 2}
-              width={point.labelWidth}
-              height={point.labelHeight}
-              rx="2"
-              fill="hsla(220, 30%, 5%, 0.75)"
+          </g>
+        ))}
+
+        {renderedChokepoints.map((point) => (
+          <g key={`${point.name}-pin`}>
+            <circle
+              cx={point.centerX}
+              cy={point.centerY}
+              r="6"
+              fill={AMBER}
+              stroke="hsla(220,20%,7%,0.95)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
             />
             <text
-              x={point.labelX}
-              y={point.labelY}
+              x={point.centerX}
+              y={point.centerY + 2}
               textAnchor="middle"
-              fill={AMBER}
+              fill={BG}
               fontSize="8"
+              fontWeight="700"
               fontFamily='"JetBrains Mono", monospace'
-              letterSpacing="0.08em"
             >
-              {point.name}
+              {point.index}
             </text>
           </g>
         ))}

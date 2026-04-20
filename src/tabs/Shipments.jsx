@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useShipmentsData } from "../hooks/useShipmentsData";
 import { useMaradData } from "../hooks/useMaradData";
 import { usePortwatchData } from "../hooks/usePortwatchData";
-import ShipmentsMap from "../components/ShipmentsMap";
+import ShipmentsMap, { CHOKEPOINTS as MAP_CHOKEPOINTS } from "../components/ShipmentsMap";
 import AsOfPill from "../components/AsOfPill";
 
 const GREEN = "hsl(142,70%,55%)";
@@ -60,6 +60,14 @@ function formatCompactDate(iso) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatTransitValue(value, digits = 0) {
+  if (!Number.isFinite(value)) return "—";
+  return Number(value).toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
 }
 
 function sparklinePoints(data, width = 180, height = 42) {
@@ -384,6 +392,18 @@ export default function Shipments() {
       : { container: 0, tanker: 0, dryBulk: 0, other: 0 },
     trend90d: globalTrend,
   };
+  const mappedChokepoints = useMemo(() => {
+    return MAP_CHOKEPOINTS.map((point) => {
+      const match = portwatchChokepoints.find(
+        (entry) => entry?.name?.trim().toUpperCase() === point.name.toUpperCase()
+      );
+      return {
+        name: point.name,
+        transits7d: match?.transits7d,
+        transitsPerDay: match?.transitsPerDay,
+      };
+    });
+  }, [portwatchChokepoints]);
 
   const filtered = incidents.filter((ev) => {
     if (filterChokepoint !== "ALL" && ev.chokepoint !== filterChokepoint) return false;
@@ -400,6 +420,12 @@ export default function Shipments() {
     const days = daysAgo(e.date);
     return days != null && days <= 30;
   }).length;
+  const latestAcledIncidentDate = incidents.reduce((latestDate, ev) => {
+    const candidate = ev?.date;
+    if (!candidate) return latestDate;
+    if (!latestDate) return candidate;
+    return candidate > latestDate ? candidate : latestDate;
+  }, null) || new Date(Date.now() - 365 * 86_400_000).toISOString();
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -457,22 +483,79 @@ export default function Shipments() {
       </div>
 
       {/* Incident map */}
-      <div className="panel" style={{ padding: 0, overflow: "hidden" }}>
-        <ShipmentsMap
-          incidents={incidents
-            .filter((ev) => ev.lat != null && ev.lon != null)
-            .slice(0, 200)
-            .map((ev) => ({
-              lat: Number(ev.lat),
-              lng: Number(ev.lon),
-              location: ev.location,
-              eventType: ev.subType || ev.eventType,
-              fatalities: Number(ev.fatalities) || 0,
-              date: ev.date,
-            }))}
-          width={1200}
-          height={500}
-        />
+      <div className="panel" style={{ padding: 12, overflow: "hidden" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "stretch", flexWrap: "wrap" }}>
+          <div style={{ flex: "7 1 420px", minWidth: 0 }}>
+            <ShipmentsMap
+              incidents={incidents
+                .filter((ev) => ev.lat != null && ev.lon != null)
+                .slice(0, 200)
+                .map((ev) => ({
+                  lat: Number(ev.lat),
+                  lng: Number(ev.lon),
+                  location: ev.location,
+                  eventType: ev.subType || ev.eventType,
+                  fatalities: Number(ev.fatalities) || 0,
+                  date: ev.date,
+                }))}
+              chokepoints={mappedChokepoints}
+              width={1200}
+              height={500}
+            />
+          </div>
+
+          <div
+            style={{
+              flex: "3 1 200px",
+              minWidth: 200,
+              border: `1px solid ${BORDER}`,
+              background: SURFACE,
+              padding: "10px 12px",
+              fontFamily: '"JetBrains Mono", monospace',
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "28px minmax(0, 1fr) 74px 58px",
+                gap: 8,
+                fontSize: 10,
+                color: DIM,
+                letterSpacing: "0.08em",
+                paddingBottom: 8,
+                borderBottom: `1px solid ${BORDER}`,
+              }}
+            >
+              <span>#</span>
+              <span>CHOKEPOINT</span>
+              <span style={{ textAlign: "right" }}>7D TRANSITS</span>
+              <span style={{ textAlign: "right" }}>PER DAY</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {mappedChokepoints.map((point, index) => (
+                <div
+                  key={point.name}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "28px minmax(0, 1fr) 74px 58px",
+                    gap: 8,
+                    alignItems: "center",
+                    padding: "8px 0",
+                    borderBottom: index < mappedChokepoints.length - 1 ? `1px solid ${BORDER}` : "none",
+                    fontSize: 11,
+                    color: "hsl(220,15%,88%)",
+                  }}
+                >
+                  <span style={{ color: AMBER }}>{index + 1}</span>
+                  <span style={{ minWidth: 0 }}>{point.name}</span>
+                  <span style={{ textAlign: "right" }}>{formatTransitValue(point.transits7d)}</span>
+                  <span style={{ textAlign: "right" }}>{formatTransitValue(point.transitsPerDay, 1)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Chokepoint grid */}
@@ -545,9 +628,13 @@ export default function Shipments() {
           <span style={{ fontSize: 10, fontWeight: 700, color: AMBER, letterSpacing: "0.12em", textTransform: "uppercase" }}>
             ACLED Historical (12-Mo Rolling)
           </span>
+          <AsOfPill date={latestAcledIncidentDate} />
           <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em", marginLeft: "auto" }}>
             via ACLED · maritime-filtered
           </span>
+        </div>
+        <div style={{ fontSize: 10, fontFamily: '"JetBrains Mono", monospace', color: DIM }}>
+          Historical reference — see MARAD advisories panel above for current events
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
