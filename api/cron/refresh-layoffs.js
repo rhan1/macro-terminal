@@ -129,13 +129,14 @@ export default async function handler(req, res) {
     ];
     const combinedDates = [...newsInputs.map((x) => x.date), ...secInputs.map((x) => x.fileDate)];
     let structured = [];
+    let droppedGeneric = 0;
     const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 2500,
-        system: 'You structure raw layoff news into JSON. For each input item, output an object with: company (string — the actual proper-noun company name, e.g. "Meta Platforms", "Wells Fargo", "Shutterfly". If the source text does NOT contain a specific named company (generic descriptions like "a school bus company" or "an oil field operator"), omit the item entirely rather than emit the generic description as the company), ticker (string | null — uppercase stock symbol if the company is PUBLICLY TRADED on a US exchange, else null), headcount (integer | null — number of employees laid off), pct_workforce (number | null — percentage of workforce if stated), sector (string | null — one of: Tech, Finance, Retail, Healthcare, Media, Energy, Industrial, Transportation, Consumer, Real Estate, Other), announcement_date (ISO yyyy-mm-dd | null), source_url (string | null — pass through the SOURCE_URL provided for that input exactly as given; do NOT invent or modify a URL). Do NOT invent numbers. Do NOT invent or paraphrase company names — if no specific company is named, drop the item. Use null for anything not explicitly stated in the input. Return ONLY a JSON object { items: [...] } with no markdown or commentary.',
+        system: 'You structure raw layoff news into JSON. For each input item, output an object with: company (string — the actual proper-noun company name, e.g. "Meta Platforms", "Wells Fargo", "Shutterfly". If the source text does NOT contain a specific named company (generic descriptions like "a school bus company" or "an oil field operator"), omit the item entirely rather than emit the generic description as the company), ticker (string | null — uppercase stock symbol if the company is PUBLICLY TRADED on a US exchange, else null), headcount (integer | null — number of employees laid off), pct_workforce (number | null — percentage of workforce if stated), sector (string | null — one of: Tech, Finance, Retail, Healthcare, Media, Energy, Industrial, Transportation, Consumer, Real Estate, Other), announcement_date (ISO yyyy-mm-dd | null), source_url (string | null — pass through the SOURCE_URL provided for that input exactly as given; do NOT invent or modify a URL). Do NOT invent numbers. Do NOT invent or paraphrase company names — if no specific company is named, drop the item. Few-shot examples for company: GOOD: "Meta Platforms", "Wells Fargo", "Shutterfly", "Tesla". BAD: "School bus company", "Transportation firm", "An oil field operator", "A tech startup", "Retail chain". If the company name would match the regex /^(a |an )?(.+ (company|firm|chain|operator|startup|giant|maker|provider|retailer|manufacturer))$/i, do NOT emit the item. Company names must be proper nouns (begin with a capital letter and be specifically identifiable). If you cannot find a specific proper-noun company name in the source, drop the item. Use null for anything not explicitly stated in the input. Return ONLY a JSON object { items: [...] } with no markdown or commentary.',
         messages: [{ role: "user", content: promptLines.join("\n") }],
       }),
       signal: AbortSignal.timeout(30000),
@@ -146,7 +147,24 @@ export default async function handler(req, res) {
       const clean = text.replace(/^```json\s*|^```\s*|\s*```$/g, "").trim();
       try {
         const parsed = JSON.parse(clean);
-        if (Array.isArray(parsed?.items)) structured = parsed.items.map((item, i) => ({ company: String(item?.company || "").trim(), ticker: item?.ticker ? String(item.ticker).trim().toUpperCase() : null, headcount: Number.isFinite(item?.headcount) ? Math.round(item.headcount) : null, pct_workforce: Number.isFinite(item?.pct_workforce) ? item.pct_workforce : null, sector: item?.sector || null, announcement_date: item?.announcement_date || null, source_url: item?.source_url ? String(item.source_url).trim() : null, sourceDate: combinedDates[i] || null })).filter((x) => x.company);
+        if (Array.isArray(parsed?.items)) {
+          const genericCompanyPattern = /^(a |an )?(.+ (company|firm|chain|operator|startup|giant|maker|provider|retailer|manufacturer))$/i;
+          structured = parsed.items
+            .map((item, i) => ({ company: String(item?.company || "").trim(), ticker: item?.ticker ? String(item.ticker).trim().toUpperCase() : null, headcount: Number.isFinite(item?.headcount) ? Math.round(item.headcount) : null, pct_workforce: Number.isFinite(item?.pct_workforce) ? item.pct_workforce : null, sector: item?.sector || null, announcement_date: item?.announcement_date || null, source_url: item?.source_url ? String(item.source_url).trim() : null, sourceDate: combinedDates[i] || null }))
+            .filter((x) => {
+              const company = x.company.trim();
+              const hasCapital = /[A-Z]/.test(company);
+              const isGeneric = genericCompanyPattern.test(company);
+              const isAllLowercase = company && company.toLowerCase() === company && !hasCapital;
+              if (isGeneric || isAllLowercase) {
+                droppedGeneric += 1;
+                return false;
+              }
+              return true;
+            })
+            .filter((x) => x.company);
+          console.log(`[refresh-layoffs] dropped generic company items: ${droppedGeneric}`);
+        }
       } catch {}
     }
     const seen = new Set();
@@ -218,7 +236,7 @@ export default async function handler(req, res) {
 
     const fetchedAt = new Date().toISOString();
     await put("labor/layoffs-structured.json", JSON.stringify({ structured, aggregates, rawNews, secHits, fetchedAt, model: MODEL }), { access: "private", contentType: "application/json", token, addRandomSuffix: false, allowOverwrite: true });
-    return res.status(200).json({ ok: true, structuredCount: structured.length, rssCount: rawNews.length, secCount: secHits.length, fetchedAt, model: MODEL });
+    return res.status(200).json({ ok: true, structuredCount: structured.length, rssCount: rawNews.length, secCount: secHits.length, droppedGeneric, fetchedAt, model: MODEL });
   } catch (err) {
     console.error(err?.message ?? err);
     return res.status(500).json({ error: err?.message ?? "Unknown error" });

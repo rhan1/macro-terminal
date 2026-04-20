@@ -56,6 +56,8 @@ async function fetchPortwatchSeries(portname) {
 
 function summarizeChokepoint({ name, unique, sourceChokepoint }, trend90d) {
   const latest = trend90d[trend90d.length - 1];
+  const transits7d = trend90d.slice(-7).reduce((sum, day) => sum + toNumber(day?.total), 0);
+  const transitsPerDay = Number((transits7d / 7).toFixed(1));
   if (!latest) {
     return {
       name,
@@ -63,6 +65,8 @@ function summarizeChokepoint({ name, unique, sourceChokepoint }, trend90d) {
       sourceChokepoint,
       latestDate: null,
       totalCalls: 0,
+      transits7d,
+      transitsPerDay,
       byType: { container: 0, tanker: 0, dryBulk: 0, other: 0 },
       trend90d: [],
     };
@@ -74,6 +78,8 @@ function summarizeChokepoint({ name, unique, sourceChokepoint }, trend90d) {
     sourceChokepoint,
     latestDate: latest.date,
     totalCalls: latest.total,
+    transits7d,
+    transitsPerDay,
     byType: {
       container: latest.container,
       tanker: latest.tanker,
