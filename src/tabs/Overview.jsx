@@ -125,163 +125,30 @@ function DeltaArrow({ current, prior, bullish }) {
   return <span style={{ color, marginLeft: 3, fontSize: 10 }}>{up ? "▲" : "▼"}</span>;
 }
 
-// ── Analytical Bullets ────────────────────────────────────────────────────────
-function buildBullets(data) {
-  const gdpVal    = val(data, "GDP");
-  const gdpPrior  = prior(data.GDP)?.value;
-  const cpiVal    = val(data, "CPI");
-  const cpiPrior  = prior(data.CPI)?.value;
-  const pceVal    = val(data, "COREPCE");
-  const pcePrior  = prior(data.COREPCE)?.value;
-  const unrateVal = val(data, "UNRATE");
-  const unratePrior = prior(data.UNRATE)?.value;
-  const payemsVal = val(data, "PAYEMS");
-  const payemsPrior = prior(data.PAYEMS)?.value;
-  const fedVal    = val(data, "FEDFUNDS");
-  const t10Val    = val(data, "DGS10");
-  const t10y2yVal = val(data, "T10Y2Y");
-  const t10y3mVal = val(data, "T10Y3M");
-  const recVal    = val(data, "RECESSION");
-
-  const bullets = [];
-
-  // GROWTH
-  if (gdpVal != null) {
-    const regimeCall =
-      gdpVal >= 3.0 ? "a pace that historically sustains broad cyclical exposure" :
-      gdpVal >= 2.5 ? "above potential, which favors cyclical overweight but not indiscriminate risk-on" :
-      gdpVal >= 2.0 ? "still above trend, though the margin for error is narrowing" :
-      gdpVal >= 0.5 ? "below trend — the economy is decelerating into stall-speed territory" :
-      gdpVal >= 0   ? "near-stall, where the probability of outright contraction rises sharply" :
-                      "contraction — technical recession criteria are being met";
-    const momentumNote =
-      gdpPrior != null
-        ? gdpVal > gdpPrior
-          ? `accelerating from a prior ${formatNum(gdpPrior, 1)}%, which strengthens the expansion case`
-          : gdpVal < gdpPrior
-          ? `decelerating from ${formatNum(gdpPrior, 1)}% — the direction of travel matters as much as the level`
-          : `unchanged from the prior ${formatNum(gdpPrior, 1)}%, offering no incremental signal`
-        : null;
-    const positionNote =
-      gdpVal < 1    ? "At sub-1%, the playbook shifts decisively to defensives and duration." :
-      gdpVal >= 2.5 ? "This pace supports selective cyclical exposure while maintaining quality discipline." :
-                      "Mid-cycle velocity argues for quality over momentum and patience over conviction.";
-    bullets.push(
-      <>
-        The U.S. economy grew at{" "}
-        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(gdpVal, 1)}%</strong>
-        <DeltaArrow current={gdpVal} prior={gdpPrior} bullish={true} /> annualized,
-        {momentumNote ? ` ${momentumNote} — ` : " "}
-        {regimeCall}. Growth velocity sets the risk-asset regime, and the current trajectory is the
-        primary variable to watch. {positionNote}
-      </>
-    );
-  } else {
-    bullets.push("GDP data is not yet available from FRED — the growth regime cannot be assessed with confidence.");
+function FredRow({ label, value, prior, unit, bullish }) {
+  const diff = (value != null && prior != null) ? value - prior : null;
+  const hasDiff = diff != null && Math.abs(diff) > 1e-6;
+  let arrowColor = "var(--color-term-dim)";
+  let arrow = "▬";
+  if (hasDiff) {
+    const up = diff > 0;
+    arrow = up ? "▲" : "▼";
+    if (bullish === null) arrowColor = "var(--color-term-dim)";
+    else if ((up && bullish) || (!up && !bullish)) arrowColor = "var(--color-term-green)";
+    else arrowColor = "var(--color-term-red)";
   }
-
-  // INFLATION
-  if (cpiVal != null || pceVal != null) {
-    const inf = cpiVal ?? pceVal;
-    const lbl = cpiVal != null ? "CPI" : "Core PCE";
-    const gap = inf - 2.0;
-    const gapStr = gap > 0 ? `${formatNum(gap, 1)}pp above` : `${formatNum(Math.abs(gap), 1)}pp below`;
-    const lastMileNote =
-      inf > 4.0 ? "Rate cuts are off the table until the Fed sees sustained, material disinflation — the policy path is unambiguously higher for longer." :
-      inf > 3.0 ? "The last mile of disinflation is proving sticky, and a premature pivot would risk a second inflation wave. The Fed cannot afford to blink." :
-      inf > 2.5 ? "Disinflation is progressing, but the final leg back to 2% has historically been the hardest. The Fed retains a tightening bias." :
-      inf > 1.5 ? "Inflation is functionally on target, giving the Fed meaningful optionality to ease without sacrificing credibility." :
-                  "Inflation has undershot the target — disinflationary forces are dominant, and the easing case is building.";
-    bullets.push(
-      <>
-        Inflation remains the binding constraint for policy. {lbl} is running at{" "}
-        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(inf, 2)}%</strong>
-        <DeltaArrow current={cpiVal != null ? cpiVal : pceVal} prior={cpiVal != null ? cpiPrior : pcePrior} bullish={false} />,{" "}
-        {gapStr} the Fed&apos;s 2% target. {lastMileNote}
-        {pceVal != null && (
-          <>
-            {" "}Core PCE at{" "}
-            <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(pceVal, 2)}%</strong>
-            <DeltaArrow current={pceVal} prior={pcePrior} bullish={false} /> — the Fed&apos;s
-            preferred gauge — confirms the picture.
-          </>
-        )}
-      </>
-    );
-  } else {
-    bullets.push("Inflation data is not yet available from FRED — the policy constraint cannot be fully assessed.");
-  }
-
-  // LABOR
-  if (unrateVal != null) {
-    const nairu = 4.2;
-    const gap = unrateVal - nairu;
-    const laborRead =
-      gap < -0.5 ? `${formatNum(Math.abs(gap), 1)}pp below NAIRU, embedding wage pressure that keeps the Fed's hands tied` :
-      gap < 0.3  ? "essentially at NAIRU — labor supply and demand are in rough balance" :
-      gap < 1.0  ? `${formatNum(gap, 1)}pp above NAIRU, with slack beginning to build and wage growth softening` :
-                   `${formatNum(gap, 1)}pp above NAIRU — meaningful slack has opened up, and consumer demand is feeling the pressure`;
-    const payNote = payemsVal != null
-      ? (
-          <>
-            {" "}Monthly payrolls are tracking around{" "}
-            <strong style={{ color: "hsl(220,15%,95%)" }}>{Math.round(payemsVal)}K</strong>
-            <DeltaArrow current={payemsVal} prior={payemsPrior} bullish={true} /> — above the ~100K
-            break-even needed to absorb new labor force entrants.
-          </>
-        )
-      : "";
-    const sahmNote =
-      unrateVal > 5.5
-        ? "History shows that unemployment at this level compresses consumer spending with a 6–12 month lag — the second-order effects are worth watching."
-        : "Tight labor market conditions are the primary support for consumer resilience, but they also keep inflation from falling cleanly.";
-    bullets.push(
-      <>
-        Unemployment stands at{" "}
-        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(unrateVal, 1)}%</strong>
-        <DeltaArrow current={unrateVal} prior={unratePrior} bullish={false} />, {laborRead}.
-        {payNote} The Sahm Rule — triggered by a 0.5pp rise from the 12-month low — remains the
-        cleanest real-time recession signal. {sahmNote}
-      </>
-    );
-  } else {
-    bullets.push("Unemployment data is not yet available from FRED — labor market conditions cannot be assessed.");
-  }
-
-  // RATES
-  if (fedVal != null) {
-    const realRate = cpiVal != null ? fedVal - cpiVal : null;
-    const rateRead =
-      fedVal >= 5.0  ? "deeply in restrictive territory — financial conditions are meaningfully tight" :
-      fedVal >= 3.5  ? "in restrictive territory, actively restraining credit and investment" :
-      fedVal >= 2.5  ? "at the boundary of neutral — neither stimulative nor clearly restrictive" :
-      fedVal >= 1.5  ? "accommodative, providing a tailwind to risk assets and credit" :
-                       "at emergency-level accommodation — the Fed is in crisis-fighting mode";
-    const realRateNote = realRate != null
-      ? ` The real rate — Fed Funds minus CPI — sits at ${realRate > 0 ? "+" : ""}${formatNum(realRate, 2)}%, the truest measure of how tight conditions actually are.`
-      : "";
-    const curveNote =
-      t10y2yVal != null
-        ? t10y2yVal < -0.5
-          ? ` The curve remains deeply inverted (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — historically the most reliable recession signal, with a 12–18 month average lead time.`
-          : t10y2yVal < 0
-          ? ` A shallow inversion persists (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) — the recessionary signal is there, but timing is uncertain.`
-          : t10y2yVal < 0.5
-          ? ` The curve is normalizing (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) — disinversion is underway, but a return to expansion-phase steepness is not confirmed.`
-          : ` The curve has re-steepened (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) — an expansion-phase structure that is supportive of credit conditions.`
-        : "";
-    const recNote = recVal != null
-      ? ` FRED's recession probability model is at ${formatNum(recVal, 1)}% — ${recVal > 30 ? "an elevated reading that has historically preceded recession within 12 months" : recVal > 10 ? "a moderate risk reading that warrants monitoring" : "a subdued reading, below levels that historically demand defensive repositioning"}.`
-      : "";
-    bullets.push(
-      `Fed Funds at ${formatNum(fedVal, 2)}% places policy ${rateRead}. ` +
-      `The 10Y Treasury is ${t10Val != null ? `at ${formatNum(t10Val, 3)}%` : "unavailable"}.${realRateNote}${curveNote}${recNote}`
-    );
-  } else {
-    bullets.push("Fed Funds rate data is not yet available from FRED — the policy stance cannot be assessed.");
-  }
-
-  return bullets;
+  return (
+    <>
+      <span style={{ color: "var(--color-term-dim)", fontSize: 10, letterSpacing: "0.06em" }}>{label}</span>
+      <span style={{ color: "var(--color-term-text)" }}>
+        {value != null ? value.toFixed(2) + unit : "—"}
+      </span>
+      <span style={{ color: arrowColor, textAlign: "center" }}>{arrow}</span>
+      <span style={{ color: "var(--color-term-dim)", fontSize: 10 }}>
+        {prior != null ? `from ${prior.toFixed(2)}${unit}` : ""}
+      </span>
+    </>
+  );
 }
 
 // ── Upcoming Events ───────────────────────────────────────────────────────────
@@ -365,6 +232,28 @@ function getUpcomingEvents() {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
+function getRegimeTint(regime, spyPct) {
+  const RED = { border: "hsla(0,72%,55%,0.35)", bg: "hsla(0,72%,55%,0.05)", accent: "hsl(0,72%,60%)" };
+  const ORANGE = { border: "hsla(20,80%,55%,0.35)", bg: "hsla(20,80%,55%,0.05)", accent: "hsl(20,85%,60%)" };
+  const AMBER = { border: "hsla(45,90%,55%,0.3)", bg: "hsla(45,90%,55%,0.04)", accent: "hsl(45,90%,55%)" };
+  const GREEN = { border: "hsla(142,70%,45%,0.3)", bg: "hsla(142,70%,45%,0.04)", accent: "hsl(142,70%,55%)" };
+
+  let tint =
+    regime === "CRISIS MODE" || regime === "RECESSION" ? RED :
+    regime === "STAGFLATION RISK" ? ORANGE :
+    regime === "LATE CYCLE EXPANSION" ? AMBER :
+    regime === "GOLDILOCKS" ? GREEN :
+    AMBER;
+
+  if (spyPct != null && spyPct < -0.8) {
+    if (tint === GREEN) tint = AMBER;
+    else if (tint === AMBER) tint = ORANGE;
+    else if (tint === ORANGE) tint = RED;
+  }
+
+  return tint;
+}
+
 export default function Overview() {
   const { data, loading, error } = useFredData(FETCH_SERIES);
   const { data: marketData, spyChart, chartRange, loadChart, loading: marketLoading, lastUpdated } = useMarketData();
@@ -463,9 +352,6 @@ export default function Overview() {
     .sort()
     .at(-1);
 
-  // ── Bullets ───────────────────────────────────────────────────────────────
-  const bullets = buildBullets(data);
-
   // ── S&P 500 chart data (Yahoo Finance 1Y) ────────────────────────────────
   const spChartData = spyChart?.points
     ? spyChart.points.map((p) => ({
@@ -475,6 +361,7 @@ export default function Overview() {
     : [];
   const spyPrice = spyChart?.meta?.price ?? marketData?.SPY?.price;
   const spyChangePct = marketData?.SPY?.changePct ?? null;
+  const regimeTint = getRegimeTint(regimeLabel, spyChangePct);
   const spy52WH = spyChart?.meta?.fiftyTwoWeekHigh ?? marketData?.SPY?.fiftyTwoWeekHigh;
   const spy52WL = spyChart?.meta?.fiftyTwoWeekLow ?? marketData?.SPY?.fiftyTwoWeekLow;
 
@@ -612,19 +499,33 @@ export default function Overview() {
       {/* 1 ── REGIME SUMMARY BOX ── */}
       <div
         style={{
-          border: "1px solid hsla(45,90%,55%,0.3)",
-          background: "hsla(45,90%,55%,0.04)",
+          border: `1px solid ${regimeTint.border}`,
+          background: regimeTint.bg,
           padding: 16,
           borderRadius: 4,
         }}
       >
-        {/* Header row: icon + regime label + AS-OF pill (right) */}
+        {/* Header row: icon + regime label + SPY pill + AS-OF pill (right) */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span className="glow-amber" style={{ fontSize: 18, color: "hsla(45,90%,55%,1)", lineHeight: 1 }}>⚠</span>
-            <span className="glow-amber" style={{ fontSize: 14, fontWeight: "bold", color: "hsla(45,90%,55%,1)", letterSpacing: "0.08em" }}>
+            <span className="glow-amber" style={{ fontSize: 18, color: regimeTint.accent, lineHeight: 1 }}>⚠</span>
+            <span className="glow-amber" style={{ fontSize: 14, fontWeight: "bold", color: regimeTint.accent, letterSpacing: "0.08em" }}>
               MACRO REGIME: {regimeLabel}
             </span>
+            {spyChangePct != null && (
+              <span style={{
+                fontSize: 10,
+                padding: "2px 8px",
+                borderRadius: 3,
+                fontFamily: '"JetBrains Mono", monospace',
+                letterSpacing: "0.04em",
+                color: spyChangePct >= 0 ? "var(--color-term-green)" : "var(--color-term-red)",
+                border: `1px solid ${spyChangePct >= 0 ? "hsla(142,70%,45%,0.35)" : "hsla(0,72%,45%,0.35)"}`,
+                background: spyChangePct >= 0 ? "hsla(142,70%,45%,0.06)" : "hsla(0,72%,45%,0.06)",
+              }}>
+                SPY {spyChangePct >= 0 ? "▲" : "▼"} {spyChangePct >= 0 ? "+" : ""}{spyChangePct.toFixed(2)}%
+              </span>
+            )}
           </div>
           {/* Use the most recent FRED observation date as the canonical "as of" for this box */}
           {latestFredDate && <AsOfPill date={latestFredDate} />}
@@ -644,39 +545,27 @@ export default function Overview() {
 
         <NarrativePanel spyChangePct={spyChangePct} />
 
+        {/* FRED LATEST — compact table */}
         <div style={{
-          fontSize: 9,
-          textTransform: "uppercase",
-          letterSpacing: "0.12em",
-          color: "hsl(220,10%,42%)",
-          marginBottom: 6,
-          paddingBottom: 4,
-          borderBottom: "1px solid var(--color-term-border)",
+          marginTop: 14,
+          paddingTop: 12,
+          borderTop: "1px solid var(--color-term-border)",
         }}>
-          Analytical Brief · via FRED
-        </div>
-
-        {/* Analytical bullets */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {bullets.map((bullet, i) => {
-            return (
-              <p
-                key={i}
-                style={{
-                  margin: 0,
-                  fontSize: 11,
-                  color: "var(--color-term-text)",
-                  lineHeight: 1.65,
-                  display: "flex",
-                  gap: 7,
-                  alignItems: "flex-start",
-                }}
-              >
-                <span style={{ color: "var(--color-term-green)", flexShrink: 0, marginTop: 1 }}>&gt;</span>
-                <span>{bullet}</span>
-              </p>
-            );
-          })}
+          <div style={{
+            fontSize: 9,
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            color: "hsl(220,10%,42%)",
+            marginBottom: 8,
+          }}>
+            FRED Latest
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 40px 60px", rowGap: 6, columnGap: 12, fontSize: 11, color: "var(--color-term-text)", fontFamily: '"JetBrains Mono", monospace' }}>
+            <FredRow label="GDP (QoQ %)" value={gdpVal} prior={gdpPriorVal} unit="%" bullish={true} />
+            <FredRow label="CPI (YoY %)" value={cpiVal} prior={cpiPriorVal} unit="%" bullish={false} />
+            <FredRow label="Unemployment" value={unrateVal} prior={unratePrior} unit="%" bullish={false} />
+            <FredRow label="Fed Funds" value={fedVal} prior={fedPriorVal} unit="%" bullish={null} />
+          </div>
         </div>
       </div>
 
@@ -1421,6 +1310,16 @@ function renderWithBoldAndCitations(text, sources) {
   return pieces;
 }
 
+function preprocessNarrative(text) {
+  if (!text) return "";
+
+  return text
+    .replace(/^\s*\*?\*?Top\s+US\s+macro\s+news\s+items\s+driving\s+markets\s+on[^\n]+\n+/i, "")
+    .replace(/^\s*\*?\*?Here['']?s\s+[^\n]*:\*?\*?\s*\n+/i, "")
+    .replace(/^\s*\*?\*?Top\s+[^\n]+?(driving|moving)\s+(us\s+)?markets[^\n]*:\*?\*?\s*\n+/i, "")
+    .trim();
+}
+
 function NarrativePanel({ spyChangePct }) {
   const { data, loading } = useOverviewNarrative();
 
@@ -1429,7 +1328,26 @@ function NarrativePanel({ spyChangePct }) {
 
   const sources = Array.isArray(data.sources) ? data.sources : [];
   const tint = tintFromPct(spyChangePct);
-  const paragraphs = data.paragraph.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
+  const cleanedParagraph = preprocessNarrative(data.paragraph);
+  const lines = cleanedParagraph.split("\n").map((line) => line.trim()).filter(Boolean);
+  const bulletLineCount = lines.filter((line) => /^[-*•]\s/.test(line)).length;
+  const isBulletList = bulletLineCount >= 2;
+  const bulletItems = isBulletList
+    ? cleanedParagraph
+        .split(/\n(?=[-*•]\s)/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => item.replace(/^[-*•]\s+/, "").trim())
+    : [];
+  const paragraphs = isBulletList
+    ? []
+    : cleanedParagraph.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
+  const sectionLabels = paragraphs.length === 3 ? ["MARKETS", "POLICY", "CATALYST"] : null;
+  const chipStyles = {
+    MARKETS: { chipColor: "hsl(185,70%,55%)", chipBg: "hsla(185,70%,55%,0.1)" },
+    POLICY: { chipColor: "hsl(45,90%,55%)", chipBg: "hsla(45,90%,55%,0.1)" },
+    CATALYST: { chipColor: "hsl(280,70%,60%)", chipBg: "hsla(280,70%,60%,0.1)" },
+  };
   const uniqueSources = [];
   const seenHosts = new Set();
   for (const s of sources) {
@@ -1459,19 +1377,81 @@ function NarrativePanel({ spyChangePct }) {
       >
         Headline News · via Perplexity Sonar
       </div>
-      {paragraphs.map((p, i) => (
-        <p
-          key={i}
+      {isBulletList ? (
+        <ul
           style={{
-            margin: i === paragraphs.length - 1 ? 0 : "0 0 14px 0",
-            fontSize: 11,
-            color: "var(--color-term-text)",
-            lineHeight: 1.7,
+            margin: 0,
+            padding: 0,
+            listStyle: "none",
           }}
         >
-          {renderWithBoldAndCitations(p, sources)}
-        </p>
-      ))}
+          {bulletItems.map((bullet, i) => (
+            <li
+              key={i}
+              style={{
+                margin: i === bulletItems.length - 1 ? 0 : "0 0 8px 0",
+                fontSize: 11,
+                lineHeight: 1.7,
+                color: "var(--color-term-text)",
+                display: "flex",
+                gap: 7,
+                alignItems: "flex-start",
+              }}
+            >
+              <span style={{ color: tint.accent ?? "var(--color-term-dim)", flexShrink: 0, marginTop: 1 }}>▸</span>
+              <span>{renderWithBoldAndCitations(bullet, sources)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        paragraphs.map((p, i) => (
+          <p
+            key={i}
+            style={{
+              margin: i === paragraphs.length - 1 ? 0 : "0 0 14px 0",
+              fontSize: 11,
+              color: "var(--color-term-text)",
+              lineHeight: 1.7,
+            }}
+          >
+            {sectionLabels && (() => {
+              const chipLabel = sectionLabels[i];
+              const { chipColor, chipBg } = chipStyles[chipLabel];
+              return (
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  letterSpacing: "0.1em",
+                  color: chipColor,
+                  background: chipBg,
+                  padding: "1px 6px",
+                  borderRadius: 2,
+                  marginRight: 8,
+                  verticalAlign: "middle",
+                }}>[{chipLabel}]</span>
+              );
+            })()}
+            {renderWithBoldAndCitations(p, sources)}
+          </p>
+        ))
+      )}
+      {data.takeaway && (
+        <div style={{
+          marginTop: 10,
+          padding: "8px 10px",
+          borderLeft: `3px solid var(--color-term-green)`,
+          background: "hsla(142,70%,45%,0.06)",
+          fontSize: 11,
+          color: "var(--color-term-text)",
+          lineHeight: 1.6,
+          fontWeight: 500,
+        }}>
+          <span style={{ color: "var(--color-term-green)", fontWeight: 700, letterSpacing: "0.08em", marginRight: 8, fontSize: 9 }}>
+            POSITIONING ▸
+          </span>
+          {renderWithBoldAndCitations(data.takeaway, sources)}
+        </div>
+      )}
       {uniqueSources.length > 0 && (
         <div
           style={{
