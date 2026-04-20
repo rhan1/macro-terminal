@@ -144,6 +144,14 @@ function toNumber(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+async function parseErrorBody(response) {
+  try {
+    return (await response.text()).slice(0, 400);
+  } catch {
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   try {
     if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -218,15 +226,11 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "system",
-            content: [
-              "List the top 3-5 US macro news items driving markets today.",
-              "For each item, give a one-sentence summary and include a citation URL.",
-              "Keep the response concise and factual.",
-            ].join(" "),
+            content: "Include citations.",
           },
           {
             role: "user",
-            content: `What are the top US macro news items driving markets on ${todayIso()}?`,
+            content: `List exactly 6 of the most important, concrete news items driving US equity, rates, and macro positioning decisions today (${todayIso()}). For each: one sentence of what happened, one sentence of WHY it matters for a macro investor's positioning. Cite sources. No generic summaries, no platitudes. Just facts and their positioning implications.`,
           },
         ],
         max_tokens: 350,
@@ -258,11 +262,9 @@ export default async function handler(req, res) {
       "Paragraph structure:",
       "Paragraph 1: market state and main movers.",
       "Paragraph 2: policy and macro data.",
-      "Paragraph 3: dominant catalyst and a one-sentence forward-looking takeaway.",
+      "Paragraph 3: dominant catalyst and forward-looking positioning setup.",
       "",
       "Preserve the citation URLs from Perplexity as inline [source N] references in the paragraph text.",
-      "Return ONLY valid JSON with this shape: {\"paragraph\":\"...\",\"sources\":[{\"url\":\"https://...\",\"title\":null}]}",
-      "The sources array must list the cited URLs in [source N] order with title set to null.",
     ].join("\n");
 
     const anthropicUser = [
@@ -272,48 +274,80 @@ export default async function handler(req, res) {
       "",
       `Ground truth:\n${groundTruth}`,
       "",
-      "Rewrite these into the required 3-paragraph briefing, using ONLY the ground-truth values for any SPY/QQQ/VIX/TLT/GLD/USO/HYG/10Y reference. Preserve the citation URLs from Perplexity in the text as [source N] references and return the citations list separately.",
+      "Rewrite these into the required 3-paragraph briefing, using ONLY the ground-truth values for any SPY/QQQ/VIX/TLT/GLD/USO/HYG/10Y reference. Preserve the citation URLs from Perplexity in the text as [source N] references.",
+      "",
+      "Return a JSON object with EXACTLY these keys:",
+      "{",
+      '  "paragraph": "<3 paragraphs separated by blank lines, formatted per the rules above>",',
+      '  "takeaway": "<single sentence 10-20 words describing the highest-conviction positioning implication for a macro investor today>"',
+      "}",
+      "Return ONLY the JSON object. No markdown fences, no commentary.",
     ].join("\n");
 
     try {
-      const anthropicResp = await fetch(ANTHROPIC_URL, {
-        method: "POST",
-        headers: {
-          "x-api-key": anthropicKey,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: ANTHROPIC_MODEL,
-          max_tokens: 500,
-          system: anthropicSystem,
-          messages: [{ role: "user", content: anthropicUser }],
-        }),
-        signal: AbortSignal.timeout(18000),
-      });
+      let rewriteText = "";
 
-      if (!anthropicResp.ok) {
-        throw new Error(`Anthropic HTTP ${anthropicResp.status}`);
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          const anthropicResp = await fetch(ANTHROPIC_URL, {
+            method: "POST",
+            headers: {
+              "x-api-key": anthropicKey,
+              "anthropic-version": "2023-06-01",
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              model: ANTHROPIC_MODEL,
+              max_tokens: 700,
+              system: anthropicSystem,
+              messages: [{ role: "user", content: anthropicUser }],
+            }),
+            signal: AbortSignal.timeout(45000),
+          });
+
+          if (!anthropicResp.ok) {
+            const error = new Error(`Anthropic HTTP ${anthropicResp.status}`);
+            error.status = anthropicResp.status;
+            error.body = await parseErrorBody(anthropicResp);
+            throw error;
+          }
+
+          const anthropicPayload = await anthropicResp.json();
+          rewriteText = anthropicPayload?.content?.[0]?.text?.trim?.() || "";
+          break;
+        } catch (error) {
+          console.error(`[narrative] Haiku attempt ${attempt} failed:`, {
+            status: error?.status ?? null,
+            body: String(error?.body ?? error?.message ?? "").slice(0, 400) || null,
+            attempt,
+          });
+
+          if (attempt === 2) {
+            throw error;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
       }
 
-      const anthropicPayload = await anthropicResp.json();
-      const rewriteText = anthropicPayload?.content?.[0]?.text?.trim?.() || "";
       const parsed = parseJsonObject(rewriteText);
-      const paragraph = parsed?.paragraph ? String(parsed.paragraph).trim() : "";
-      const sources = normalizeSources((parsed?.sources || []).map((item) => item?.url).filter(Boolean));
+      const paragraph = parsed?.paragraph ? String(parsed.paragraph).trim() : rewriteText;
+      const takeaway = parsed?.takeaway ? String(parsed.takeaway).trim() : null;
 
       if (paragraph.length < 80) {
         throw new Error("Anthropic paragraph too short");
       }
 
       const fetchedAt = new Date().toISOString();
-      const sanitized = sanitizeParagraph(paragraph, groundTruthLookup);
+      const sanitizedParagraph = sanitizeParagraph(paragraph, groundTruthLookup);
+      const sanitizedTakeaway = takeaway ? sanitizeParagraph(takeaway, groundTruthLookup) : null;
       const body = {
-        paragraph: sanitized.text,
-        sources: sources.length ? sources : fallbackSources,
+        paragraph: sanitizedParagraph.text,
+        takeaway: sanitizedTakeaway?.text ?? null,
+        sources: fallbackSources,
         fetchedAt,
         model: FINAL_MODEL,
-        sanitizedReplacements: sanitized.replacements,
+        sanitizedReplacements: sanitizedParagraph.replacements + (sanitizedTakeaway?.replacements ?? 0),
       };
 
       await put("overview/narrative.json", JSON.stringify(body), {
@@ -326,11 +360,11 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         ok: true,
-        paragraph: `${sanitized.text.slice(0, 100)}...`,
+        paragraph: `${sanitizedParagraph.text.slice(0, 100)}...`,
         sources: body.sources.length,
         fetchedAt,
         model: FINAL_MODEL,
-        sanitizedReplacements: sanitized.replacements,
+        sanitizedReplacements: body.sanitizedReplacements,
       });
     } catch (anthropicErr) {
       console.error(anthropicErr?.message ?? anthropicErr);
@@ -339,6 +373,7 @@ export default async function handler(req, res) {
       const sanitized = sanitizeParagraph(rawOutput, groundTruthLookup);
       const body = {
         paragraph: sanitized.text,
+        takeaway: null,
         sources: fallbackSources,
         fetchedAt,
         model: FALLBACK_MODEL,
