@@ -15,6 +15,7 @@ import {
 } from "recharts";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const COMPONENT_BAR_MAX_FLOOR = 8;
 
 function formatMonthYear(dateStr) {
   const [year, month] = dateStr.split("-");
@@ -70,10 +71,6 @@ function barColor(value) {
   if (value > 2) return "hsl(0,72%,55%)";
   if (value > 0) return "hsl(142,70%,55%)";
   return "hsl(185,70%,55%)";
-}
-
-function barWidth(value) {
-  return `${Math.min(100, Math.max(2, Math.abs(value) / 5 * 100))}%`;
 }
 
 function buildNarrative(cpiVal, coreCpiVal, corePceVal) {
@@ -146,6 +143,10 @@ export default function Inflation() {
 
   const chartData  = buildChartData(cpiData, coreCpiData);
   const components = getComponentsFromData(data);
+  const componentBarMax = Math.max(
+    COMPONENT_BAR_MAX_FLOOR,
+    ...components.map(({ value }) => Math.abs(value))
+  );
 
   // Signals
   function cpiSignal(v) {
@@ -283,8 +284,8 @@ export default function Inflation() {
                 </div>
                 <div
                   style={{
-                    flex: 1,
-                    height: 6,
+                    width: "100%",
+                    height: 10,
                     background: "hsl(220,15%,14%)",
                     borderRadius: 2,
                     overflow: "hidden",
@@ -293,7 +294,7 @@ export default function Inflation() {
                 >
                   <div
                     style={{
-                      width: barWidth(value),
+                      width: `${Math.min(100, Math.abs(value) / componentBarMax * 100)}%`,
                       height: "100%",
                       background: color,
                       borderRadius: 2,
