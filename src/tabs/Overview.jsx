@@ -81,14 +81,62 @@ function getMacroRegime(cpi, gdp, vix) {
   return "LATE CYCLE EXPANSION";
 }
 
+function regimeReason(regime, { cpiVal, gdpVal, vixVal, unrateVal, t10y2yVal }) {
+  switch (regime) {
+    case "CRISIS MODE":
+      return vixVal != null ? `VIX ${formatNum(vixVal, 1)} (>30)` : "VIX stress trigger active";
+    case "RECESSION":
+      return gdpVal != null ? `GDP ${formatNum(gdpVal, 1)}% (<0)` : "GDP contraction trigger active";
+    case "STAGFLATION RISK":
+      return `CPI ${formatNum(cpiVal, 2)}% (>3) · GDP ${formatNum(gdpVal, 1)}% (<1.5)`;
+    case "GOLDILOCKS":
+      return `CPI ${formatNum(cpiVal, 2)}% (<2.5) · GDP ${formatNum(gdpVal, 1)}% (>2)`;
+    case "LATE CYCLE EXPANSION":
+    default: {
+      const parts = [
+        cpiVal != null ? `CPI ${formatNum(cpiVal, 2)}%` : null,
+        gdpVal != null ? `GDP ${formatNum(gdpVal, 1)}%` : null,
+        vixVal != null ? `VIX ${formatNum(vixVal, 1)}` : null,
+      ].filter(Boolean);
+      const extras = [];
+      if (unrateVal != null) extras.push(`UNRATE ${formatNum(unrateVal, 1)}%`);
+      if (t10y2yVal != null) extras.push(`10Y-2Y ${formatNum(t10y2yVal, 2)}%`);
+      const baseline = parts.length > 0 ? parts.join(" · ") : extras.join(" · ");
+      return baseline
+        ? `${baseline} — no stress triggers active`
+        : "No stress triggers active";
+    }
+  }
+}
+
+// semantics: "up" means value went up.
+// directionality determines color:
+//   bullish=true → up=green, down=red (growth, payrolls, SPY)
+//   bullish=false → up=red, down=green (CPI, unemployment, VIX)
+function DeltaArrow({ current, prior, bullish }) {
+  if (current == null || prior == null) return null;
+  const diff = current - prior;
+  const GREEN = "var(--color-term-green)";
+  const RED = "var(--color-term-red)";
+  const DIM = "var(--color-term-dim)";
+  if (Math.abs(diff) < 1e-6) return <span style={{ color: DIM, marginLeft: 3 }}>▬</span>;
+  const up = diff > 0;
+  const color = (up && bullish) || (!up && !bullish) ? GREEN : RED;
+  return <span style={{ color, marginLeft: 3, fontSize: 10 }}>{up ? "▲" : "▼"}</span>;
+}
+
 // ── Analytical Bullets ────────────────────────────────────────────────────────
 function buildBullets(data) {
   const gdpVal    = val(data, "GDP");
   const gdpPrior  = prior(data.GDP)?.value;
   const cpiVal    = val(data, "CPI");
+  const cpiPrior  = prior(data.CPI)?.value;
   const pceVal    = val(data, "COREPCE");
+  const pcePrior  = prior(data.COREPCE)?.value;
   const unrateVal = val(data, "UNRATE");
+  const unratePrior = prior(data.UNRATE)?.value;
   const payemsVal = val(data, "PAYEMS");
+  const payemsPrior = prior(data.PAYEMS)?.value;
   const fedVal    = val(data, "FEDFUNDS");
   const t10Val    = val(data, "DGS10");
   const t10y2yVal = val(data, "T10Y2Y");
@@ -119,9 +167,14 @@ function buildBullets(data) {
       gdpVal >= 2.5 ? "This pace supports selective cyclical exposure while maintaining quality discipline." :
                       "Mid-cycle velocity argues for quality over momentum and patience over conviction.";
     bullets.push(
-      `The U.S. economy grew at ${formatNum(gdpVal, 1)}% annualized, ` +
-      `${momentumNote ? `${momentumNote} — ` : ""}${regimeCall}. ` +
-      `Growth velocity sets the risk-asset regime, and the current trajectory is the primary variable to watch. ${positionNote}`
+      <>
+        The U.S. economy grew at{" "}
+        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(gdpVal, 1)}%</strong>
+        <DeltaArrow current={gdpVal} prior={gdpPrior} bullish={true} /> annualized,
+        {momentumNote ? ` ${momentumNote} — ` : " "}
+        {regimeCall}. Growth velocity sets the risk-asset regime, and the current trajectory is the
+        primary variable to watch. {positionNote}
+      </>
     );
   } else {
     bullets.push("GDP data is not yet available from FRED — the growth regime cannot be assessed with confidence.");
@@ -139,12 +192,21 @@ function buildBullets(data) {
       inf > 2.5 ? "Disinflation is progressing, but the final leg back to 2% has historically been the hardest. The Fed retains a tightening bias." :
       inf > 1.5 ? "Inflation is functionally on target, giving the Fed meaningful optionality to ease without sacrificing credibility." :
                   "Inflation has undershot the target — disinflationary forces are dominant, and the easing case is building.";
-    const pceNote = pceVal != null
-      ? ` Core PCE at ${formatNum(pceVal, 2)}% — the Fed's preferred gauge — confirms the picture.`
-      : "";
     bullets.push(
-      `Inflation remains the binding constraint for policy. ${lbl} is running at ${formatNum(inf, 2)}%, ` +
-      `${gapStr} the Fed's 2% target. ${lastMileNote}${pceNote}`
+      <>
+        Inflation remains the binding constraint for policy. {lbl} is running at{" "}
+        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(inf, 2)}%</strong>
+        <DeltaArrow current={cpiVal != null ? cpiVal : pceVal} prior={cpiVal != null ? cpiPrior : pcePrior} bullish={false} />,{" "}
+        {gapStr} the Fed&apos;s 2% target. {lastMileNote}
+        {pceVal != null && (
+          <>
+            {" "}Core PCE at{" "}
+            <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(pceVal, 2)}%</strong>
+            <DeltaArrow current={pceVal} prior={pcePrior} bullish={false} /> — the Fed&apos;s
+            preferred gauge — confirms the picture.
+          </>
+        )}
+      </>
     );
   } else {
     bullets.push("Inflation data is not yet available from FRED — the policy constraint cannot be fully assessed.");
@@ -160,15 +222,27 @@ function buildBullets(data) {
       gap < 1.0  ? `${formatNum(gap, 1)}pp above NAIRU, with slack beginning to build and wage growth softening` :
                    `${formatNum(gap, 1)}pp above NAIRU — meaningful slack has opened up, and consumer demand is feeling the pressure`;
     const payNote = payemsVal != null
-      ? ` Monthly payrolls are tracking around ${Math.round(payemsVal)}K — above the ~100K break-even needed to absorb new labor force entrants.`
+      ? (
+          <>
+            {" "}Monthly payrolls are tracking around{" "}
+            <strong style={{ color: "hsl(220,15%,95%)" }}>{Math.round(payemsVal)}K</strong>
+            <DeltaArrow current={payemsVal} prior={payemsPrior} bullish={true} /> — above the ~100K
+            break-even needed to absorb new labor force entrants.
+          </>
+        )
       : "";
     const sahmNote =
       unrateVal > 5.5
         ? "History shows that unemployment at this level compresses consumer spending with a 6–12 month lag — the second-order effects are worth watching."
         : "Tight labor market conditions are the primary support for consumer resilience, but they also keep inflation from falling cleanly.";
     bullets.push(
-      `Unemployment stands at ${formatNum(unrateVal, 1)}%, ${laborRead}.${payNote} ` +
-      `The Sahm Rule — triggered by a 0.5pp rise from the 12-month low — remains the cleanest real-time recession signal. ${sahmNote}`
+      <>
+        Unemployment stands at{" "}
+        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(unrateVal, 1)}%</strong>
+        <DeltaArrow current={unrateVal} prior={unratePrior} bullish={false} />, {laborRead}.
+        {payNote} The Sahm Rule — triggered by a 0.5pp rise from the 12-month low — remains the
+        cleanest real-time recession signal. {sahmNote}
+      </>
     );
   } else {
     bullets.push("Unemployment data is not yet available from FRED — labor market conditions cannot be assessed.");
@@ -377,6 +451,17 @@ export default function Overview() {
 
   // ── Regime ────────────────────────────────────────────────────────────────
   const regimeLabel = getMacroRegime(cpiVal, gdpVal, vixVal);
+  const regimeReasonText = regimeReason(regimeLabel, { cpiVal, gdpVal, vixVal, unrateVal, t10y2yVal });
+  const latestFredDate = [
+    latest(data.CPI)?.date,
+    latest(data.GDP)?.date,
+    latest(data.UNRATE)?.date,
+    latest(data.FEDFUNDS)?.date,
+    latest(data.DGS10)?.date,
+  ]
+    .filter(Boolean)
+    .sort()
+    .at(-1);
 
   // ── Bullets ───────────────────────────────────────────────────────────────
   const bullets = buildBullets(data);
@@ -533,41 +618,43 @@ export default function Overview() {
           borderRadius: 4,
         }}
       >
-        {/* Icon + Title row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span
-            className="glow-amber"
-            style={{ fontSize: 18, color: "hsla(45,90%,55%,1)", lineHeight: 1 }}
-          >
-            ⚠
-          </span>
-          <span
-            className="glow-amber"
-            style={{
-              fontSize: 14,
-              fontWeight: "bold",
-              color: "hsla(45,90%,55%,1)",
-              letterSpacing: "0.08em",
-            }}
-          >
-            MACRO REGIME: {regimeLabel}
-          </span>
+        {/* Header row: icon + regime label + AS-OF pill (right) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="glow-amber" style={{ fontSize: 18, color: "hsla(45,90%,55%,1)", lineHeight: 1 }}>⚠</span>
+            <span className="glow-amber" style={{ fontSize: 14, fontWeight: "bold", color: "hsla(45,90%,55%,1)", letterSpacing: "0.08em" }}>
+              MACRO REGIME: {regimeLabel}
+            </span>
+          </div>
+          {/* Use the most recent FRED observation date as the canonical "as of" for this box */}
+          {latestFredDate && <AsOfPill date={latestFredDate} />}
         </div>
 
-        {/* Subtitle */}
+        {/* Reason line: WHY this regime is classified */}
         <div
           style={{
             fontSize: 10,
             color: "var(--color-term-dim)",
-            letterSpacing: "0.08em",
+            letterSpacing: "0.04em",
             marginBottom: 12,
           }}
         >
-          {TODAY} — The Druckenmiller View
+          Triggered by: {regimeReasonText}
         </div>
 
-        {/* Perplexity-sourced live narrative — today's market drivers */}
         <NarrativePanel spyChangePct={spyChangePct} />
+
+        <div style={{
+          fontSize: 9,
+          textTransform: "uppercase",
+          letterSpacing: "0.12em",
+          color: "hsl(220,10%,42%)",
+          marginBottom: 6,
+          paddingBottom: 4,
+          borderBottom: "1px solid var(--color-term-border)",
+        }}>
+          Analytical Brief · via FRED
+        </div>
 
         {/* Analytical bullets */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -578,7 +665,7 @@ export default function Overview() {
                 style={{
                   margin: 0,
                   fontSize: 11,
-                  color: "hsl(220,12%,78%)",
+                  color: "var(--color-term-text)",
                   lineHeight: 1.65,
                   display: "flex",
                   gap: 7,
@@ -1270,7 +1357,7 @@ export default function Overview() {
   );
 }
 
-// ── Today's Market Drivers — Perplexity Sonar-sourced narrative ───────────────
+// ── Perplexity Sonar-sourced narrative ───────────────────────────────────────
 function tintFromPct(pct) {
   if (pct == null) return { accent: "hsl(185,70%,55%)", border: "hsl(220,15%,14%)" };
   if (pct > 0.3) return { accent: "hsl(142,70%,55%)", border: "hsla(142,70%,45%,0.35)" };
@@ -1357,8 +1444,6 @@ function NarrativePanel({ spyChangePct }) {
     <div
       style={{
         marginBottom: 14,
-        paddingBottom: 12,
-        borderBottom: `1px solid ${tint.border}`,
       }}
     >
       <div
@@ -1366,16 +1451,13 @@ function NarrativePanel({ spyChangePct }) {
           fontSize: 9,
           textTransform: "uppercase",
           letterSpacing: "0.12em",
-          color: tint.accent,
-          fontWeight: 600,
+          color: "hsl(220,10%,42%)",
           marginBottom: 6,
-          display: "flex",
-          alignItems: "baseline",
-          gap: 10,
+          paddingBottom: 4,
+          borderBottom: `1px solid ${tint.border}`,
         }}
       >
-        <span>Today's Market Drivers</span>
-        {data.fetchedAt && <AsOfPill date={data.fetchedAt} />}
+        Headline News · via Perplexity Sonar
       </div>
       {paragraphs.map((p, i) => (
         <p
