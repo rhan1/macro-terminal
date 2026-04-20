@@ -20,6 +20,29 @@ function splitTitleAndSource(raw) {
   if (sepIdx > 0 && sepIdx > title.length - 60) return { title: title.slice(0, sepIdx).trim(), source: title.slice(sepIdx + 3).trim() };
   return { title, source: "" };
 }
+function truncateText(s, max = 8000) {
+  return String(s || "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+function stripHtmlToText(html) {
+  return truncateText(
+    decodeEntities(
+      String(html || "")
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+    )
+  );
+}
+async function fetchArticleBody(url, headers = {}) {
+  if (!url) return "";
+  try {
+    const resp = await fetch(url, { headers, signal: AbortSignal.timeout(8000), redirect: "follow" });
+    if (!resp.ok) return "";
+    return stripHtmlToText(await resp.text());
+  } catch {
+    return "";
+  }
+}
 function parseRssItems(xml, limit) {
   const items = [];
   const re = /<item>([\s\S]*?)<\/item>/g;
@@ -79,8 +102,32 @@ export default async function handler(req, res) {
     ]);
     const rawNews = rssResp.ok ? parseRssItems(await rssResp.text(), 20) : [];
     const secHits = secResp.ok ? parseSecHits(await secResp.json(), 40) : [];
-    const promptLines = [`Inputs to structure (${rawNews.length + secHits.length} items):`, ...rawNews.map((x) => `- NEWS | ${x.title} | source: ${x.source || "?"} | date: ${x.date || "?"}`), ...secHits.map((x) => `- SEC 8-K | ${x.entityName} (ticker: ${x.tickerGuess || "?"}) | filed: ${x.fileDate || "?"}`)];
-    const combinedDates = [...rawNews.map((x) => x.date), ...secHits.map((x) => x.fileDate)];
+    const newsInputs = await Promise.all(rawNews.map(async (x) => ({
+      ...x,
+      itemType: "NEWS",
+      source_url: x.url || null,
+      articleBody: truncateText(await fetchArticleBody(x.url, { "User-Agent": "Mozilla/5.0", Accept: "text/html,application/xhtml+xml" }) || `${x.title}\n${x.description || ""}`),
+    })));
+    const secInputs = await Promise.all(secHits.map(async (x) => ({
+      ...x,
+      itemType: "SEC 8-K",
+      source_url: x.filingUrl || null,
+      articleBody: truncateText(await fetchArticleBody(x.filingUrl, { "User-Agent": SEC_UA, Accept: "text/html,application/xhtml+xml" }) || `${x.entityName} ${x.tickerGuess ? `(${x.tickerGuess})` : ""}\n${x.excerpt || ""}`),
+    })));
+    const promptLines = [
+      `Inputs to structure (${newsInputs.length + secInputs.length} items):`,
+      ...newsInputs.map((x, i) => [
+        `Input ${i + 1}: NEWS | ${x.title} | source: ${x.source || "?"} | date: ${x.date || "?"}`,
+        `SOURCE_URL: ${x.source_url || "null"}`,
+        `Article body: ${x.articleBody || x.title || ""}`,
+      ].join("\n")),
+      ...secInputs.map((x, i) => [
+        `Input ${newsInputs.length + i + 1}: SEC 8-K | ${x.entityName} (ticker: ${x.tickerGuess || "?"}) | filed: ${x.fileDate || "?"}`,
+        `SOURCE_URL: ${x.source_url || "null"}`,
+        `Article body: ${x.articleBody || x.excerpt || x.entityName || ""}`,
+      ].join("\n")),
+    ];
+    const combinedDates = [...newsInputs.map((x) => x.date), ...secInputs.map((x) => x.fileDate)];
     let structured = [];
     const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -88,7 +135,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 2500,
-        system: 'You structure raw layoff news into JSON. For each input item, output an object with: company (string — the actual proper-noun company name, e.g. "Meta Platforms", "Wells Fargo", "Shutterfly". If the source text does NOT contain a specific named company (generic descriptions like "a school bus company" or "an oil field operator"), omit the item entirely rather than emit the generic description as the company), ticker (string | null — uppercase stock symbol if the company is PUBLICLY TRADED on a US exchange, else null), headcount (integer | null — number of employees laid off), pct_workforce (number | null — percentage of workforce if stated), sector (string | null — one of: Tech, Finance, Retail, Healthcare, Media, Energy, Industrial, Transportation, Consumer, Real Estate, Other), announcement_date (ISO yyyy-mm-dd | null). Do NOT invent numbers. Do NOT invent or paraphrase company names — if no specific company is named, drop the item. Use null for anything not explicitly stated in the input. Return ONLY a JSON object { items: [...] } with no markdown or commentary.',
+        system: 'You structure raw layoff news into JSON. For each input item, output an object with: company (string — the actual proper-noun company name, e.g. "Meta Platforms", "Wells Fargo", "Shutterfly". If the source text does NOT contain a specific named company (generic descriptions like "a school bus company" or "an oil field operator"), omit the item entirely rather than emit the generic description as the company), ticker (string | null — uppercase stock symbol if the company is PUBLICLY TRADED on a US exchange, else null), headcount (integer | null — number of employees laid off), pct_workforce (number | null — percentage of workforce if stated), sector (string | null — one of: Tech, Finance, Retail, Healthcare, Media, Energy, Industrial, Transportation, Consumer, Real Estate, Other), announcement_date (ISO yyyy-mm-dd | null), source_url (string | null — pass through the SOURCE_URL provided for that input exactly as given; do NOT invent or modify a URL). Do NOT invent numbers. Do NOT invent or paraphrase company names — if no specific company is named, drop the item. Use null for anything not explicitly stated in the input. Return ONLY a JSON object { items: [...] } with no markdown or commentary.',
         messages: [{ role: "user", content: promptLines.join("\n") }],
       }),
       signal: AbortSignal.timeout(30000),
@@ -99,7 +146,7 @@ export default async function handler(req, res) {
       const clean = text.replace(/^```json\s*|^```\s*|\s*```$/g, "").trim();
       try {
         const parsed = JSON.parse(clean);
-        if (Array.isArray(parsed?.items)) structured = parsed.items.map((item, i) => ({ company: String(item?.company || "").trim(), ticker: item?.ticker ? String(item.ticker).trim().toUpperCase() : null, headcount: Number.isFinite(item?.headcount) ? Math.round(item.headcount) : null, pct_workforce: Number.isFinite(item?.pct_workforce) ? item.pct_workforce : null, sector: item?.sector || null, announcement_date: item?.announcement_date || null, sourceDate: combinedDates[i] || null })).filter((x) => x.company);
+        if (Array.isArray(parsed?.items)) structured = parsed.items.map((item, i) => ({ company: String(item?.company || "").trim(), ticker: item?.ticker ? String(item.ticker).trim().toUpperCase() : null, headcount: Number.isFinite(item?.headcount) ? Math.round(item.headcount) : null, pct_workforce: Number.isFinite(item?.pct_workforce) ? item.pct_workforce : null, sector: item?.sector || null, announcement_date: item?.announcement_date || null, source_url: item?.source_url ? String(item.source_url).trim() : null, sourceDate: combinedDates[i] || null })).filter((x) => x.company);
       } catch {}
     }
     const seen = new Set();

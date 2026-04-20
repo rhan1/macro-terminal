@@ -6,6 +6,7 @@ import { SERIES, latest, prior, change, formatNum, formatPct } from "../services
 import IndicatorCard from "../components/IndicatorCard";
 import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
+import AsOfPill from "../components/AsOfPill";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -1340,15 +1341,6 @@ function NarrativePanel({ spyChangePct }) {
   if (!data || data.error || !data.paragraph) return null;
 
   const sources = Array.isArray(data.sources) ? data.sources : [];
-  const fetchedAgo = (() => {
-    if (!data.fetchedAt) return "";
-    const mins = Math.round((Date.now() - new Date(data.fetchedAt).getTime()) / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    return `${hrs}h ago`;
-  })();
-
   const tint = tintFromPct(spyChangePct);
   const paragraphs = data.paragraph.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
   const uniqueSources = [];
@@ -1383,9 +1375,7 @@ function NarrativePanel({ spyChangePct }) {
         }}
       >
         <span>Today's Market Drivers</span>
-        <span style={{ color: "hsl(220,10%,52%)", letterSpacing: "0.05em", fontWeight: 400 }}>
-          via Perplexity Sonar · {fetchedAgo}
-        </span>
+        {data.fetchedAt && <AsOfPill date={data.fetchedAt} />}
       </div>
       {paragraphs.map((p, i) => (
         <p

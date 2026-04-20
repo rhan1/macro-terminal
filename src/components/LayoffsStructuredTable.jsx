@@ -214,6 +214,7 @@ export default function LayoffsStructuredTable({ items }) {
             <tr style={{ color: DIM, fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase" }}>
               <Th label="DATE" active={sortKey === "date"} dir={sortDir} onClick={() => toggleSort("date")} />
               <Th label="COMPANY" active={sortKey === "company"} dir={sortDir} onClick={() => toggleSort("company")} />
+              <Th label="SOURCE" />
               <Th label="TICKER" />
               <Th label="30D" />
               <Th label="Δ SINCE" active={sortKey === "pct"} dir={sortDir} onClick={() => toggleSort("pct")} align="right" />
@@ -225,7 +226,7 @@ export default function LayoffsStructuredTable({ items }) {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: "12px 0", color: DIM, fontSize: 11 }}>
+                <td colSpan={9} style={{ padding: "12px 0", color: DIM, fontSize: 11 }}>
                   No matching layoffs in the structured feed yet.
                 </td>
               </tr>
@@ -253,15 +254,19 @@ export default function LayoffsStructuredTable({ items }) {
                   </Td>
                   <Td>
                     <div style={{ color: "hsl(220,15%,90%)", fontWeight: 500 }}>{it.company || "—"}</div>
-                    {it.source_url && (
+                  </Td>
+                  <Td>
+                    {it.source_url ? (
                       <a
                         href={it.source_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ color: AMBER, fontSize: 9, textDecoration: "none" }}
                       >
-                        source ↗
+                        ↗
                       </a>
+                    ) : (
+                      <span style={{ color: DIM, fontSize: 10 }}>—</span>
                     )}
                   </Td>
                   <Td>
