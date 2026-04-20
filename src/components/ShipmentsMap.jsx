@@ -12,6 +12,10 @@ const TEXT = "var(--color-term-text, hsl(220,15%,88%))";
 const AMBER = "hsl(45, 90%, 55%)";
 const ORANGE = "hsl(20, 80%, 55%)";
 const RED = "hsl(0, 72%, 55%)";
+const PIN_OFFSETS = {
+  "BAB EL-MANDEB": { x: -12, y: 8 },
+  "GULF OF ADEN": { x: 8, y: 4 },
+};
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
@@ -118,6 +122,7 @@ export default function ShipmentsMap({ incidents, chokepoints, width = WIDTH, he
         const rectHeight = Math.max(8, Math.abs(se[1] - nw[1]));
         const centerX = x + rectWidth / 2;
         const centerY = y + rectHeight / 2;
+        const offset = PIN_OFFSETS[item.name] || { x: 0, y: 0 };
         return {
           ...item,
           index: index + 1,
@@ -129,6 +134,9 @@ export default function ShipmentsMap({ incidents, chokepoints, width = WIDTH, he
           rectHeight,
           centerX,
           centerY,
+          pinX: centerX + offset.x,
+          pinY: centerY + offset.y,
+          offset,
         };
       }),
     [chokepointStats, width, height]
@@ -208,9 +216,21 @@ export default function ShipmentsMap({ incidents, chokepoints, width = WIDTH, he
 
         {renderedChokepoints.map((point) => (
           <g key={`${point.name}-pin`}>
+            {(point.offset.x !== 0 || point.offset.y !== 0) && (
+              <line
+                x1={point.centerX}
+                y1={point.centerY}
+                x2={point.pinX}
+                y2={point.pinY}
+                stroke={AMBER}
+                strokeWidth="0.6"
+                strokeOpacity="0.4"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
             <circle
-              cx={point.centerX}
-              cy={point.centerY}
+              cx={point.pinX}
+              cy={point.pinY}
               r="6"
               fill={AMBER}
               stroke="hsla(220,20%,7%,0.95)"
@@ -218,8 +238,8 @@ export default function ShipmentsMap({ incidents, chokepoints, width = WIDTH, he
               vectorEffect="non-scaling-stroke"
             />
             <text
-              x={point.centerX}
-              y={point.centerY + 2}
+              x={point.pinX}
+              y={point.pinY + 2}
               textAnchor="middle"
               fill={BG}
               fontSize="8"
