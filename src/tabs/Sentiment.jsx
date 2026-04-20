@@ -5,6 +5,7 @@ import { SERIES, latest, prior, change, formatNum, formatPct } from "../services
 import IndicatorCard from "../components/IndicatorCard";
 import Loading from "../components/Loading";
 import ChartTooltip from "../components/ChartTooltip";
+import AsOfPill from "../components/AsOfPill";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip,
   CartesianGrid, ReferenceLine,
@@ -78,6 +79,17 @@ function formatMentionPct(pct) {
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`;
 }
 
+function latestDateFromItems(items, keys = ["date"]) {
+  if (!Array.isArray(items)) return null;
+  const dates = items
+    .flatMap((item) => keys.map((key) => item?.[key]).filter(Boolean))
+    .filter((value) => !Number.isNaN(new Date(value).getTime()));
+  if (dates.length === 0) return null;
+  return dates.reduce((latestDate, candidate) => (
+    new Date(candidate).getTime() > new Date(latestDate).getTime() ? candidate : latestDate
+  ));
+}
+
 export default function Sentiment() {
   const { data: sentData, loading: sentLoading } = useSentimentData();
   const { data: fredData, loading: fredLoading } = useFredData({
@@ -133,6 +145,7 @@ export default function Sentiment() {
   const score = sentData?.score?.score ?? sentData?.score ?? null;
   const components = sentData?.score?.components || sentData?.components || null;
   const history = sentData?.recent || sentData?.history || [];
+  const fearGreedDate = latestDateFromItems(history, ["date", "publishedAt"]);
 
   // NFCI chart
   const nfciArr = fredData.NFCI || [];
@@ -172,7 +185,10 @@ export default function Sentiment() {
 
         {/* Left: Fear & Greed Gauge */}
         <div className="panel" style={{ textAlign: "center" }}>
-          <div className="section-label">Fear &amp; Greed Index</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <div className="section-label" style={{ marginBottom: 0 }}>Fear &amp; Greed Index</div>
+            {fearGreedDate && <AsOfPill date={fearGreedDate} />}
+          </div>
           {score != null ? (
             <>
               <div style={{

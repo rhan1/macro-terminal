@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Loading from "../components/Loading";
+import AsOfPill from "../components/AsOfPill";
 
 const GREEN = "hsl(142,70%,55%)";
 const RED = "hsl(0,72%,55%)";
@@ -75,8 +76,11 @@ export default function IPO() {
 
       {/* Header */}
       <div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: GREEN, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-          $ IPO Calendar
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: GREEN, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            $ IPO Calendar
+          </div>
+          {data?.fetchedAt && <AsOfPill date={data.fetchedAt} />}
         </div>
         <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>
           — Upcoming &amp; Recent IPOs via Nasdaq + SEC EDGAR
@@ -222,7 +226,7 @@ export default function IPO() {
 
       {/* Source */}
       <div style={{ fontSize: 8, color: "hsl(220,10%,38%)", textAlign: "right" }}>
-        Source: Nasdaq IPO Calendar + SEC EDGAR &middot; Updated: {data?.fetchedAt ? new Date(data.fetchedAt).toLocaleString() : "—"}
+        Source: Nasdaq IPO Calendar + SEC EDGAR
       </div>
     </div>
   );

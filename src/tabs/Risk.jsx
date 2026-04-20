@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useFredData } from "../hooks/useFredData";
 import { useCbData } from "../hooks/useCbData";
 import { SERIES, latest, prior, change, diff, formatNum, formatPct, formatPP } from "../services/fred";
+import AsOfPill from "../components/AsOfPill";
 
 // Keep Risk tab gold price aligned with Global tab (Yahoo GC=F futures)
 // instead of the FRED Nasdaq Gold Index which tracks a different series.
@@ -53,6 +54,24 @@ function fmtCardDate(dateStr) {
   const [y, m, d] = dateStr.split("-");
   const mi = parseInt(m, 10) - 1;
   return d === "01" ? `${MONTHS[mi]} ${y}` : `${MONTHS[mi]} ${parseInt(d, 10)}, ${y}`;
+}
+
+function latestHeatMapObservationDate(data) {
+  return [
+    latest(data.GOLD)?.date,
+    latest(data.CPI)?.date,
+    latest(data.COREPCE)?.date,
+    latest(data.UNRATE)?.date,
+    latest(data.PAYEMS)?.date,
+    latest(data.HYSPREAD)?.date,
+    latest(data.GDP)?.date,
+    latest(data.VIXCLS)?.date,
+  ]
+    .filter(Boolean)
+    .reduce((latestDate, candidate) => {
+      if (!latestDate) return candidate;
+      return new Date(candidate).getTime() > new Date(latestDate).getTime() ? candidate : latestDate;
+    }, null);
 }
 
 // ── risk level colors ─────────────────────────────────────────────────────────
@@ -347,6 +366,7 @@ export default function Risk() {
 
   // Derived latest values
   const vixVal   = latest(data.VIXCLS)?.value;
+  const heatMapDate = latestHeatMapObservationDate(data);
   const vixPrev  = prior(data.VIXCLS)?.value;
   const vixChg   = change(vixVal, vixPrev);
 
@@ -585,14 +605,24 @@ export default function Risk() {
       <div className="panel" style={{ padding: "14px 16px" }}>
         <div
           style={{
-            fontSize: 10,
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            color: "var(--color-term-dim)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 8,
             marginBottom: 12,
           }}
         >
-          Risk Heat Map — Druckenmiller Framework
+          <div
+            style={{
+              fontSize: 10,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              color: "var(--color-term-dim)",
+            }}
+          >
+            Risk Heat Map — Druckenmiller Framework
+          </div>
+          {heatMapDate && <AsOfPill date={heatMapDate} />}
         </div>
         <RiskHeatMap data={data} />
       </div>

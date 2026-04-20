@@ -7,6 +7,7 @@ import ChartTooltip from "../components/ChartTooltip";
 import Loading from "../components/Loading";
 import LayoffsAggregateStrip from "../components/LayoffsAggregateStrip";
 import LayoffsStructuredTable from "../components/LayoffsStructuredTable";
+import AsOfPill from "../components/AsOfPill";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -545,6 +546,7 @@ export default function Labor() {
           sourceUrl="https://fred.stlouisfed.org/series/PAYEMS"
           dateLabel={fmtCardDate(latest(payemsArr)?.date)}
           sparkData={payemsArr?.slice(0, 12)}
+          headerRight={latestPayems?.date ? <AsOfPill date={latestPayems.date} /> : undefined}
         />
 
         <IndicatorCard
@@ -586,6 +588,7 @@ export default function Labor() {
           sourceUrl="https://fred.stlouisfed.org/series/ICSA"
           dateLabel={fmtCardDate(latest(claimsArr)?.date)}
           sparkData={claimsArr?.slice(0, 12)}
+          headerRight={latestClaims?.date ? <AsOfPill date={latestClaims.date} /> : undefined}
         />
 
         <IndicatorCard
@@ -852,4 +855,3 @@ function RawNewsTail({ items, defaultOpen = false, source }) {
     </div>
   );
 }
-

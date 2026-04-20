@@ -3,6 +3,7 @@ import Loading from "../components/Loading";
 import ChartTooltip from "../components/ChartTooltip";
 import EscortHeatMap from "../components/EscortHeatMap";
 import IndicatorCard from "../components/IndicatorCard";
+import AsOfPill from "../components/AsOfPill";
 import { useTsaData } from "../hooks/useTsaData";
 import { useBoxOfficeData } from "../hooks/useBoxOfficeData";
 import { useManheimData } from "../hooks/useManheimData";
@@ -113,6 +114,17 @@ function CategoryLabel({ children }) {
       {children}
     </div>
   );
+}
+
+function latestIsoDate(...candidates) {
+  const dates = candidates
+    .flat()
+    .filter(Boolean)
+    .filter((value) => !Number.isNaN(new Date(value).getTime()));
+  if (dates.length === 0) return null;
+  return dates.reduce((latestDate, candidate) => (
+    new Date(candidate).getTime() > new Date(latestDate).getTime() ? candidate : latestDate
+  ));
 }
 
 // ── RICK anchor chart panel ────────────────────────────────────────────────────
@@ -721,8 +733,13 @@ export default function AlternativeIndex() {
               <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
                 Leisure & Travel
               </div>
-              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
-                source: tsa.gov · boxofficemojo.com
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+                  source: tsa.gov · boxofficemojo.com
+                </div>
+                {latestIsoDate(tsaLatest?.date, boxLatest?.weekStart) && (
+                  <AsOfPill date={latestIsoDate(tsaLatest?.date, boxLatest?.weekStart)} />
+                )}
               </div>
             </div>
             {(tsaLoading || boxLoading) && !tsaData && !boxData ? (
@@ -808,8 +825,13 @@ export default function AlternativeIndex() {
               <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
                 Goods & Supply Chain
               </div>
-              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
-                source: coxautoinc.com · freightos.com
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+                  source: coxautoinc.com · freightos.com
+                </div>
+                {latestIsoDate(ml?.period, fh?.[fh.length - 1]?.date) && (
+                  <AsOfPill date={latestIsoDate(ml?.period, fh?.[fh.length - 1]?.date)} />
+                )}
               </div>
             </div>
             {(manheimLoading || fbxLoading) && !manheimData && !fbxData ? (
@@ -895,8 +917,13 @@ export default function AlternativeIndex() {
           <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
             Google Trends — Stress Signals
           </div>
-          <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
-            {trendsSource}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+              {trendsSource}
+            </div>
+            {latestIsoDate(...trendsTerms.map((term) => term?.data?.[term.data.length - 1]?.date)) && (
+              <AsOfPill date={latestIsoDate(...trendsTerms.map((term) => term?.data?.[term.data.length - 1]?.date))} />
+            )}
           </div>
         </div>
 

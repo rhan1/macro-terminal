@@ -1,22 +1,24 @@
-import { useState, useEffect } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import Header from "./components/Header";
 import TabBar, { TABS } from "./components/TabBar";
 import Footer from "./components/Footer";
 import CommandPalette from "./components/CommandPalette";
-import Overview from "./tabs/Overview";
-import Rates from "./tabs/Rates";
-import Inflation from "./tabs/Inflation";
-import Growth from "./tabs/Growth";
-import Shipments from "./tabs/Shipments";
-import Labor from "./tabs/Labor";
-import Global from "./tabs/Global";
-import Risk from "./tabs/Risk";
-import RealEstate from "./tabs/RealEstate";
-import Sentiment from "./tabs/Sentiment";
-import Capitol from "./tabs/Capitol";
-import IPO from "./tabs/IPO";
-import Auctions from "./tabs/Auctions";
-import AlternativeIndex from "./tabs/AlternativeIndex";
+import Loading from "./components/Loading";
+
+const Overview = lazy(() => import("./tabs/Overview"));
+const Rates = lazy(() => import("./tabs/Rates"));
+const Inflation = lazy(() => import("./tabs/Inflation"));
+const Growth = lazy(() => import("./tabs/Growth"));
+const Shipments = lazy(() => import("./tabs/Shipments"));
+const Labor = lazy(() => import("./tabs/Labor"));
+const Global = lazy(() => import("./tabs/Global"));
+const Risk = lazy(() => import("./tabs/Risk"));
+const RealEstate = lazy(() => import("./tabs/RealEstate"));
+const Sentiment = lazy(() => import("./tabs/Sentiment"));
+const Capitol = lazy(() => import("./tabs/Capitol"));
+const IPO = lazy(() => import("./tabs/IPO"));
+const Auctions = lazy(() => import("./tabs/Auctions"));
+const AlternativeIndex = lazy(() => import("./tabs/AlternativeIndex"));
 
 const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "sentiment", "shipments", "capitol", "global", "realestate", "auctions", "ipo", "altindex"];
 
@@ -115,7 +117,9 @@ export default function App() {
         }}
       >
         <div className="tab-content" key={activeTab}>
-          <ActiveComponent />
+          <Suspense fallback={<Loading />}>
+            <ActiveComponent />
+          </Suspense>
         </div>
         <Footer />
       </main>
