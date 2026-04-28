@@ -9,10 +9,10 @@ import { put } from "@vercel/blob";
 
 const PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const PERPLEXITY_MODEL = "sonar-pro";
+const PERPLEXITY_MODEL = "sonar-reasoning-pro";
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
-const FINAL_MODEL = "sonar-pro+claude-haiku-4-5";
-const FALLBACK_MODEL = "sonar-pro-fallback";
+const FINAL_MODEL = `${PERPLEXITY_MODEL}+claude-haiku-4-5`;
+const FALLBACK_MODEL = `${PERPLEXITY_MODEL}-fallback`;
 const DISALLOWED_CITATION_HOSTNAMES = new Set([
   "youtube.com",
   "www.youtube.com",
@@ -251,7 +251,11 @@ export default async function handler(req, res) {
           content: `What are the most important news items driving US markets today (${todayIso()})? Provide detailed context for each development — what happened, who is affected, and why it matters for macro positioning. Cite all sources.`,
         },
       ],
-      max_tokens: 600,
+      max_tokens: 800,
+      search_recency_filter: "day",
+      web_search_options: {
+        search_context_size: "high",
+      },
     };
 
     async function fetchPerplexity(payload) {
