@@ -36,7 +36,6 @@ function parseItems(xml, source, limit = 10) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=1800");
   const fetchedAt = new Date().toISOString();
   const errors = {};
   try {
@@ -70,6 +69,7 @@ export default async function handler(req, res) {
     }).slice(0, 30);
 
     const sources = [...new Set(items.map((item) => item.source))];
+    res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=1800");
     return res.status(200).json({ items, sources, fetchedAt, errors });
   } catch (err) {
     console.error(err?.message || err);

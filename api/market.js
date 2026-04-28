@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       const prevClose = result.meta.chartPreviousClose;
       const price = result.meta.regularMarketPrice;
 
-      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
+      res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
       return res.status(200).json({
         symbol: sym.replace("^", ""),
         points,
@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       }
     }
 
-    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate=60");
+    res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
     return res.status(200).json(data);
   } catch (err) {
     return res.status(500).json({ error: err.message });
