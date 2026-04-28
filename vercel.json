@@ -33,7 +33,7 @@
     },
     {
       "path": "/api/cron/refresh-marad",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/refresh-portwatch",
