@@ -106,7 +106,7 @@ function sumTrendSeries(chokepoints) {
   return [...totalsByDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function ChokepointCard({ name, stats }) {
+function ChokepointCard({ name, stats, windowDays }) {
   const incidents = stats?.incidents || 0;
   const fatalities = stats?.fatalities || 0;
   const latest = stats?.latest;
@@ -127,7 +127,7 @@ function ChokepointCard({ name, stats }) {
         <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 18, fontWeight: 600, color: heat }}>
           {incidents}
         </span>
-        <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.06em" }}>INCIDENTS 12MO</span>
+        <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.06em" }}>{`INCIDENTS ${windowDays}D`}</span>
       </div>
       {fatalities > 0 && (
         <div style={{ fontSize: 10, color: fatalityColor(fatalities), fontFamily: '"JetBrains Mono", monospace' }}>
@@ -136,7 +136,12 @@ function ChokepointCard({ name, stats }) {
       )}
       {latest && (
         <div style={{ fontSize: 9, color: DIM, marginTop: 3 }}>
-          Latest: {fmtDate(latest)} ({daysAgo(latest)}d ago)
+          Latest: {fmtDate(latest)}
+          {latest && (
+            <span style={{ fontSize: 9, color: "var(--color-term-dim)", marginLeft: 4 }}>
+              ({daysAgo(latest)}d ago)
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -361,6 +366,7 @@ export default function Shipments() {
   const { data: portwatchData, loading: portwatchLoading } = usePortwatchData();
   const [filterChokepoint, setFilterChokepoint] = useState("ALL");
   const [query, setQuery] = useState("");
+  const [windowDays, setWindowDays] = useState(30);
   const [showAllAdvisories, setShowAllAdvisories] = useState(false);
 
   const incidents = Array.isArray(data?.incidents) ? data.incidents : [];
@@ -404,8 +410,14 @@ export default function Shipments() {
       };
     });
   }, [portwatchChokepoints]);
+  const cutoffMs = Date.now() - windowDays * 86_400_000;
+  const windowedIncidents = incidents.filter((ev) => {
+    if (!ev?.date) return false;
+    const t = new Date(ev.date).getTime();
+    return Number.isFinite(t) && t >= cutoffMs;
+  });
 
-  const filtered = incidents.filter((ev) => {
+  const filtered = windowedIncidents.filter((ev) => {
     if (filterChokepoint !== "ALL" && ev.chokepoint !== filterChokepoint) return false;
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -415,12 +427,12 @@ export default function Shipments() {
     return true;
   });
 
-  const totalFatalities = incidents.reduce((n, e) => n + (e.fatalities || 0), 0);
+  const totalFatalities = windowedIncidents.reduce((n, e) => n + (e.fatalities || 0), 0);
   const recentCount = incidents.filter((e) => {
     const days = daysAgo(e.date);
     return days != null && days <= 30;
   }).length;
-  const latestAcledIncidentDate = incidents.reduce((latestDate, ev) => {
+  const latestAcledIncidentDate = windowedIncidents.reduce((latestDate, ev) => {
     const candidate = ev?.date;
     if (!candidate) return latestDate;
     if (!latestDate) return candidate;
@@ -438,6 +450,33 @@ export default function Shipments() {
         </div>
       </div>
 
+      <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
+        {[
+          { label: "30D", val: 30 },
+          { label: "90D", val: 90 },
+          { label: "365D", val: 365 },
+        ].map(({ label, val }) => (
+          <button
+            key={val}
+            onClick={() => setWindowDays(val)}
+            style={{
+              background: windowDays === val ? "hsla(142,70%,55%,0.15)" : "none",
+              border: windowDays === val ? "1px solid hsla(142,70%,55%,0.4)" : "1px solid transparent",
+              color: windowDays === val ? "hsl(142,70%,55%)" : "var(--color-term-dim)",
+              fontSize: 9,
+              fontFamily: "inherit",
+              padding: "2px 8px",
+              cursor: "pointer",
+              letterSpacing: "0.04em",
+              fontWeight: windowDays === val ? 600 : 400,
+              transition: "all 0.1s",
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {recentCount > 5 && (
         <div className="panel" style={{ padding: "10px 14px", borderLeft: `3px solid ${AMBER}` }}>
           <span style={{ color: AMBER, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em" }}>
@@ -448,11 +487,11 @@ export default function Shipments() {
 
       {/* KPI strip */}
       <div className="panel" style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-        <Kpi label="INCIDENTS 12MO" value={incidents.length} />
-        <Kpi label="FATALITIES 12MO" value={totalFatalities} color={fatalityColor(totalFatalities)} />
+        <Kpi label={`INCIDENTS ${windowDays}D`} value={windowedIncidents.length} />
+        <Kpi label={`FATALITIES ${windowDays}D`} value={totalFatalities} color={fatalityColor(totalFatalities)} />
         <Kpi label="RECENT 30D" value={recentCount} color={recentCount > 10 ? RED : AMBER} />
         <Kpi label="CHOKEPOINTS" value={chokepointList.length} color={CYAN} small />
-        <Kpi label="WINDOW" value={`${data?.windowDays || 365}D`} color={DIM} small />
+        <Kpi label="WINDOW" value={`${windowDays}D`} color={DIM} small />
       </div>
 
       <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -569,9 +608,27 @@ export default function Shipments() {
               Shipments feed not yet seeded.
             </div>
           )}
-          {chokepointList.map((name) => (
-            <ChokepointCard key={name} name={name} stats={byChokepoint[name]} />
-          ))}
+          {chokepointList.map((name) => {
+            const cardIncidents = windowedIncidents.filter((ev) => ev.chokepoint === name);
+            const cardFatalities = cardIncidents.reduce((n, e) => n + (e.fatalities || 0), 0);
+            const latestIncidentDate = cardIncidents.reduce(
+              (latest, e) => (e.date && (!latest || e.date > latest) ? e.date : latest),
+              null
+            );
+            return (
+              <ChokepointCard
+                key={name}
+                name={name}
+                windowDays={windowDays}
+                stats={{
+                  ...(byChokepoint[name] || {}),
+                  incidents: cardIncidents.length,
+                  fatalities: cardFatalities,
+                  latest: latestIncidentDate,
+                }}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -671,7 +728,7 @@ export default function Shipments() {
             }}
           />
           <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
-            {filtered.length} of {incidents.length}
+            {filtered.length} of {windowedIncidents.length}
           </span>
         </div>
 
