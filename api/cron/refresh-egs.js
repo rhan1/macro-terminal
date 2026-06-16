@@ -5,11 +5,9 @@
 // Manual invoke:
 // curl -H "Authorization: Bearer $CRON_SECRET" https://<deploy>/api/cron/refresh-egs
 
-import { put } from "@vercel/blob";
+import { putJSON, getJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const URL = "https://www.eurogirlsescort.es/";
-const SNAPSHOT_BLOB_URL = "https://asj7zmgpd4xptrpp.private.blob.vercel-storage.com/egs/snapshot.json";
-const HISTORY_BLOB_URL = "https://asj7zmgpd4xptrpp.private.blob.vercel-storage.com/egs/history.json";
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 const COUNTRY_RE =
@@ -71,17 +69,9 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function loadHistory(token) {
-  try {
-    const resp = await fetch(HISTORY_BLOB_URL, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!resp.ok) return { series: {} };
-    return await resp.json();
-  } catch {
-    return { series: {} };
-  }
+async function loadHistory() {
+  const data = await getJSON("egs/history.json");
+  return data ?? { series: {} };
 }
 
 export default async function handler(req, res) {
@@ -91,9 +81,7 @@ export default async function handler(req, res) {
     }
 
     const scrapeKey = process.env.SCRAPINGBEE_API_KEY;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!scrapeKey) return res.status(500).json({ error: "SCRAPINGBEE_API_KEY not configured" });
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN not configured" });
 
     const scrapeUrl =
       `https://app.scrapingbee.com/api/v1/?api_key=${scrapeKey}&url=${encodeURIComponent(URL)}` +
@@ -123,7 +111,7 @@ export default async function handler(req, res) {
     parsed.sort((a, b) => b.total - a.total);
     if (!parsed.length) return res.status(500).json({ error: "parse failed" });
 
-    const history = (await loadHistory(token)) ?? { series: {} };
+    const history = (await loadHistory()) ?? { series: {} };
     history.series ??= {};
     for (const c of parsed) {
       const arr = history.series[c.iso] ?? [];
@@ -178,21 +166,9 @@ export default async function handler(req, res) {
       })),
     };
 
-    const [snapshotResult, historyResult] = await Promise.all([
-      put("egs/snapshot.json", JSON.stringify(snapshot), {
-        access: "private",
-        contentType: "application/json",
-        token,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      }),
-      put("egs/history.json", JSON.stringify(history), {
-        access: "private",
-        contentType: "application/json",
-        token,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      }),
+    await Promise.all([
+      putJSON("egs/snapshot.json", snapshot),
+      putJSON("egs/history.json", history),
     ]);
 
     return res.status(200).json({
@@ -200,7 +176,6 @@ export default async function handler(req, res) {
       countries: countries.length,
       totalWorldwide,
       fetchedAt: snapshot.fetchedAt,
-      blobs: { snapshot: snapshotResult.url ?? SNAPSHOT_BLOB_URL, history: historyResult.url ?? HISTORY_BLOB_URL },
     });
   } catch (err) {
     console.error(err?.message ?? err);

@@ -7,7 +7,7 @@
 // "..."])` chunk. We locate `\"data\":[{\"_issuerId\"...`, walk to the
 // unescaped closing quote, JSON-parse once to unescape, then parse the
 // array directly.
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 import committeesData from "../../src/data/committees.json" with { type: "json" };
 
 const BASE = "https://www.capitoltrades.com/trades";
@@ -189,8 +189,6 @@ function tradeDedupKey(trade) {
 export default async function handler(req, res) {
   try {
     if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) return res.status(401).json({ error: "unauthorized" });
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN not configured" });
 
     const backfillRaw = Array.isArray(req.query?.backfill) ? req.query.backfill[0] : req.query?.backfill;
     const maxPages = Math.max(1, parseInt(backfillRaw || "60", 10) || 60);
@@ -327,7 +325,7 @@ export default async function handler(req, res) {
       count: trades.length,
       source: "capitoltrades.com SSR Flight"
     };
-    await put("capitol/trades.json", JSON.stringify(payload), { access: "private", contentType: "application/json", token, addRandomSuffix: false, allowOverwrite: true });
+    await putJSON("capitol/trades.json", payload);
     return res.status(200).json({ ok: true, count: payload.count, pages: pageTrades.length ? Math.ceil(pageTrades.length / 50) : 0, fetchedAt: payload.fetchedAt });
   } catch (err) {
     console.error(err?.message ?? err);

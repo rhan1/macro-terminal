@@ -8,7 +8,7 @@
 //
 // Account data-recency is capped at 12 months (rolling), so we query the
 // last 365 days of events for each country in the region.
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const OAUTH_URL = "https://acleddata.com/oauth/token";
 const READ_URL = "https://acleddata.com/api/acled/read";
@@ -183,9 +183,7 @@ export default async function handler(req, res) {
     }
     const email = process.env.ACLED_EMAIL;
     const password = process.env.ACLED_PASSWORD;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!email || !password) return res.status(500).json({ error: "ACLED_EMAIL/PASSWORD missing" });
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN missing" });
 
     const daysParam = Math.max(1, parseInt(req.query?.days || "365", 10));
     const endDate = todayIso();
@@ -240,7 +238,7 @@ export default async function handler(req, res) {
     }
 
     const fetchedAt = new Date().toISOString();
-    await put(BLOB_PATH, JSON.stringify({
+    await putJSON(BLOB_PATH, {
       incidents,
       byChokepoint,
       countries: REGION_COUNTRIES,
@@ -255,12 +253,6 @@ export default async function handler(req, res) {
       windowDays: daysParam,
       fetchedAt,
       errors: Object.keys(errors).length ? errors : undefined,
-    }), {
-      access: "private",
-      contentType: "application/json",
-      token,
-      addRandomSuffix: false,
-      allowOverwrite: true,
     });
 
     return res.status(200).json({

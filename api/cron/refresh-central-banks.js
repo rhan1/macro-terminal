@@ -2,7 +2,7 @@
 // central-bank policy rates page. Best-effort: if scrape fails, preserves
 // the last-good Blob. Falls back to the bundled static JSON if the Blob
 // has never been seeded.
-import { put, head } from "@vercel/blob";
+import { putJSON, getJSON } from "../../netlify/lib/netlify-blob.mjs";
 import seedData from "../../src/data/centralBanks.json" with { type: "json" };
 
 const BLOB_PATH = "global/central-banks.json";
@@ -52,16 +52,8 @@ async function fetchBisRates() {
   }
 }
 
-async function loadLastGood(token) {
-  try {
-    const meta = await head(BLOB_PATH, { token });
-    const resp = await fetch(meta.url, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch { return null; }
+async function loadLastGood() {
+  return await getJSON(BLOB_PATH);
 }
 
 export default async function handler(req, res) {
@@ -69,11 +61,8 @@ export default async function handler(req, res) {
     if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
       return res.status(401).json({ error: "unauthorized" });
     }
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN missing" });
-
     const scraped = await fetchBisRates();
-    const prior = await loadLastGood(token);
+    const prior = await loadLastGood();
     // On first run (no prior Blob), seed from the bundled static JSON so the
     // UI has something to render even if the BIS scrape returns empty.
     const priorBanks = prior?.banks?.length ? prior.banks : (seedData.banks || []);
@@ -95,13 +84,7 @@ export default async function handler(req, res) {
       source: "BIS central-bank policy rates via ScrapingBee",
       fetchedAt: new Date().toISOString(),
     };
-    await put(BLOB_PATH, JSON.stringify(body), {
-      access: "private",
-      contentType: "application/json",
-      token,
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    await putJSON(BLOB_PATH, body);
 
     return res.status(200).json({ ok: true, scrapedCount: scrapeCount, bankCount: banks.length });
   } catch (err) {
