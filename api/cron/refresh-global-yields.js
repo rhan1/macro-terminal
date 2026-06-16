@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 export const COUNTRIES = [
   { country: "United States", countryCode: "US", flag: "🇺🇸", tePath: "united-states", fredSeries: "IRLTLT01USM156N" },
@@ -67,10 +67,8 @@ export default async function handler(req, res) {
     }
 
     const scrapingBeeKey = process.env.SCRAPINGBEE_API_KEY;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
     const fredKey = process.env.FRED_API_KEY;
     if (!scrapingBeeKey) return res.status(500).json({ error: "SCRAPINGBEE_API_KEY not configured" });
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN not configured" });
 
     const fetchedAt = new Date().toISOString();
     const settled = await Promise.allSettled(COUNTRIES.map((entry) => resolveCountry(entry, scrapingBeeKey, fredKey)));
@@ -92,13 +90,7 @@ export default async function handler(req, res) {
     const count = yields.filter((item) => item.value != null).length;
     if (count < 5) return res.status(502).json({ error: "not enough countries resolved" });
 
-    await put("global/yields.json", JSON.stringify({ yields, fetchedAt }), {
-      access: "private",
-      contentType: "application/json",
-      token,
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    await putJSON("global/yields.json", { yields, fetchedAt });
 
     const sources = yields.reduce(
       (acc, item) => {

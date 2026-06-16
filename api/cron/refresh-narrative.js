@@ -1,11 +1,11 @@
 // Refreshes the Blob-backed market drivers overview by fetching cited macro
 // news from Perplexity Sonar Pro, then rewriting it with Anthropic using
 // ground-truth market values before overwriting overview/narrative.json.
-// Requires PERPLEXITY_API_KEY, ANTHROPIC_API_KEY, BLOB_READ_WRITE_TOKEN, and CRON_SECRET.
+// Requires PERPLEXITY_API_KEY, ANTHROPIC_API_KEY, and CRON_SECRET.
 // Manual invoke:
 // curl -H "Authorization: Bearer $CRON_SECRET" https://<deploy>/api/cron/refresh-narrative
 
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -184,10 +184,8 @@ export default async function handler(req, res) {
 
     const perplexityKey = process.env.PERPLEXITY_API_KEY;
     const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!perplexityKey) return res.status(500).json({ error: "PERPLEXITY_API_KEY not configured" });
     if (!anthropicKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN not configured" });
 
     // --- Fetch ground-truth market state before calling Anthropic -------------
     const base = `https://${process.env.VERCEL_URL || "macro-terminal-bice.vercel.app"}`;
@@ -397,13 +395,7 @@ export default async function handler(req, res) {
         sanitizedReplacements: sanitizedParagraph.replacements + (sanitizedTakeaway?.replacements ?? 0),
       };
 
-      await put("overview/narrative.json", JSON.stringify(body), {
-        access: "private",
-        contentType: "application/json",
-        token,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      });
+      await putJSON("overview/narrative.json", body);
 
       return res.status(200).json({
         ok: true,
@@ -427,13 +419,7 @@ export default async function handler(req, res) {
         sanitizedReplacements: sanitized.replacements,
       };
 
-      await put("overview/narrative.json", JSON.stringify(body), {
-        access: "private",
-        contentType: "application/json",
-        token,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      });
+      await putJSON("overview/narrative.json", body);
 
       return res.status(200).json({
         ok: true,

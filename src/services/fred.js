@@ -52,6 +52,77 @@ export async function fetchSeries(seriesId, { limit = 30, frequency = "d", units
   throw lastError;
 }
 
+/**
+ * fetchBatch — single POST to /api/fred-batch for an entire seriesMap.
+ * Returns { [key]: observations[] } for all fulfilled series.
+ * Keys for failed series are omitted (errors are returned separately but
+ * callers that only care about data will get a partial result rather than
+ * a total drop — the silent-drop path is gone).
+ */
+export async function fetchBatch(seriesMap) {
+  const entries = Object.entries(seriesMap);
+  // Respect existing client-side cache: split into cached vs uncached
+  const cachedResults = {};
+  const uncached = [];
+
+  for (const [key, opts] of entries) {
+    const ck = cacheKey(opts.id, { limit: opts.limit ?? 30, frequency: opts.frequency ?? "d", units: opts.units, offset: opts.offset });
+    const hit = cache.get(ck);
+    if (hit && Date.now() - hit.ts < getCacheTTL(opts.frequency ?? "d")) {
+      cachedResults[key] = hit.data;
+    } else {
+      uncached.push({ key, opts, ck });
+    }
+  }
+
+  if (uncached.length === 0) return cachedResults;
+
+  const seriesList = uncached.map(({ key, opts }) => ({
+    key,
+    id: opts.id,
+    units: opts.units,
+    limit: opts.limit ?? 30,
+  }));
+
+  let batchResult;
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 300 * Math.pow(2, attempt)));
+    try {
+      const res = await fetch("/api/fred-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ series: seriesList }),
+      });
+      if (res.status === 429 || res.status >= 500) {
+        lastError = new Error(`fred-batch: ${res.status}`);
+        continue;
+      }
+      if (res.status === 404) {
+        // /api/fred-batch not available (local dev without Vercel CLI).
+        // Fall back to per-series fetches so the dev server still works.
+        return fetchMultiple(seriesMap);
+      }
+      if (!res.ok) throw new Error(`fred-batch: ${res.status}`);
+      batchResult = await res.json();
+      break;
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  if (!batchResult) throw lastError;
+
+  // Populate client cache for each fulfilled series
+  for (const { key, opts, ck } of uncached) {
+    if (batchResult.data && batchResult.data[key] !== undefined) {
+      cache.set(ck, { data: batchResult.data[key], ts: Date.now() });
+    }
+  }
+
+  return { ...cachedResults, ...(batchResult.data ?? {}) };
+}
+
 export async function fetchMultiple(seriesMap) {
   const entries = Object.entries(seriesMap);
   const results = await Promise.allSettled(
