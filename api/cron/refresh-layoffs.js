@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 const RSS_URL = "https://news.google.com/rss/search?q=layoffs+company&hl=en-US&gl=US&ceid=US:en";
 const SEC_Q = '"workforce reduction" OR "reduction in force" OR "restructuring"';
 const SEC_UA = "Macro Terminal macro-terminal-bice.vercel.app <https://github.com/rhan1/macro-terminal>";
@@ -89,9 +89,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "unauthorized" });
     }
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!apiKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN not configured" });
     const backfillRaw = Array.isArray(req.query?.backfill) ? req.query.backfill[0] : req.query?.backfill;
     const backfill = Math.max(1, parseInt(backfillRaw || "60", 10) || 60);
     const startDt = isoDaysAgo(backfill);
@@ -235,7 +233,7 @@ export default async function handler(req, res) {
     };
 
     const fetchedAt = new Date().toISOString();
-    await put("labor/layoffs-structured.json", JSON.stringify({ structured, aggregates, rawNews, secHits, fetchedAt, model: MODEL }), { access: "private", contentType: "application/json", token, addRandomSuffix: false, allowOverwrite: true });
+    await putJSON("labor/layoffs-structured.json", { structured, aggregates, rawNews, secHits, fetchedAt, model: MODEL });
     return res.status(200).json({ ok: true, structuredCount: structured.length, rssCount: rawNews.length, secCount: secHits.length, droppedGeneric, fetchedAt, model: MODEL });
   } catch (err) {
     console.error(err?.message ?? err);

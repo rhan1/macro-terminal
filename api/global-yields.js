@@ -1,22 +1,15 @@
 // Serves the sovereign yield Blob written by /api/cron/refresh-global-yields.
 // Computes Bund-UST and BTP-Bund spreads on-serve so the cron stays simple.
-import { head } from "@vercel/blob";
+import { getJSON } from "../netlify/lib/netlify-blob.mjs";
 
 const BLOB_PATH = "global/yields.json";
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN missing" });
 
   try {
-    const meta = await head(BLOB_PATH, { token });
-    const resp = await fetch(meta.url, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!resp.ok) throw new Error(`blob fetch ${resp.status}`);
-    const body = await resp.json();
+    const body = await getJSON(BLOB_PATH);
+    if (!body) throw new Error("not-seeded");
 
     const usEntry = (body.yields || []).find((y) => y.countryCode === "US");
     const deEntry = (body.yields || []).find((y) => y.countryCode === "DE");
