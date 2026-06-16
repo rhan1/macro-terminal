@@ -73,12 +73,21 @@ function barColor(value) {
   return "hsl(185,70%,55%)";
 }
 
-function buildNarrative(cpiVal, coreCpiVal, corePceVal) {
+function buildNarrative(cpiVal, coreCpiVal, corePceVal, energyCurVal, energyPrvVal, coreCpiPrvVal) {
   if (cpiVal == null) return "Insufficient data to generate analysis.";
   const coreStr = corePceVal != null
     ? `Core PCE — the Fed's preferred gauge — at ${formatNum(corePceVal, 1)}% ${corePceVal > 2 ? "remains the binding policy constraint" : "is at or below target, clearing the way for further easing"}.`
     : `Headline CPI at ${formatNum(cpiVal, 1)}% sits ${Math.abs(cpiVal - 2).toFixed(1)}pp ${cpiVal > 2 ? "above" : "below"} the Fed's 2% target.`;
-  const energyStr = " Energy price volatility continues to pose upside risk to headline inflation even as core disinflation progresses.";
+
+  let energyStr = "";
+  if (energyCurVal != null && energyPrvVal != null) {
+    const energyTrend = energyCurVal > energyPrvVal ? "rising" : "falling";
+    const energyRisk  = energyCurVal > energyPrvVal ? "upside risk" : "easing pressure";
+    const coreDecelerating = coreCpiVal != null && coreCpiPrvVal != null && coreCpiVal < coreCpiPrvVal;
+    const corePart = coreDecelerating ? " even as core disinflation progresses" : "";
+    energyStr = ` Energy prices are ${energyTrend}, posing ${energyRisk} to headline inflation${corePart}.`;
+  }
+
   return `${coreStr}${energyStr}`;
 }
 
@@ -141,6 +150,10 @@ export default function Inflation() {
   const breakevenPrior = prior(breakevenData);
   const breakevenChange = diff(breakevenLatest?.value, breakevenPrior?.value);
 
+  const energyCpiData   = data.CPI_ENERGY || [];
+  const energyCpiLatest = latest(energyCpiData);
+  const energyCpiPrior  = prior(energyCpiData);
+
   const chartData  = buildChartData(cpiData, coreCpiData);
   const components = getComponentsFromData(data);
   const componentBarMax = Math.max(
@@ -177,7 +190,10 @@ export default function Inflation() {
   const narrative = buildNarrative(
     cpiLatest?.value,
     coreCpiLatest?.value,
-    corePceLatest?.value
+    corePceLatest?.value,
+    energyCpiLatest?.value,
+    energyCpiPrior?.value,
+    coreCpiPrior?.value
   );
 
   return (

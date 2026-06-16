@@ -10,7 +10,9 @@ export const COUNTRIES = [
   { country: "Spain", countryCode: "ES", flag: "🇪🇸", tePath: "spain", fredSeries: "IRLTLT01ESM156N" },
   { country: "Canada", countryCode: "CA", flag: "🇨🇦", tePath: "canada", fredSeries: "IRLTLT01CAM156N" },
   { country: "Australia", countryCode: "AU", flag: "🇦🇺", tePath: "australia", fredSeries: "IRLTLT01AUM156N" },
-  { country: "China", countryCode: "CN", flag: "🇨🇳", tePath: "china", fredSeries: "IRLTLT01CNM156N" },
+  // China: IRLTLT01CNM156N is often unavailable; INTDSRCNM193N (PBoC lending rate)
+  // is a reasonable published proxy. Both are tried via the FRED fallback path.
+  { country: "China", countryCode: "CN", flag: "🇨🇳", tePath: "china", fredSeries: "IRLTLT01CNM156N", fredSeriesAlt: "INTDSRCNM193N" },
 ];
 
 function parseTradingEconomics(html, country) {
@@ -38,14 +40,28 @@ async function fetchTradingEconomics(entry, scrapingBeeKey) {
   return parseTradingEconomics(await resp.text(), entry.country);
 }
 
-async function fetchFred(entry, fredKey) {
-  if (!fredKey) return null;
-  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${entry.fredSeries}&api_key=${encodeURIComponent(fredKey)}&file_type=json&sort_order=desc&limit=2`;
+async function fetchFredSeries(seriesId, fredKey) {
+  const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${seriesId}&api_key=${encodeURIComponent(fredKey)}&file_type=json&sort_order=desc&limit=2`;
   const resp = await fetch(url, { signal: AbortSignal.timeout(12000) });
   if (!resp.ok) throw new Error(`FRED HTTP ${resp.status}`);
   const data = await resp.json();
   const obs = data?.observations?.find((item) => item?.value && item.value !== ".");
   return obs ? { value: Number(obs.value), dailyChange: null, source: "FRED" } : null;
+}
+
+async function fetchFred(entry, fredKey) {
+  if (!fredKey) return null;
+  // Try primary series first
+  const primary = await fetchFredSeries(entry.fredSeries, fredKey);
+  if (primary?.value != null && Number.isFinite(primary.value)) return primary;
+  // Try alternate series if defined (e.g. China fallback)
+  if (entry.fredSeriesAlt) {
+    const alt = await fetchFredSeries(entry.fredSeriesAlt, fredKey);
+    if (alt?.value != null && Number.isFinite(alt.value)) {
+      return { ...alt, source: "FRED-alt" };
+    }
+  }
+  return null;
 }
 
 async function resolveCountry(entry, scrapingBeeKey, fredKey) {
@@ -57,7 +73,7 @@ async function resolveCountry(entry, scrapingBeeKey, fredKey) {
     const fred = await fetchFred(entry, fredKey);
     if (fred?.value != null && Number.isFinite(fred.value)) return fred;
   } catch {}
-  return { value: null, dailyChange: null, source: null, error: "scrape+fred failed" };
+  return { value: null, dailyChange: null, source: null, error: "scrape+fred failed — no live source for China 10Y; update manually or seed blob" };
 }
 
 export default async function handler(req, res) {
