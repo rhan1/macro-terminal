@@ -38,9 +38,9 @@ function globalAdvance(marketData) {
 }
 
 function easingStance(banks) {
-  const rows = banks || centralBanksData.banks;
+  if (!Array.isArray(banks) || banks.length === 0) return { label: "Mixed CB stances", color: AMBER };
   let cuts = 0; let hikes = 0;
-  for (const b of rows) {
+  for (const b of banks) {
     if (b.lastMoveDirection === "CUT") cuts++;
     else if (b.lastMoveDirection === "HIKE") hikes++;
   }
@@ -49,11 +49,12 @@ function easingStance(banks) {
   return { label: "Mixed CB stances", color: AMBER };
 }
 
-export default function GlobalRegimeBanner({ marketData }) {
+export default function GlobalRegimeBanner({ marketData, banks: banksProp }) {
+  const banks = banksProp || centralBanksData.banks;
   const dxyQuote = marketData?.["^DXY"];
   const dxy30d = dxy30dChange(dxyQuote);
   const adv = globalAdvance(marketData);
-  const stance = easingStance();
+  const stance = easingStance(banks);
 
   const advColor = adv ? (adv.up > adv.down ? GREEN : adv.up < adv.down ? RED : AMBER) : DIM;
   const dxyColor = dxy30d == null ? DIM : dxy30d > 0.5 ? RED : dxy30d < -0.5 ? GREEN : AMBER;
@@ -77,7 +78,6 @@ export default function GlobalRegimeBanner({ marketData }) {
       <Chip label="INDICES" value={adv ? `${adv.up} UP · ${adv.down} DN` : "—"} color={advColor} />
       <Chip label="DXY 30d" value={fmtPct(dxy30d)} color={dxyColor} />
       <Chip label="CB STANCE" value={stance.label} color={stance.color} />
-      <Chip label="GPMI" value="n/a (manual)" color={DIM} />
     </div>
   );
 }

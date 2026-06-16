@@ -106,15 +106,26 @@ export default async function handler(req, res) {
     result.headline = parseInt(headlineMatch[1].replace(/,/g, ""), 10);
     const month = headlineMatch[2];
 
-    // Period extraction (Infer year from body text or fallback to current year)
-    const yearMatch = cleanText.match(/\b(20\d{2})\b/);
-    const year = yearMatch ? yearMatch[1] : new Date().getFullYear();
+    // Period extraction — derive year from the article's publish date (JSON-LD
+    // or Open Graph), NOT from the first 4-digit year in the body text, which
+    // often grabs a historical reference like "since 2020".
+    const publishedMatch = articleHtml.match(
+      /"datePublished"\s*:\s*"(\d{4}-\d{2}-\d{2})/
+    ) || articleHtml.match(
+      /property="article:published_time"\s+content="(\d{4}-\d{2}-\d{2})/
+    ) || articleHtml.match(
+      /content="(\d{4}-\d{2}-\d{2})[^"]*"\s+(?:name|property)="article:published_time"/
+    );
+    const year = publishedMatch
+      ? publishedMatch[1].slice(0, 4)
+      : new Date().getFullYear();
     result.period = `${month} ${year}`;
 
     // Comparison data (Optional)
-    // Example: "up 25% from 48,307 cuts announced in February"
+    // Example: "up 16% from the 83,387 job cuts recorded in April"
+    // The verb alternates between "announced" and "recorded" depending on the month.
     const priorMatch = cleanText.match(
-      /(up|down) (\d+)% from ([\d,]+) cuts announced in (\w+)/
+      /(up|down) (\d+)% from (?:the )?([\d,]+) (?:job cuts|cuts) (?:announced|recorded) in (\w+)/
     );
     if (priorMatch) {
       result.direction = priorMatch[1];
@@ -124,11 +135,13 @@ export default async function handler(req, res) {
     }
 
     // YTD extraction (Optional)
+    // The article uses "So far this year, employers have announced X cuts" rather
+    // than "first quarter / year-to-date" phrasing.
     const ytdMatch = cleanText.match(
-      /(?:first quarter|first half|year[- ]to[- ]date|YTD)[^.]*?([\d,]+) (?:job cuts|cuts)/i
+      /(?:So far this year[^,]*,?\s*employers have announced ([\d,]+) cuts|(?:first quarter|first half|year[- ]to[- ]date|YTD)[^.]*?([\d,]+) (?:job cuts|cuts))/i
     );
     if (ytdMatch) {
-      result.ytd = parseInt(ytdMatch[1].replace(/,/g, ""), 10);
+      result.ytd = parseInt((ytdMatch[1] || ytdMatch[2]).replace(/,/g, ""), 10);
     }
 
     // Top Reason extraction (Optional)

@@ -9,7 +9,10 @@ import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const PERPLEXITY_MODEL = "sonar-reasoning-pro";
+// NOTE: sonar-reasoning-pro returns <think> reasoning that consumes the token
+// budget and leaves near-empty content -> "paragraph too short". sonar-pro is
+// the proven model that returns usable prose. (Reverted the stuck-commit upgrade.)
+const PERPLEXITY_MODEL = "sonar-pro";
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const FINAL_MODEL = `${PERPLEXITY_MODEL}+claude-haiku-4-5`;
 const FALLBACK_MODEL = `${PERPLEXITY_MODEL}-fallback`;
@@ -168,6 +171,46 @@ function toNumber(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+// Post-rewrite directional guard: if both SPY and QQQ are down, strip/soften
+// any bullish language that slipped through the LLM instruction.
+const BULLISH_PATTERN = /\b(rally|rallied|rallying|surge[sd]?|surging|best day(?: since [^,.;]+)?|broad(?:\s+(?:equity\s+)?gains?|ens?\s+rally|[-\s]based\s+gains?))\b/gi;
+const BULLISH_REPLACEMENT_MAP = {
+  rally: "decline",
+  rallied: "fell",
+  rallying: "falling",
+  surge: "drop",
+  surged: "dropped",
+  surges: "drops",
+  surging: "dropping",
+  "best day": "notable session",
+  "broad gains": "broad losses",
+  "broad equity gains": "broad equity losses",
+  "broadens rally": "extends losses",
+  "broadens the rally": "extends the decline",
+  "broad-based gains": "broad-based losses",
+};
+
+function stripBullishLanguage(text) {
+  let changed = false;
+  const result = text.replace(BULLISH_PATTERN, (match) => {
+    const lower = match.toLowerCase();
+    // Try exact replacement first
+    if (BULLISH_REPLACEMENT_MAP[lower]) {
+      changed = true;
+      return BULLISH_REPLACEMENT_MAP[lower];
+    }
+    // For "best day since …" patterns, replace the whole captured phrase with "notable session"
+    if (lower.startsWith("best day")) {
+      changed = true;
+      return "notable session";
+    }
+    // Generic fallback: flag that bullish language was found and soften
+    changed = true;
+    return "pullback";
+  });
+  return { text: result, changed };
+}
+
 async function parseErrorBody(response) {
   try {
     return (await response.text()).slice(0, 400);
@@ -188,13 +231,15 @@ export default async function handler(req, res) {
     if (!anthropicKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
 
     // --- Fetch ground-truth market state before calling Anthropic -------------
-    const base = `https://${process.env.VERCEL_URL || "macro-terminal-bice.vercel.app"}`;
+    const base = process.env.URL || process.env.DEPLOY_PRIME_URL || "https://macrosignal.netlify.app";
     const mktResp = await fetch(`${base}/api/market?symbols=SPY,QQQ,^GSPC,^VIX,TLT,GLD,USO,HYG`, {
       signal: AbortSignal.timeout(10000),
     }).catch(() => null);
     const mkt = mktResp?.ok ? await mktResp.json() : {};
     const spyPrice = toNumber(mkt?.SPY?.price);
+    const spyChangePct = toNumber(mkt?.SPY?.changePct);
     const qqqPrice = toNumber(mkt?.QQQ?.price);
+    const qqqChangePct = toNumber(mkt?.QQQ?.changePct);
     const vixLevel = toNumber(mkt?.VIX?.price);
     const goldPrice = toNumber(mkt?.GLD?.price);
     const oilPrice = toNumber(mkt?.USO?.price);
@@ -294,6 +339,19 @@ export default async function handler(req, res) {
     }
     if (rawOutput.length < 80) return res.status(502).json({ error: "paragraph too short" });
 
+    // Build directional guard rule based on live SPY/QQQ change
+    const bothDown = spyChangePct != null && qqqChangePct != null && spyChangePct < 0 && qqqChangePct < 0;
+    const directionalRule = bothDown
+      ? [
+          "",
+          "DIRECTIONAL RULE — MANDATORY:",
+          `Today's session is a DECLINE: SPY ${spyChangePct >= 0 ? "+" : ""}${spyChangePct?.toFixed(2)}% and QQQ ${qqqChangePct >= 0 ? "+" : ""}${qqqChangePct?.toFixed(2)}%.`,
+          "Because BOTH SPY and QQQ are negative on the day, you MUST describe the session as a pullback, decline, or selloff.",
+          "You MUST NOT use any of the following words or phrases: rally, surge, surged, best day, broad gains, broadens rally, broad equity gains, broad-based gains.",
+          "Violating this rule is a critical factual error.",
+        ].join("\n")
+      : "";
+
     const anthropicSystem = [
       "You are a macro markets analyst for a Bloomberg-style terminal.",
       "Rewrite the provided news items into EXACTLY THREE short paragraphs separated by blank lines.",
@@ -302,6 +360,7 @@ export default async function handler(req, res) {
       "Do not use headings, bullets, italics, or other markdown.",
       "If you reference any of the instruments below, you MUST use the exact ground-truth value provided here and nothing else.",
       "If a ground-truth series is marked unavailable, omit it rather than guessing.",
+      directionalRule,
       "",
       "GROUND TRUTH — today's live US market state:",
       groundTruth,
@@ -312,7 +371,7 @@ export default async function handler(req, res) {
       "Paragraph 3: dominant catalyst and forward-looking positioning setup.",
       "",
       "The Perplexity text already contains inline citation markers like [1], [2]. You MUST preserve these markers exactly as-is in your rewrite. Do NOT convert them to [source N] or any other format. Do NOT add new markers or remove existing ones.",
-    ].join("\n");
+    ].filter((line) => line !== undefined).join("\n");
 
     const anthropicUser = [
       `News items from Perplexity:\n${rawOutput}`,
@@ -376,11 +435,32 @@ export default async function handler(req, res) {
       }
 
       const parsed = parseJsonObject(rewriteText);
-      const paragraph = parsed?.paragraph ? String(parsed.paragraph).trim() : rewriteText;
-      const takeaway = parsed?.takeaway ? String(parsed.takeaway).trim() : null;
+      let paragraph = parsed?.paragraph ? String(parsed.paragraph).trim() : rewriteText;
+      let takeaway = parsed?.takeaway ? String(parsed.takeaway).trim() : null;
 
       if (paragraph.length < 80) {
         throw new Error("Anthropic paragraph too short");
+      }
+
+      // Post-rewrite directional guard: if SPY and QQQ are both negative, strip
+      // any bullish language that slipped through the LLM instruction.
+      if (bothDown) {
+        const guardedParagraph = stripBullishLanguage(paragraph);
+        const guardedTakeaway = takeaway ? stripBullishLanguage(takeaway) : null;
+        if (guardedParagraph.changed) {
+          console.warn("[narrative] directional-guard stripped bullish language from paragraph", {
+            spyChangePct,
+            qqqChangePct,
+          });
+          paragraph = guardedParagraph.text;
+        }
+        if (guardedTakeaway?.changed) {
+          console.warn("[narrative] directional-guard stripped bullish language from takeaway", {
+            spyChangePct,
+            qqqChangePct,
+          });
+          takeaway = guardedTakeaway.text;
+        }
       }
 
       const fetchedAt = new Date().toISOString();
