@@ -7,16 +7,24 @@ export default async function handler(req, res) {
     if (!resp.ok) throw new Error(`Trading Economics: ${resp.status}`);
     const html = await resp.text();
 
-    // Extract ISM Manufacturing PMI from JSON-LD structured data
+    // Extract ISM Manufacturing PMI from the page description.
+    // Trading Economics phrases it as: "increased to 54 points in May from 52.70
+    // points in April of 2026". The current month has no year suffix; derive it
+    // from the prior period's year.
     const mfgMatch = html.match(
-      /increased to ([\d.]+).*?from ([\d.]+).*?in (\w+ of \d{4})/
+      /(?:increased|decreased|changed) to ([\d.]+) points in (\w+) from ([\d.]+) points in (\w+ of \d{4})/i
     );
+
+    function buildPeriod(currentMonth, priorPeriodStr) {
+      const year = priorPeriodStr?.match(/\d{4}/)?.[0];
+      return year ? `${currentMonth} of ${year}` : currentMonth;
+    }
 
     const result = {
       manufacturing: {
         value: mfgMatch ? parseFloat(mfgMatch[1]) : null,
-        prior: mfgMatch ? parseFloat(mfgMatch[2]) : null,
-        period: mfgMatch ? mfgMatch[3] : null,
+        prior: mfgMatch ? parseFloat(mfgMatch[3]) : null,
+        period: mfgMatch ? buildPeriod(mfgMatch[2], mfgMatch[4]) : null,
       },
     };
 
@@ -29,13 +37,13 @@ export default async function handler(req, res) {
       if (svcResp.ok) {
         const svcHtml = await svcResp.text();
         const svcMatch = svcHtml.match(
-          /(?:increased|decreased|changed) to ([\d.]+).*?from ([\d.]+).*?in (\w+ of \d{4})/
+          /(?:increased|decreased|changed) to ([\d.]+) points in (\w+) from ([\d.]+) points in (\w+ of \d{4})/i
         );
         if (svcMatch) {
           result.services = {
             value: parseFloat(svcMatch[1]),
-            prior: parseFloat(svcMatch[2]),
-            period: svcMatch[3],
+            prior: parseFloat(svcMatch[3]),
+            period: buildPeriod(svcMatch[2], svcMatch[4]),
           };
         }
       }

@@ -1,6 +1,6 @@
 {
-  "updated": "2026-04-18",
-  "note": "Manually curated — auto-refresh cron runs monthly. Policy-rate numbers reflect most recent decision as of `updated`.",
+  "updated": "2026-06-16",
+  "note": "Curated snapshot — policy rates reflect the most recent decision known at curation; meeting dates are the next scheduled date.",
   "banks": [
     {
       "bank": "Federal Reserve",
@@ -8,11 +8,11 @@
       "country": "United States",
       "countryCode": "US",
       "flag": "🇺🇸",
-      "currentRate": 4.25,
-      "rateBand": "4.00 – 4.25",
-      "lastMoveDate": "2026-01-30",
-      "lastMoveDirection": "HOLD",
-      "nextMeeting": "2026-04-30",
+      "currentRate": 3.75,
+      "rateBand": "3.50 – 3.75",
+      "lastMoveDate": "2026-04-29",
+      "lastMoveDirection": "CUT",
+      "nextMeeting": "2026-06-17",
       "bias": "Neutral — data-dependent",
       "mandate": "Dual (price stability + employment)"
     },
@@ -26,7 +26,7 @@
       "rateBand": "2.50 (deposit)",
       "lastMoveDate": "2026-03-06",
       "lastMoveDirection": "CUT",
-      "nextMeeting": "2026-04-24",
+      "nextMeeting": "2026-07-23",
       "bias": "Dovish — further cuts priced",
       "mandate": "Price stability (2% inflation target)"
     },
@@ -40,7 +40,7 @@
       "rateBand": "4.25",
       "lastMoveDate": "2026-02-06",
       "lastMoveDirection": "CUT",
-      "nextMeeting": "2026-05-08",
+      "nextMeeting": "2026-06-18",
       "bias": "Cautious dovish",
       "mandate": "Price stability (2% CPI target)"
     },
@@ -54,7 +54,7 @@
       "rateBand": "0.50",
       "lastMoveDate": "2026-01-24",
       "lastMoveDirection": "HIKE",
-      "nextMeeting": "2026-04-30",
+      "nextMeeting": "2026-07-31",
       "bias": "Gradual hiking cycle",
       "mandate": "Price stability (2% target)"
     },
@@ -68,7 +68,7 @@
       "rateBand": "3.10 (LPR 1Y)",
       "lastMoveDate": "2026-02-20",
       "lastMoveDirection": "CUT",
-      "nextMeeting": "2026-05-20",
+      "nextMeeting": "2026-07-21",
       "bias": "Easing — stimulus cycle",
       "mandate": "Multi-objective (growth + FX + prices)"
     },
@@ -82,7 +82,7 @@
       "rateBand": "2.75",
       "lastMoveDate": "2026-03-12",
       "lastMoveDirection": "HOLD",
-      "nextMeeting": "2026-04-16",
+      "nextMeeting": "2026-07-29",
       "bias": "Neutral — moderate growth",
       "mandate": "Price stability (2% CPI target)"
     },
@@ -96,7 +96,7 @@
       "rateBand": "3.85",
       "lastMoveDate": "2026-02-18",
       "lastMoveDirection": "CUT",
-      "nextMeeting": "2026-05-20",
+      "nextMeeting": "2026-08-11",
       "bias": "Dovish — labor cooling",
       "mandate": "Dual (price stability + full employment)"
     },
@@ -110,7 +110,7 @@
       "rateBand": "0.25",
       "lastMoveDate": "2026-03-20",
       "lastMoveDirection": "CUT",
-      "nextMeeting": "2026-06-19",
+      "nextMeeting": "2026-09-24",
       "bias": "Dovish — franc strength",
       "mandate": "Price stability (<2% inflation)"
     },
@@ -124,7 +124,7 @@
       "rateBand": "6.00",
       "lastMoveDate": "2026-04-09",
       "lastMoveDirection": "CUT",
-      "nextMeeting": "2026-06-06",
+      "nextMeeting": "2026-08-06",
       "bias": "Accommodative",
       "mandate": "Price stability (4% ±2% band)"
     }

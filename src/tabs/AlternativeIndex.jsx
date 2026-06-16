@@ -891,11 +891,16 @@ export default function AlternativeIndex() {
           <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
             Escort Economy — World Heatmap
           </div>
-          {escortSource && (
-            <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
-              source: {escortSource}
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {escortData?.fetchedAt && (
+              <AsOfPill date={escortData.fetchedAt} />
+            )}
+            {escortSource && (
+              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+                source: {escortSource}
+              </div>
+            )}
+          </div>
         </div>
 
         {escortLoading ? (

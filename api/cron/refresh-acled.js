@@ -36,18 +36,37 @@ const CHOKEPOINT_BOXES = [
   { name: "Strait of Hormuz",  latMin: 24.5, latMax: 27.5, lonMin: 54.5, lonMax: 58.5 },
 ];
 
-// Keywords that strongly suggest an event targeted a vessel or sea-lane
-// traffic rather than land-based civilians/combatants.
+// Keywords that REQUIRE maritime/shipping context.  An event must match at
+// least one of these to be considered maritime — geography alone is not enough.
 const MARITIME_KEYWORDS = [
   "vessel", "ship", "tanker", "cargo", "bulker", "container", "dhow",
-  "maritime", "coast guard", "naval", "strait", "port", "harbor", "harbour",
-  "red sea", "bab el-mandeb", "bab al-mandab", "hormuz", "suez", "aden",
-  "houthi", "missile", "anti-ship", "unmanned surface", "kamikaze",
+  "maritime", "naval", "coast guard",
+  "anti-ship", "unmanned surface", "kamikaze drone", "sea mine",
+  "hijack", "piracy", "pirate",
+  "red sea", "bab el-mandeb", "bab al-mandab", "hormuz", "suez canal",
+  "gulf of aden", "strait of hormuz",
+  "missile strike on", "drone strike on", "attack on",
 ];
 
-const EXCLUDE_KEYWORDS = [
+// These sub-strings indicate the event is specifically targeting a vessel or
+// sea-lane, preventing false positives on land-borne missile/drone mentions.
+const VESSEL_KEYWORDS = [
+  "vessel", "ship", "tanker", "cargo", "bulker", "container", "dhow",
+  "anti-ship", "unmanned surface", "sea mine",
+  "hijack", "piracy", "pirate",
+];
+
+// Events matching any of these are definitively land-based and must be excluded
+// regardless of other keyword hits.
+const LAND_CRIME_KEYWORDS = [
+  // Sudan inland conflicts
   "darfur", "khartoum", "omdurman", "el fasher", "eid al hadd", "rsf",
   "saf", "el obeid", "bara", "idp camp",
+  // Pure land-crime/civil events
+  "sniper", "arrest", "detention", "seized", "seizure", "weapons cache",
+  "drug", "smuggling", "smuggler", "convoy ambush", "protest", "rally",
+  "demonstration", "riot", "mob", "strike action", "road block",
+  "checkpoint", "farmland", "farmer", "agricultural",
 ];
 
 function isoDaysAgo(days) {
@@ -78,7 +97,9 @@ async function exchangeToken(email, password) {
 }
 
 async function fetchCountryEvents(token, country, startDate, endDate, limit) {
-  const url = `${READ_URL}?_format=json&country=${encodeURIComponent(country)}&event_date=${startDate}%7C${endDate}&event_date_where=BETWEEN&limit=${limit}`;
+  // Request newest events first so the per-country 1000-event cap never
+  // truncates recent incidents in favour of stale boundary-date events.
+  const url = `${READ_URL}?_format=json&country=${encodeURIComponent(country)}&event_date=${startDate}%7C${endDate}&event_date_where=BETWEEN&order=event_date&order_dir=DESC&limit=${limit}`;
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(45000),
@@ -101,14 +122,26 @@ function chokepointFor(lat, lon) {
 function isMaritime(ev) {
   const lat = Number(ev.latitude);
   const lon = Number(ev.longitude);
-  const excludeHay = `${ev.location || ""} ${ev.notes || ""}`.toLowerCase();
-  const hay = `${ev.notes || ""} ${ev.sub_event_type || ""} ${ev.actor1 || ""} ${ev.actor2 || ""} ${ev.location || ""}`.toLowerCase();
-  if (EXCLUDE_KEYWORDS.some((kw) => excludeHay.includes(kw))) return false;
-  const maritimeTagged = MARITIME_KEYWORDS.some((kw) => hay.includes(kw));
-  if (maritimeTagged) return true;
+  const fullText = `${ev.notes || ""} ${ev.sub_event_type || ""} ${ev.actor1 || ""} ${ev.actor2 || ""} ${ev.location || ""}`.toLowerCase();
+
+  // Hard-exclude any event whose notes or location match land-crime/civil patterns.
+  if (LAND_CRIME_KEYWORDS.some((kw) => fullText.includes(kw))) return false;
+
+  // An event must positively identify a vessel, sea-lane name, or maritime
+  // operation.  Geographic proximity alone is insufficient — inland towns near
+  // chokepoints would otherwise slip through.
+  const hasMaritimeContext = MARITIME_KEYWORDS.some((kw) => fullText.includes(kw));
+  if (!hasMaritimeContext) return false;
+
+  // If we have a vessel keyword, we're confident.
+  if (VESSEL_KEYWORDS.some((kw) => fullText.includes(kw))) return true;
+
+  // For sea-lane / chokepoint name matches without explicit vessel mention:
+  // require that the event coordinates actually fall near a chokepoint (not
+  // just that a place-name string appeared in the notes).
   if (Number.isNaN(lat) || Number.isNaN(lon)) return false;
   return CHOKEPOINT_BOXES.some((c) =>
-    lat >= c.latMin - 0.45 && lat <= c.latMax + 0.45 && lon >= c.lonMin - 0.45 && lon <= c.lonMax + 0.45
+    lat >= c.latMin - 0.5 && lat <= c.latMax + 0.5 && lon >= c.lonMin - 0.5 && lon <= c.lonMax + 0.5
   );
 }
 
