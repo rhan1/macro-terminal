@@ -448,6 +448,9 @@ export default function AlternativeIndex() {
   // ── Escorts state ───────────────────────────────────────────────────────────
   const [escortData, setEscortData]       = useState(null);
   const [escortLoading, setEscortLoading] = useState(true);
+  // Shared growth/decline window (mom | q3m | h6m | yoy) — drives the trend
+  // panel, movers leaderboard, and the heatmap's Δ-change coloring.
+  const [escortWindow, setEscortWindow]   = useState("yoy");
 
   // ── Escort advertised-rate pilot (median 1h rate, USD) ─────────────────────
   const [ratesData, setRatesData] = useState(null);
@@ -537,6 +540,8 @@ export default function AlternativeIndex() {
         countries,
         totalWorldwide,
         worldMoMPct: egs?.totalWorldwideMoMPct ?? null,
+        worldwideTrend: egs?.worldwideTrend ?? null,
+        worldwideChanges: egs?.worldwideChanges ?? null,
         activeLabel: sources.join(" + "),
         fetchedAt: primary?.fetchedAt || tryst?.fetchedAt,
       });
@@ -567,6 +572,8 @@ export default function AlternativeIndex() {
   const escortCountries = escortData?.countries ?? [];
   const escortTotal     = escortData?.totalWorldwide ?? escortData?.total ?? null;
   const escortMoM       = escortData?.worldMoMPct ?? null;
+  const escortTrend     = escortData?.worldwideTrend ?? null;
+  const escortChanges   = escortData?.worldwideChanges ?? null;
   const escortSource    = escortData?.activeLabel ?? null;
 
   // ── Derived vice stocks data ────────────────────────────────────────────────
@@ -898,6 +905,91 @@ export default function AlternativeIndex() {
         );
       })()}
 
+      {/* ── Section 4b: Escort Economy — Growth & Decline ── */}
+      {escortTrend?.length > 1 && (() => {
+        const WL = { mom: "MoM", q3m: "3M", h6m: "6M", yoy: "YoY" };
+        const winLabel = WL[escortWindow];
+        const worldPct = escortChanges?.[escortWindow]?.pct ?? null;
+        const latestTotal = escortTrend[escortTrend.length - 1]?.total ?? escortTotal;
+        const movers = escortCountries
+          .filter((c) => c.iso && (c.total ?? 0) >= 200 && c.chg?.[escortWindow]?.pct != null)
+          .map((c) => ({ iso: c.iso, country: c.country, pct: c.chg[escortWindow].pct }));
+        const gainers = [...movers].sort((a, b) => b.pct - a.pct).slice(0, 6);
+        const decliners = [...movers].sort((a, b) => a.pct - b.pct).slice(0, 6);
+        return (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                Escort Economy — Growth &amp; Decline
+              </div>
+              <div style={{ display: "flex", gap: 2 }}>
+                {[["mom", "MoM"], ["q3m", "3M"], ["h6m", "6M"], ["yoy", "YoY"]].map(([k, lbl]) => {
+                  const active = escortWindow === k;
+                  return (
+                    <button key={k} onClick={() => setEscortWindow(k)} title={`Change over ~${lbl}`} style={{
+                      background: active ? "hsla(185,70%,55%,0.15)" : "none",
+                      border: active ? "1px solid hsla(185,70%,55%,0.4)" : "1px solid transparent",
+                      color: active ? CYAN : DIM, fontSize: 9, fontFamily: "inherit",
+                      padding: "2px 8px", cursor: "pointer", letterSpacing: "0.04em", fontWeight: active ? 600 : 400,
+                    }}>{lbl}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="panel" style={{ padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 28, fontWeight: 700, color: CYAN, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
+                  {latestTotal != null ? latestTotal.toLocaleString() : "—"}
+                </span>
+                <span style={{ fontSize: 10, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>tracked worldwide listings</span>
+                {worldPct != null && (
+                  <span style={{ fontSize: 14, fontWeight: 700, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums",
+                    color: worldPct > 0 ? GREEN : worldPct < 0 ? RED : DIM }}>
+                    {worldPct > 0 ? "▲ +" : worldPct < 0 ? "▼ " : ""}{worldPct}%{" "}
+                    <span style={{ fontSize: 9, color: DIM, fontWeight: 400 }}>{winLabel}</span>
+                  </span>
+                )}
+                <span style={{ marginLeft: "auto", fontSize: 9, color: DIM }}>
+                  {escortTrend[0]?.date?.slice(0, 7)} → now · {escortTrend.length} mo
+                </span>
+              </div>
+              <ResponsiveContainer width="100%" height={150}>
+                <AreaChart data={escortTrend} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="egsGrowthGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CYAN} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={CYAN} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="hsl(220,15%,12%)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: DIM }} tickFormatter={(d) => String(d).slice(0, 4)} minTickGap={36} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: DIM }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} width={42} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: "hsl(220,15%,8%)", border: `1px solid ${CYAN}55`, fontSize: 11, borderRadius: 2 }} labelStyle={{ color: DIM }} formatter={(v) => [`${Number(v).toLocaleString()} listings`, ""]} />
+                  <Area type="monotone" dataKey="total" stroke={CYAN} strokeWidth={1.5} fill="url(#egsGrowthGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
+                {[["▲ TOP GAINERS", GREEN, gainers], ["▼ TOP DECLINERS", RED, decliners]].map(([title, col, list]) => (
+                  <div key={title}>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: col, letterSpacing: "0.08em", marginBottom: 6 }}>{title} ({winLabel})</div>
+                    {list.length === 0 ? (
+                      <div style={{ fontSize: 10, color: DIM }}>not enough history yet</div>
+                    ) : list.map((m) => (
+                      <div key={m.iso} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0" }}>
+                        <span style={{ color: "var(--color-term-text)" }}>{m.country}</span>
+                        <span style={{ color: m.pct > 0 ? GREEN : m.pct < 0 ? RED : DIM, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
+                          {m.pct > 0 ? "+" : ""}{m.pct}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Section 5: Escort Economy Heatmap ── */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
@@ -921,7 +1013,7 @@ export default function AlternativeIndex() {
             <Loading />
           </div>
         ) : escortCountries.length > 0 ? (
-          <EscortHeatMap countries={escortCountries} totalWorldwide={escortTotal} worldMoMPct={escortMoM} />
+          <EscortHeatMap countries={escortCountries} totalWorldwide={escortTotal} worldMoMPct={escortMoM} changeWindow={escortWindow} />
         ) : (
           <div className="panel" style={{ padding: 16 }}>
             <div style={{ fontSize: 11, color: DIM }}>No country data available.</div>
