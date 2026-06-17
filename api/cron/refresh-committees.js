@@ -5,7 +5,7 @@
 //
 // The YAML parsing logic is duplicated from scripts/build-committees.js so
 // the cron stays self-contained (no cross-package imports from a Vercel fn).
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const LEGISLATORS_URL = "https://unitedstates.github.io/congress-legislators/legislators-current.json";
 const MEMBERSHIP_URL = "https://unitedstates.github.io/congress-legislators/committee-membership-current.yaml";
@@ -75,9 +75,6 @@ export default async function handler(req, res) {
     if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
       return res.status(401).json({ error: "unauthorized" });
     }
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN missing" });
-
     const [legResp, memResp, comResp] = await Promise.all([
       fetch(LEGISLATORS_URL, { signal: AbortSignal.timeout(15000) }),
       fetch(MEMBERSHIP_URL, { signal: AbortSignal.timeout(15000) }),
@@ -119,13 +116,7 @@ export default async function handler(req, res) {
     if (members.length < 400) return res.status(502).json({ error: "suspicious member count", count: members.length });
 
     const fetchedAt = new Date().toISOString();
-    await put(BLOB_PATH, JSON.stringify({ members, count: members.length, fetchedAt }), {
-      access: "private",
-      contentType: "application/json",
-      token,
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    await putJSON(BLOB_PATH, { members, count: members.length, fetchedAt });
     return res.status(200).json({ ok: true, count: members.length, fetchedAt });
   } catch (err) {
     console.error(err?.message ?? err);

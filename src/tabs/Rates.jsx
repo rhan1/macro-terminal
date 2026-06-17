@@ -329,8 +329,8 @@ export default function Rates() {
           unit="%"
           change={change(ffCur?.value, ffPrv?.value)}
           changeLabel={ffCur && ffPrv ? `${bpsLabel(ffCur.value, ffPrv.value)} from ${formatNum(ffPrv.value, 2)}%` : null}
-          direction="flat"
-          signal="neutral"
+          direction={dir(change(ffCur?.value, ffPrv?.value))}
+          signal={ffCur?.value == null || ffPrv?.value == null ? "neutral" : ffCur.value < ffPrv.value ? "bullish" : ffCur.value > ffPrv.value ? "bearish" : "neutral"}
           dateLabel={ffCur?.date ? `${ffCur.date.slice(5)}` : ""}
           detail="The Federal Reserve's target overnight lending rate. Set by the FOMC to balance maximum employment and price stability. After 525 bps of hikes in 2022-2023 — the fastest tightening cycle since the 1980s — the Fed began cutting in late 2024. Rate changes transmit to the entire economy via lending costs, mortgage rates, and bond yields."
           source="Federal Reserve"

@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 const RSS_URL = "https://news.google.com/rss/search?q=layoffs+company&hl=en-US&gl=US&ceid=US:en";
 const SEC_Q = '"workforce reduction" OR "reduction in force" OR "restructuring"';
 const SEC_UA = "Macro Terminal macro-terminal-bice.vercel.app <https://github.com/rhan1/macro-terminal>";
@@ -36,7 +36,7 @@ function stripHtmlToText(html) {
 async function fetchArticleBody(url, headers = {}) {
   if (!url) return "";
   try {
-    const resp = await fetch(url, { headers, signal: AbortSignal.timeout(8000), redirect: "follow" });
+    const resp = await fetch(url, { headers, signal: AbortSignal.timeout(5000), redirect: "follow" });
     if (!resp.ok) return "";
     return stripHtmlToText(await resp.text());
   } catch {
@@ -89,9 +89,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "unauthorized" });
     }
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
     if (!apiKey) return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN not configured" });
     const backfillRaw = Array.isArray(req.query?.backfill) ? req.query.backfill[0] : req.query?.backfill;
     const backfill = Math.max(1, parseInt(backfillRaw || "60", 10) || 60);
     const startDt = isoDaysAgo(backfill);
@@ -100,20 +98,22 @@ export default async function handler(req, res) {
       fetch(RSS_URL, { headers: { "User-Agent": "Mozilla/5.0", Accept: "application/rss+xml, application/xml, text/xml" }, signal: AbortSignal.timeout(8000) }),
       fetch(`https://efts.sec.gov/LATEST/search-index?q=${encodeURIComponent(SEC_Q)}&forms=8-K&dateRange=custom&startdt=${startDt}&enddt=${endDt}`, { headers: { "User-Agent": SEC_UA, Accept: "application/json" }, signal: AbortSignal.timeout(8000) }),
     ]);
-    const rawNews = rssResp.ok ? parseRssItems(await rssResp.text(), 20) : [];
-    const secHits = secResp.ok ? parseSecHits(await secResp.json(), 40) : [];
-    const newsInputs = await Promise.all(rawNews.map(async (x) => ({
+    const rawNews = rssResp.ok ? parseRssItems(await rssResp.text(), 8) : [];
+    const secHits = secResp.ok ? parseSecHits(await secResp.json(), 8) : [];
+    // Headline+description only (no per-article body fetch) — keeps the cron well
+    // under Netlify's timeout; the LLM extracts named companies from titles fine.
+    const newsInputs = rawNews.map((x) => ({
       ...x,
       itemType: "NEWS",
       source_url: x.url || null,
-      articleBody: truncateText(await fetchArticleBody(x.url, { "User-Agent": "Mozilla/5.0", Accept: "text/html,application/xhtml+xml" }) || `${x.title}\n${x.description || ""}`),
-    })));
-    const secInputs = await Promise.all(secHits.map(async (x) => ({
+      articleBody: truncateText(`${x.title}\n${x.description || ""}`),
+    }));
+    const secInputs = secHits.map((x) => ({
       ...x,
       itemType: "SEC 8-K",
       source_url: x.filingUrl || null,
-      articleBody: truncateText(await fetchArticleBody(x.filingUrl, { "User-Agent": SEC_UA, Accept: "text/html,application/xhtml+xml" }) || `${x.entityName} ${x.tickerGuess ? `(${x.tickerGuess})` : ""}\n${x.excerpt || ""}`),
-    })));
+      articleBody: truncateText(`${x.entityName} ${x.tickerGuess ? `(${x.tickerGuess})` : ""}\n${x.excerpt || ""}`),
+    }));
     const promptLines = [
       `Inputs to structure (${newsInputs.length + secInputs.length} items):`,
       ...newsInputs.map((x, i) => [
@@ -135,11 +135,11 @@ export default async function handler(req, res) {
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 2500,
+        max_tokens: 1500,
         system: 'You structure raw layoff news into JSON. For each input item, output an object with: company (string — the actual proper-noun company name, e.g. "Meta Platforms", "Wells Fargo", "Shutterfly". If the source text does NOT contain a specific named company (generic descriptions like "a school bus company" or "an oil field operator"), omit the item entirely rather than emit the generic description as the company), ticker (string | null — uppercase stock symbol if the company is PUBLICLY TRADED on a US exchange, else null), headcount (integer | null — number of employees laid off), pct_workforce (number | null — percentage of workforce if stated), sector (string | null — one of: Tech, Finance, Retail, Healthcare, Media, Energy, Industrial, Transportation, Consumer, Real Estate, Other), announcement_date (ISO yyyy-mm-dd | null), source_url (string | null — pass through the SOURCE_URL provided for that input exactly as given; do NOT invent or modify a URL). Do NOT invent numbers. Do NOT invent or paraphrase company names — if no specific company is named, drop the item. Few-shot examples for company: GOOD: "Meta Platforms", "Wells Fargo", "Shutterfly", "Tesla". BAD: "School bus company", "Transportation firm", "An oil field operator", "A tech startup", "Retail chain". If the company name would match the regex /^(a |an )?(.+ (company|firm|chain|operator|startup|giant|maker|provider|retailer|manufacturer))$/i, do NOT emit the item. Company names must be proper nouns (begin with a capital letter and be specifically identifiable). If you cannot find a specific proper-noun company name in the source, drop the item. Use null for anything not explicitly stated in the input. Return ONLY a JSON object { items: [...] } with no markdown or commentary.',
         messages: [{ role: "user", content: promptLines.join("\n") }],
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(24000),
     });
     if (anthropicResp.ok) {
       const payload = await anthropicResp.json();
@@ -202,7 +202,7 @@ export default async function handler(req, res) {
       }));
       structured = structured.map((item) => item.ticker && market[item.ticker] ? { ...item, marketData: market[item.ticker] } : item);
     }
-    if (structured.length < 3 && secHits.length < 3) {
+    if (structured.length < 1 && secHits.length < 1) {
       return res.status(502).json({ error: "not enough structured rows" });
     }
     const last30Start = isoDaysAgo(30), prior30Start = isoDaysAgo(60), prior30End = isoDaysAgo(31);
@@ -227,15 +227,21 @@ export default async function handler(req, res) {
       totalHeadcount30d,
       totalCompaniesPrior30d,
       totalHeadcountPrior30d,
-      deltaCompaniesPct: ((totalCompanies30d - totalCompaniesPrior30d) / Math.max(totalCompaniesPrior30d, 1)) * 100,
-      deltaHeadcountPct: ((totalHeadcount30d - totalHeadcountPrior30d) / Math.max(totalHeadcountPrior30d, 1)) * 100,
+      // Guard: when the prior-period count is 0, the percentage would be
+      // meaninglessly large (e.g. 800%). Return null so the UI can show N/A.
+      deltaCompaniesPct: totalCompaniesPrior30d === 0
+        ? null
+        : ((totalCompanies30d - totalCompaniesPrior30d) / totalCompaniesPrior30d) * 100,
+      deltaHeadcountPct: totalHeadcountPrior30d === 0
+        ? null
+        : ((totalHeadcount30d - totalHeadcountPrior30d) / totalHeadcountPrior30d) * 100,
       sectorBreakdown,
       topSector: sectorBreakdown[0]?.sector || null,
       top10: [...withDates].sort((a, b) => (b.headcount ?? -1) - (a.headcount ?? -1)).slice(0, 10),
     };
 
     const fetchedAt = new Date().toISOString();
-    await put("labor/layoffs-structured.json", JSON.stringify({ structured, aggregates, rawNews, secHits, fetchedAt, model: MODEL }), { access: "private", contentType: "application/json", token, addRandomSuffix: false, allowOverwrite: true });
+    await putJSON("labor/layoffs-structured.json", { structured, aggregates, rawNews, secHits, fetchedAt, model: MODEL });
     return res.status(200).json({ ok: true, structuredCount: structured.length, rssCount: rawNews.length, secCount: secHits.length, droppedGeneric, fetchedAt, model: MODEL });
   } catch (err) {
     console.error(err?.message ?? err);
