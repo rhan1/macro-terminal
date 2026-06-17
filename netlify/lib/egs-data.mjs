@@ -59,7 +59,7 @@ export const REF_POP = {
   iq: 7.5, lb: 2.2, sy: 2.5, jo: 4.5, ye: 2.8, np: 1.4, lk: 2.3, tw: 2.6,
 };
 
-export const TREND_POINTS = 14;
+export const TREND_POINTS = 24;
 // MoM reference: latest history point at least this many days older than current.
 export const MOM_MIN_DAYS = 28;
 
@@ -108,28 +108,55 @@ export function mergeHistory(history, parsed, date) {
   return history;
 }
 
-/**
- * Pick the MoM reference point: the latest series point at least MOM_MIN_DAYS
- * older than `date`. Returns {total, date} or null.
- */
-function momReference(series, date) {
+// Change windows for the growth/decline views. Each picks the latest history
+// point at least `minDays` older than now (so monthly data still resolves a
+// clean comparison). Keys are consumed by the frontend window-selector.
+export const WINDOWS = [
+  ["mom", 25],   // ~1 month
+  ["q3m", 75],   // ~3 months
+  ["h6m", 150],  // ~6 months
+  ["yoy", 330],  // ~1 year
+];
+
+// Latest series point ≥ minDays older than `date` (series sorted ascending).
+function refAtLeast(series, date, minDays) {
   let ref = null;
   for (const p of series) {
     if (p.date >= date) continue;
-    if (daysBetween(p.date, date) >= MOM_MIN_DAYS) ref = p; // series is sorted asc → keep latest qualifying
+    if (daysBetween(p.date, date) >= minDays) ref = p;
   }
   return ref;
 }
 
+// Signed change of `total` vs the window reference point.
+function windowChange(series, total, date, minDays) {
+  const ref = refAtLeast(series, date, minDays);
+  if (!ref || !ref.total) return { pct: null, delta: null, windowDays: null };
+  const delta = total - ref.total;
+  return {
+    pct: Math.round((delta / ref.total) * 1000) / 10,
+    delta,
+    windowDays: daysBetween(ref.date, date),
+  };
+}
+
+function changeSet(series, total, date) {
+  const out = {};
+  for (const [key, minDays] of WINDOWS) out[key] = windowChange(series, total, date, minDays);
+  return out;
+}
+
 /**
  * Build the full snapshot from today's parsed counts + the (already-merged)
- * history. Computes week-over-week delta AND month-over-month (mom*) per
- * country plus a worldwide MoM aggregate.
- * @returns snapshot object (same shape api/egs.js serves, plus mom fields)
+ * history. Per country: week-over-week delta + a multi-window change set
+ * (mom/q3m/h6m/yoy) + trend sparkline. Top-level: worldwide trend series +
+ * worldwide change set, for the growth/decline dashboard.
+ *
+ * @param opts.source / opts.nameMap / opts.popMap let non-EGS callers (tryst)
+ *   reuse the same math with their own labels/populations.
  */
-export function buildSnapshot(parsed, history, date) {
-  let momWorldNow = 0;
-  let momWorldPrev = 0;
+export function buildSnapshot(parsed, history, date, opts = {}) {
+  const { source = "eurogirlsescort.es", popMap = REF_POP } = opts;
 
   const countries = parsed.map((c) => {
     const series = history.series[c.iso] ?? [];
@@ -138,18 +165,15 @@ export function buildSnapshot(parsed, history, date) {
     const delta = prev != null ? c.total - prev : null;
     const deltaPct = prev ? Math.round((delta / prev) * 1000) / 10 : null;
 
-    const ref = momReference(series, date);
-    const momPrev = ref ? ref.total : null;
-    const momDelta = momPrev != null ? c.total - momPrev : null;
-    const momPct = momPrev ? Math.round((momDelta / momPrev) * 1000) / 10 : null;
-    const momWindowDays = ref ? daysBetween(ref.date, date) : null;
-    if (momPrev != null) {
-      momWorldNow += c.total;
-      momWorldPrev += momPrev;
-    }
+    const chg = changeSet(series, c.total, date);
+    // Back-compat mom* fields (= the mom window) for existing consumers.
+    const momDelta = chg.mom.delta;
+    const momPct = chg.mom.pct;
+    const momWindowDays = chg.mom.windowDays;
+    const momPrev = momDelta != null ? c.total - momDelta : null;
 
-    const countPer100kRef = REF_POP[c.iso]
-      ? Math.round((c.total / (REF_POP[c.iso] * 1_000_000)) * 100_000 * 100) / 100
+    const countPer100kRef = popMap[c.iso]
+      ? Math.round((c.total / (popMap[c.iso] * 1_000_000)) * 100_000 * 100) / 100
       : null;
 
     return {
@@ -164,6 +188,7 @@ export function buildSnapshot(parsed, history, date) {
       momDelta,
       momPct,
       momWindowDays,
+      chg,
       trend,
       cities: [],
       countPer100kRef,
@@ -171,22 +196,37 @@ export function buildSnapshot(parsed, history, date) {
   });
 
   const totalWorldwide = countries.reduce((sum, c) => sum + c.total, 0);
-  const totalWorldwideMoMPct =
-    momWorldPrev > 0 ? Math.round(((momWorldNow - momWorldPrev) / momWorldPrev) * 1000) / 10 : null;
+
+  // Worldwide trend = sum of every country's count at each historical date.
+  // Early dates naturally sum fewer countries (the site listed fewer then),
+  // which is the true worldwide total at that time.
+  const allDates = [
+    ...new Set(Object.values(history.series).flatMap((s) => s.map((p) => p.date))),
+  ].sort();
+  const worldwideTrend = allDates.map((d) => ({
+    date: d,
+    total: Object.values(history.series).reduce((sum, s) => {
+      const p = s.find((x) => x.date === d);
+      return sum + (p ? p.total : 0);
+    }, 0),
+  }));
+  const worldwideChanges = changeSet(worldwideTrend, totalWorldwide, date);
 
   return {
-    source: "eurogirlsescort.es",
+    source,
     fetchedAt: new Date().toISOString(),
     snapshotDate: date,
     totalWorldwide,
-    totalWorldwideMoMPct,
+    totalWorldwideMoMPct: worldwideChanges.mom.pct, // back-compat
+    worldwideChanges,
+    worldwideTrend,
     countriesCount: countries.length,
     countries,
     cities: countries.map((c) => ({
       city: c.country,
       count: c.total,
       url: `/escorts/${c.spanish.toLowerCase().replace(/\s+/g, "-")}/`,
-      population: REF_POP[c.iso] ?? null,
+      population: popMap[c.iso] ?? null,
       countPer100k: c.countPer100kRef,
       iso: c.iso,
       country: c.country,
