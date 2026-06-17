@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const BLOB_PATH = "trends/terms.json";
 const TERMS = [
@@ -22,6 +22,10 @@ const TERMS = [
   "second job",
   "medical bills",
   "gig work",
+  "cant pay rent",
+  "can't sleep",
+  "burnout",
+  "panic attack",
 ];
 
 function parseWeekStart(dateStr) {
@@ -108,20 +112,9 @@ export default async function handler(req, res) {
     }
 
     const apiKey = process.env.SERPAPI_KEY;
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
 
     if (!apiKey) {
       console.error("refresh-trends: SERPAPI_KEY missing");
-      return res.status(200).json({
-        ok: true,
-        terms: 0,
-        fetchedAt: new Date().toISOString(),
-        errors: 1,
-      });
-    }
-
-    if (!token) {
-      console.error("refresh-trends: BLOB_READ_WRITE_TOKEN missing");
       return res.status(200).json({
         ok: true,
         terms: 0,
@@ -157,13 +150,7 @@ export default async function handler(req, res) {
     };
 
     try {
-      await put(BLOB_PATH, JSON.stringify(body), {
-        access: "private",
-        contentType: "application/json",
-        token,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-      });
+      await putJSON(BLOB_PATH, body);
     } catch (error) {
       console.error("refresh-trends: blob write failed:", error?.message ?? error);
       return res.status(200).json({

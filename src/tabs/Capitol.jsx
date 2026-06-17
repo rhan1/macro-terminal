@@ -76,6 +76,12 @@ export default function Capitol() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", textTransform: "uppercase" }}>Latest filed trade</span>
           <AsOfPill date={latestTradeDate} />
+          {data?.meta?.fetchedAt && (
+            <>
+              <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", textTransform: "uppercase" }}>Data refreshed</span>
+              <AsOfPill date={data.meta.fetchedAt} />
+            </>
+          )}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
         <Kpi label="FILINGS 7D" value={kpi.filings7d} />

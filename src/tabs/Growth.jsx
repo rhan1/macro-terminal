@@ -203,7 +203,7 @@ export default function Growth() {
             marginTop: 2,
           }}
         >
-          — GDP, ISM, Money Supply, Housing
+          — GDP, ISM, Money Supply
         </div>
       </div>
 

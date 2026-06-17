@@ -1,7 +1,7 @@
 // Serves structured layoff data from a Blob written by the
 // /api/cron/refresh-layoffs cron. Falls back to live Google News RSS
 // if the Blob is missing or stale, so the UI never shows a dead tab.
-import { head } from "@vercel/blob";
+import { getJSON } from "../netlify/lib/netlify-blob.mjs";
 
 const FEED_URL =
   "https://news.google.com/rss/search?q=layoffs+company&hl=en-US&gl=US&ceid=US:en";
@@ -81,25 +81,14 @@ async function fetchRawRss() {
   }
 }
 
-async function fetchStructuredBlob(token) {
-  try {
-    const meta = await head(BLOB_PATH, { token });
-    const resp = await fetch(meta.url, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!resp.ok) return null;
-    return await resp.json();
-  } catch {
-    return null;
-  }
+async function fetchStructuredBlob() {
+  return await getJSON(BLOB_PATH);
 }
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  const blob = token ? await fetchStructuredBlob(token) : null;
+  const blob = await fetchStructuredBlob();
 
   if (blob && Array.isArray(blob.structured) && blob.structured.length > 0) {
     return res.status(200).json({
