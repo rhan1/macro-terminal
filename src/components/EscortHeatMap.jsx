@@ -36,9 +36,41 @@ const MOM_SWATCH = [
   "hsla(140,42%,46%,0.88)", "hsla(142,60%,48%,0.92)", "hsla(145,78%,50%,0.96)",
 ];
 
-export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }) {
+const WIN_LABEL = { mom: "MoM", q3m: "3M", h6m: "6M", yoy: "YoY" };
+
+// Tiny inline trend sparkline for the tooltip — green if the series ends above
+// where it started, red otherwise.
+function Sparkline({ points, width = 210, height = 32 }) {
+  const vals = (points || []).map((p) => p.total);
+  const n = vals.length;
+  if (n < 2) return null;
+  const min = Math.min(...vals), max = Math.max(...vals), range = max - min || 1;
+  const pts = vals
+    .map((v, i) => {
+      const x = (i / (n - 1)) * (width - 2) + 1;
+      const y = height - 2 - ((v - min) / range) * (height - 4);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const col = vals[n - 1] >= vals[0] ? "hsl(142,70%,55%)" : "hsl(0,72%,55%)";
+  return (
+    <svg width={width} height={height} style={{ display: "block" }} aria-hidden="true">
+      <polyline points={pts} fill="none" stroke={col} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct, changeWindow = "mom" }) {
   const wrapRef = useRef(null);
   const [hover, setHover] = useState(null);
+
+  // Active change window for Δ mode (driven by the growth panel above). Falls
+  // back to the legacy mom* fields when a country has no multi-window `chg`.
+  const win = WIN_LABEL[changeWindow] ? changeWindow : "mom";
+  const winLabel = WIN_LABEL[win];
+  const chgPctOf = (c) => c.chg?.[win]?.pct ?? c.momPct ?? null;
+  const chgDeltaOf = (c) => c.chg?.[win]?.delta ?? c.momDelta ?? null;
+  const chgDaysOf = (c) => c.chg?.[win]?.windowDays ?? c.momWindowDays ?? null;
 
   // Sort/color mode: "density" (listings / 100k pop), "total" (raw count), or
   // "mom" (month-over-month change). Density normalizes country size; mom colours
@@ -57,7 +89,7 @@ export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }
   // fastest grower surfaces; missing data sinks to the bottom.
   const valueOf = (c) =>
     mode === "density" ? (c.countPer100kRef ?? 0)
-    : mode === "mom"   ? (c.momPct ?? -Infinity)
+    : mode === "mom"   ? (chgPctOf(c) ?? -Infinity)
     : (c.total ?? 0);
 
   // 10-band decile palette for TOTAL / /100K — deep navy → teal → cyan → green →
@@ -82,11 +114,11 @@ export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }
   const { fillCss, tierLabels } = useMemo(() => {
     const valid = [...countries].filter((c) => c.iso);
 
-    // MoM mode: colour by signed change, not rank.
+    // Δ mode: colour by signed change over the active window, not rank.
     if (mode === "mom") {
       const rules = valid
         .map((c) => {
-          const fill = momColor(c.momPct);
+          const fill = momColor(chgPctOf(c));
           if (!fill) return "";
           return `.escort-heatmap svg path[id="${c.iso}"],
 .escort-heatmap svg g[id="${c.iso}"] path { fill: ${fill} !important; cursor: pointer; }`;
@@ -125,7 +157,7 @@ export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }
     });
 
     return { fillCss: `${BASE_SVG_CSS}${rules}`, tierLabels: labels };
-  }, [countries, TIER_COLORS, mode]);
+  }, [countries, TIER_COLORS, mode, win]);
 
   const byIso = useMemo(
     () => new Map(countries.filter((c) => c.iso).map((c) => [c.iso, c])),
@@ -174,7 +206,7 @@ export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }
   const topCountry = useMemo(() => {
     const ranked = [...countries].filter((c) => c.iso).sort((a, b) => valueOf(b) - valueOf(a));
     return ranked[0] ?? null;
-  }, [countries, mode]);
+  }, [countries, mode, win]);
 
   return (
     <div className="panel escort-heatmap" style={{ padding: 16 }}>
@@ -218,7 +250,7 @@ export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }
           {[
             { key: "total",   label: "TOTAL",  title: "Rank by raw listing count" },
             { key: "density", label: "/100K",  title: "Rank by listings per 100,000 population — normalizes country size" },
-            { key: "mom",     label: "Δ MoM",  title: "Colour by month-over-month change — red = decline, green = growth" },
+            { key: "mom",     label: `Δ ${winLabel}`,  title: "Colour by change over the selected window — red = decline, green = growth" },
           ].map((opt) => {
             const active = mode === opt.key;
             return (
@@ -267,7 +299,7 @@ export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-          {mode === "density" ? "Listings / 100K pop" : mode === "mom" ? "MoM change" : "Listings"}
+          {mode === "density" ? "Listings / 100K pop" : mode === "mom" ? `${winLabel} change` : "Listings"}
         </span>
         {/* Swatch strip — decile palette for level modes, diverging for mom. */}
         <div
@@ -366,40 +398,33 @@ export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }
               </div>
             )
           )}
-          {/* Month-over-month change */}
-          {hover.momDelta != null && (
-            <div
-              style={{
-                fontSize: 10,
-                color: hover.momDelta > 0 ? GREEN : hover.momDelta < 0 ? RED : DIM,
-                fontFamily: '"JetBrains Mono", monospace',
-                fontVariantNumeric: "tabular-nums",
-                marginTop: 4,
-              }}
-            >
-              {hover.momDelta > 0 ? "▲" : hover.momDelta < 0 ? "▼" : "–"}{" "}
-              {hover.momDelta > 0 ? "+" : ""}{hover.momDelta.toLocaleString()}
-              {hover.momPct != null && (
-                <span style={{ color: DIM }}>{" "}({hover.momPct > 0 ? "+" : ""}{hover.momPct}%)</span>
-              )}
-              <span style={{ color: DIM, marginLeft: 6, fontSize: 9 }}>
-                vs ~{hover.momWindowDays ?? 30}d ago
-              </span>
-            </div>
-          )}
-          {/* Week-over-week change (only meaningful once weekly points accrue) */}
-          {hover.delta != null && hover.delta !== hover.momDelta && (
-            <div
-              style={{
-                fontSize: 9,
-                color: DIM,
-                fontFamily: '"JetBrains Mono", monospace',
-                fontVariantNumeric: "tabular-nums",
-                marginTop: 2,
-              }}
-            >
-              {hover.delta > 0 ? "+" : ""}{hover.delta.toLocaleString()}
-              {hover.deltaPct != null && ` (${hover.deltaPct > 0 ? "+" : ""}${hover.deltaPct}%)`} vs last refresh
+          {/* Change over the active window */}
+          {(() => {
+            const d = chgDeltaOf(hover), p = chgPctOf(hover), days = chgDaysOf(hover);
+            if (d == null) return null;
+            return (
+              <div
+                style={{
+                  fontSize: 10,
+                  color: d > 0 ? GREEN : d < 0 ? RED : DIM,
+                  fontFamily: '"JetBrains Mono", monospace',
+                  fontVariantNumeric: "tabular-nums",
+                  marginTop: 4,
+                }}
+              >
+                {d > 0 ? "▲" : d < 0 ? "▼" : "–"}{" "}
+                {d > 0 ? "+" : ""}{d.toLocaleString()}
+                {p != null && <span style={{ color: DIM }}>{" "}({p > 0 ? "+" : ""}{p}%)</span>}
+                <span style={{ color: DIM, marginLeft: 6, fontSize: 9 }}>
+                  {winLabel}{days ? ` · ~${days}d` : ""}
+                </span>
+              </div>
+            );
+          })()}
+          {/* Trend sparkline */}
+          {hover.trend?.length > 2 && (
+            <div style={{ marginTop: 6 }}>
+              <Sparkline points={hover.trend} />
             </div>
           )}
           {hover.cities.length > 0 && (
