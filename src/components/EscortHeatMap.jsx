@@ -10,33 +10,58 @@ const MUTED  = "hsl(220,15%,18%)";
 const BORDER = "hsl(220,15%,14%)";
 
 const MODE_STORAGE_KEY = "macro-heatmap-mode";
+const VALID_MODES = ["total", "density", "mom"];
 
-export default function EscortHeatMap({ countries, totalWorldwide }) {
+const BASE_SVG_CSS = `
+.escort-heatmap svg { width: 100%; height: auto; display: block; }
+.escort-heatmap svg path { fill: ${MUTED}; stroke: ${BORDER}; stroke-width: 0.35; transition: fill 0.15s ease, stroke 0.1s ease; }
+`;
+
+// Diverging palette for month-over-month change: red (decline) → grey (flat) →
+// green (growth). Keyed off signed momPct, NOT rank — so colour means direction.
+const MOM_FLAT = "hsla(220,12%,38%,0.85)";
+function momColor(pct) {
+  if (pct == null) return null;        // no history → leave default MUTED
+  if (pct <= -10) return "hsla(0,78%,44%,0.96)";
+  if (pct <= -3)  return "hsla(2,66%,52%,0.92)";
+  if (pct < -0.5) return "hsla(10,52%,52%,0.88)";
+  if (pct <= 0.5) return MOM_FLAT;     // ~flat
+  if (pct < 3)    return "hsla(140,42%,46%,0.88)";
+  if (pct < 10)   return "hsla(142,60%,48%,0.92)";
+  return "hsla(145,78%,50%,0.96)";
+}
+const MOM_SWATCH = [
+  "hsla(0,78%,44%,0.96)", "hsla(2,66%,52%,0.92)", "hsla(10,52%,52%,0.88)",
+  MOM_FLAT,
+  "hsla(140,42%,46%,0.88)", "hsla(142,60%,48%,0.92)", "hsla(145,78%,50%,0.96)",
+];
+
+export default function EscortHeatMap({ countries, totalWorldwide, worldMoMPct }) {
   const wrapRef = useRef(null);
   const [hover, setHover] = useState(null);
 
-  // Sort/color mode: "density" (listings / 100k pop) or "total" (raw count).
-  // Density normalizes away country size and is the default.
+  // Sort/color mode: "density" (listings / 100k pop), "total" (raw count), or
+  // "mom" (month-over-month change). Density normalizes country size; mom colours
+  // by direction of change. Density is the default.
   const [mode, setMode] = useState(() => {
     if (typeof window === "undefined") return "density";
     const stored = window.localStorage?.getItem(MODE_STORAGE_KEY);
-    return stored === "total" ? "total" : "density";
+    return VALID_MODES.includes(stored) ? stored : "density";
   });
   useEffect(() => {
     window.localStorage?.setItem(MODE_STORAGE_KEY, mode);
   }, [mode]);
 
-  // valueOf(c) is the scalar the palette and ranking are keyed off.
-  // In density mode we fall back to 0 (not null) for countries missing a
-  // population reference so they bucket into the bottom tier instead of
-  // disappearing entirely.
+  // valueOf(c) is the scalar the ranking is keyed off (used for the "leads"
+  // callout and the rank-decile palette). In mom mode we rank by momPct so the
+  // fastest grower surfaces; missing data sinks to the bottom.
   const valueOf = (c) =>
-    mode === "density" ? (c.countPer100kRef ?? 0) : (c.total ?? 0);
+    mode === "density" ? (c.countPer100kRef ?? 0)
+    : mode === "mom"   ? (c.momPct ?? -Infinity)
+    : (c.total ?? 0);
 
-  // 10-band decile palette — deep navy → teal → cyan → green → lime → amber →
-  // hot red. Doubling the band count (was 5) lets 129 countries spread across
-  // ~13 per band instead of ~26, making adjacent-rank countries visually
-  // distinguishable. Hue sweep is continuous; lightness rises as values do.
+  // 10-band decile palette for TOTAL / /100K — deep navy → teal → cyan → green →
+  // lime → amber → hot red. (mom mode uses the diverging palette above instead.)
   const TIER_COLORS = useMemo(
     () => [
       "hsla(225, 45%, 20%, 0.85)",   // T0 — bottom decile (deep navy)
@@ -54,13 +79,25 @@ export default function EscortHeatMap({ countries, totalWorldwide }) {
   );
   const TIER_COUNT = TIER_COLORS.length;
 
-  // Rank countries by the active metric, then assign each to a decile (0..9).
-  // Pure rank-based bucketing so the top tier stands out even when values
-  // are log-compressed against the long tail of small-country listings.
-  const { fillCss, tierByIso, tierLabels } = useMemo(() => {
-    const ranked = [...countries]
-      .filter((c) => c.iso)
-      .sort((a, b) => valueOf(b) - valueOf(a));
+  const { fillCss, tierLabels } = useMemo(() => {
+    const valid = [...countries].filter((c) => c.iso);
+
+    // MoM mode: colour by signed change, not rank.
+    if (mode === "mom") {
+      const rules = valid
+        .map((c) => {
+          const fill = momColor(c.momPct);
+          if (!fill) return "";
+          return `.escort-heatmap svg path[id="${c.iso}"],
+.escort-heatmap svg g[id="${c.iso}"] path { fill: ${fill} !important; cursor: pointer; }`;
+        })
+        .filter(Boolean)
+        .join("\n");
+      return { fillCss: `${BASE_SVG_CSS}${rules}`, tierLabels: null };
+    }
+
+    // TOTAL / /100K: pure rank-based decile bucketing.
+    const ranked = valid.sort((a, b) => valueOf(b) - valueOf(a));
     const n = ranked.length;
     const tiers = new Map();
     const tierBounds = Array.from({ length: TIER_COUNT }, () => []);
@@ -78,7 +115,6 @@ export default function EscortHeatMap({ countries, totalWorldwide }) {
       })
       .join("\n");
 
-    // Legend formatter: density shows 1 decimal, totals are integer.
     const fmtBound = (v) =>
       mode === "density" ? v.toFixed(1) : Math.round(v).toLocaleString();
     const labels = tierBounds.map((vals) => {
@@ -88,15 +124,7 @@ export default function EscortHeatMap({ countries, totalWorldwide }) {
       return min === max ? fmtBound(min) : `${fmtBound(min)}–${fmtBound(max)}`;
     });
 
-    return {
-      fillCss: `
-.escort-heatmap svg { width: 100%; height: auto; display: block; }
-.escort-heatmap svg path { fill: ${MUTED}; stroke: ${BORDER}; stroke-width: 0.35; transition: fill 0.15s ease, stroke 0.1s ease; }
-${rules}
-`,
-      tierByIso: tiers,
-      tierLabels: labels,
-    };
+    return { fillCss: `${BASE_SVG_CSS}${rules}`, tierLabels: labels };
   }, [countries, TIER_COLORS, mode]);
 
   const byIso = useMemo(
@@ -104,9 +132,6 @@ ${rules}
     [countries]
   );
 
-  // One-time SVG cleanup + scroll listener to hide the tooltip when the
-  // page scrolls without a mouse move (otherwise the fixed tooltip can
-  // float detached from the map).
   useEffect(() => {
     const root = wrapRef.current;
     if (!root) return;
@@ -129,9 +154,6 @@ ${rules}
     };
   }, []);
 
-  // React-delegated hover: single handler on the wrapper uses event.target
-  // to find the country under the cursor. Avoids per-path listener setup
-  // that was silently failing after re-renders.
   const handleMove = (e) => {
     const el = e.target.closest("[id]");
     if (!el) {
@@ -147,7 +169,8 @@ ${rules}
     setHover({ ...entry, x: e.clientX, y: e.clientY });
   };
 
-  // Leader in the currently-active metric, not just the prop sort order.
+  // Leader callout — in mom mode this is the fastest grower; otherwise the
+  // top-ranked country in the active metric.
   const topCountry = useMemo(() => {
     const ranked = [...countries].filter((c) => c.iso).sort((a, b) => valueOf(b) - valueOf(a));
     return ranked[0] ?? null;
@@ -172,12 +195,30 @@ ${rules}
         <span style={{ fontSize: 10, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Worldwide listings
         </span>
+        {/* Worldwide MoM badge */}
+        {worldMoMPct != null && (
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: worldMoMPct > 0 ? GREEN : worldMoMPct < 0 ? RED : DIM,
+              fontFamily: '"JetBrains Mono", monospace',
+              fontVariantNumeric: "tabular-nums",
+            }}
+            title="Worldwide listings change vs ~1 month ago"
+          >
+            {worldMoMPct > 0 ? "▲" : worldMoMPct < 0 ? "▼" : "–"}{" "}
+            {worldMoMPct > 0 ? "+" : ""}{worldMoMPct}%{" "}
+            <span style={{ fontSize: 9, color: DIM, fontWeight: 400 }}>MoM</span>
+          </span>
+        )}
 
-        {/* Mode toggle — TOTAL vs /100K population */}
+        {/* Mode toggle — TOTAL / /100K population / Δ month-over-month */}
         <div style={{ display: "flex", gap: 2, marginLeft: 10 }}>
           {[
-            { key: "total",   label: "TOTAL" },
-            { key: "density", label: "/100K" },
+            { key: "total",   label: "TOTAL",  title: "Rank by raw listing count" },
+            { key: "density", label: "/100K",  title: "Rank by listings per 100,000 population — normalizes country size" },
+            { key: "mom",     label: "Δ MoM",  title: "Colour by month-over-month change — red = decline, green = growth" },
           ].map((opt) => {
             const active = mode === opt.key;
             return (
@@ -196,9 +237,7 @@ ${rules}
                   fontWeight: active ? 600 : 400,
                   transition: "all 0.1s",
                 }}
-                title={opt.key === "density"
-                  ? "Rank by listings per 100,000 population — normalizes country size"
-                  : "Rank by raw listing count"}
+                title={opt.title}
               >
                 {opt.label}
               </button>
@@ -211,7 +250,8 @@ ${rules}
           {topCountry && (
             <>
               <span style={{ color: BORDER, margin: "0 8px" }}>·</span>
-              <span style={{ color: AMBER }}>{topCountry.country}</span> leads
+              <span style={{ color: AMBER }}>{topCountry.country}</span>{" "}
+              {mode === "mom" ? "fastest growth" : "leads"}
             </>
           )}
         </span>
@@ -227,9 +267,9 @@ ${rules}
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 9, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-          {mode === "density" ? "Listings / 100K pop" : "Listings"}
+          {mode === "density" ? "Listings / 100K pop" : mode === "mom" ? "MoM change" : "Listings"}
         </span>
-        {/* Continuous swatch strip — discrete tiers, no crowded per-band labels. */}
+        {/* Swatch strip — decile palette for level modes, diverging for mom. */}
         <div
           style={{
             display: "flex",
@@ -239,12 +279,12 @@ ${rules}
             width: 220,
           }}
         >
-          {TIER_COLORS.map((color, i) => (
+          {(mode === "mom" ? MOM_SWATCH : TIER_COLORS).map((color, i) => (
             <div key={i} style={{ flex: 1, background: color }} />
           ))}
         </div>
 
-        {/* Endpoint labels — just min and max of the whole range. */}
+        {/* Endpoint labels */}
         <span
           style={{
             fontSize: 9,
@@ -254,17 +294,17 @@ ${rules}
             letterSpacing: "0.04em",
           }}
         >
-          {(() => {
-            const firstLabel = tierLabels.find((l) => l != null);
-            const lastLabel = [...tierLabels].reverse().find((l) => l != null);
-            // Pull the low end from firstLabel (bottom tier, smallest value)
-            // and the high end from lastLabel (top tier, largest value).
-            const low = firstLabel ? firstLabel.split("–")[0] : "—";
-            const high = lastLabel
-              ? (lastLabel.includes("–") ? lastLabel.split("–")[1] : lastLabel)
-              : "—";
-            return `${low}  →  ${high}`;
-          })()}
+          {mode === "mom"
+            ? "decline  ←  flat  →  growth"
+            : (() => {
+                const firstLabel = tierLabels?.find((l) => l != null);
+                const lastLabel = tierLabels ? [...tierLabels].reverse().find((l) => l != null) : null;
+                const low = firstLabel ? firstLabel.split("–")[0] : "—";
+                const high = lastLabel
+                  ? (lastLabel.includes("–") ? lastLabel.split("–")[1] : lastLabel)
+                  : "—";
+                return `${low}  →  ${high}`;
+              })()}
         </span>
 
         <span style={{ marginLeft: "auto", fontSize: 8, color: DIM }}>
@@ -277,7 +317,7 @@ ${rules}
           style={{
             position: "fixed",
             left: Math.min(hover.x + 14, window.innerWidth - 260),
-            top: Math.min(hover.y + 14, window.innerHeight - 200),
+            top: Math.min(hover.y + 14, window.innerHeight - 220),
             background: "hsl(220,15%,8%)",
             border: `1px solid ${CYAN}55`,
             padding: "8px 10px",
@@ -326,55 +366,75 @@ ${rules}
               </div>
             )
           )}
-          {hover.delta != null && (
+          {/* Month-over-month change */}
+          {hover.momDelta != null && (
             <div
               style={{
                 fontSize: 10,
-                color: hover.delta > 0 ? GREEN : hover.delta < 0 ? RED : DIM,
+                color: hover.momDelta > 0 ? GREEN : hover.momDelta < 0 ? RED : DIM,
                 fontFamily: '"JetBrains Mono", monospace',
                 fontVariantNumeric: "tabular-nums",
                 marginTop: 4,
               }}
             >
-              {hover.delta > 0 ? "▲" : hover.delta < 0 ? "▼" : "–"}{" "}
-              {hover.delta > 0 ? "+" : ""}{hover.delta.toLocaleString()}
-              {hover.deltaPct != null && (
-                <span style={{ color: DIM }}>{" "}({hover.deltaPct > 0 ? "+" : ""}{hover.deltaPct}%)</span>
+              {hover.momDelta > 0 ? "▲" : hover.momDelta < 0 ? "▼" : "–"}{" "}
+              {hover.momDelta > 0 ? "+" : ""}{hover.momDelta.toLocaleString()}
+              {hover.momPct != null && (
+                <span style={{ color: DIM }}>{" "}({hover.momPct > 0 ? "+" : ""}{hover.momPct}%)</span>
               )}
-              <span style={{ color: DIM, marginLeft: 6, fontSize: 9 }}>vs last refresh</span>
+              <span style={{ color: DIM, marginLeft: 6, fontSize: 9 }}>
+                vs ~{hover.momWindowDays ?? 30}d ago
+              </span>
             </div>
           )}
-          <div
-            style={{
-              marginTop: 6,
-              paddingTop: 6,
-              borderTop: `1px solid ${BORDER}`,
-              display: "flex",
-              flexDirection: "column",
-              gap: 3,
-            }}
-          >
-            {hover.cities.map((c) => (
-              <div
-                key={c.city}
-                style={{
-                  fontSize: 10,
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto auto",
-                  gap: 8,
-                  alignItems: "baseline",
-                }}
-              >
-                <span style={{ color: "var(--color-term-text)" }}>{c.city}</span>
-                <span style={{ color: CYAN, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
-                  {c.count.toLocaleString()}
-                </span>
-                <span style={{ color: DIM, fontSize: 9, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
-                  {c.countPer100k != null ? `${c.countPer100k.toFixed(1)}/100k` : ""}
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* Week-over-week change (only meaningful once weekly points accrue) */}
+          {hover.delta != null && hover.delta !== hover.momDelta && (
+            <div
+              style={{
+                fontSize: 9,
+                color: DIM,
+                fontFamily: '"JetBrains Mono", monospace',
+                fontVariantNumeric: "tabular-nums",
+                marginTop: 2,
+              }}
+            >
+              {hover.delta > 0 ? "+" : ""}{hover.delta.toLocaleString()}
+              {hover.deltaPct != null && ` (${hover.deltaPct > 0 ? "+" : ""}${hover.deltaPct}%)`} vs last refresh
+            </div>
+          )}
+          {hover.cities.length > 0 && (
+            <div
+              style={{
+                marginTop: 6,
+                paddingTop: 6,
+                borderTop: `1px solid ${BORDER}`,
+                display: "flex",
+                flexDirection: "column",
+                gap: 3,
+              }}
+            >
+              {hover.cities.map((c) => (
+                <div
+                  key={c.city}
+                  style={{
+                    fontSize: 10,
+                    display: "grid",
+                    gridTemplateColumns: "1fr auto auto",
+                    gap: 8,
+                    alignItems: "baseline",
+                  }}
+                >
+                  <span style={{ color: "var(--color-term-text)" }}>{c.city}</span>
+                  <span style={{ color: CYAN, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
+                    {c.count.toLocaleString()}
+                  </span>
+                  <span style={{ color: DIM, fontSize: 9, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
+                    {c.countPer100k != null ? `${c.countPer100k.toFixed(1)}/100k` : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

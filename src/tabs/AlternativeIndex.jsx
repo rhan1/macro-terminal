@@ -533,6 +533,7 @@ export default function AlternativeIndex() {
       setEscortData({
         countries,
         totalWorldwide,
+        worldMoMPct: egs?.totalWorldwideMoMPct ?? null,
         activeLabel: sources.join(" + "),
         fetchedAt: primary?.fetchedAt || tryst?.fetchedAt,
       });
@@ -554,6 +555,7 @@ export default function AlternativeIndex() {
   // ── Derived escort data ─────────────────────────────────────────────────────
   const escortCountries = escortData?.countries ?? [];
   const escortTotal     = escortData?.totalWorldwide ?? escortData?.total ?? null;
+  const escortMoM       = escortData?.worldMoMPct ?? null;
   const escortSource    = escortData?.activeLabel ?? null;
 
   // ── Derived vice stocks data ────────────────────────────────────────────────
@@ -908,7 +910,7 @@ export default function AlternativeIndex() {
             <Loading />
           </div>
         ) : escortCountries.length > 0 ? (
-          <EscortHeatMap countries={escortCountries} totalWorldwide={escortTotal} />
+          <EscortHeatMap countries={escortCountries} totalWorldwide={escortTotal} worldMoMPct={escortMoM} />
         ) : (
           <div className="panel" style={{ padding: 16 }}>
             <div style={{ fontSize: 11, color: DIM }}>No country data available.</div>
