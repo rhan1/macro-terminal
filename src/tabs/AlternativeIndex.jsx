@@ -449,6 +449,9 @@ export default function AlternativeIndex() {
   const [escortData, setEscortData]       = useState(null);
   const [escortLoading, setEscortLoading] = useState(true);
 
+  // ── Escort advertised-rate pilot (median 1h rate, USD) ─────────────────────
+  const [ratesData, setRatesData] = useState(null);
+
   // ── Google Trends stress signals state ─────────────────────────────────────
   const [trendsData, setTrendsData]       = useState(null);
   const [trendsLoading, setTrendsLoading] = useState(true);
@@ -539,6 +542,14 @@ export default function AlternativeIndex() {
       });
       setEscortLoading(false);
     })();
+  }, []);
+
+  // ── Fetch escort advertised-rate pilot ─────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/egs-rates")
+      .then((r) => r.json())
+      .then((d) => { if (d && !d.error && (d.countries?.length ?? 0) > 0) setRatesData(d); })
+      .catch(() => {});
   }, []);
 
   // ── Fetch Google Trends stress signals ─────────────────────────────────────
@@ -917,6 +928,53 @@ export default function AlternativeIndex() {
           </div>
         )}
       </div>
+
+      {/* ── Section 5b: Escort Advertised Rates (USD/hr) — pilot ── */}
+      {ratesData?.countries?.length > 0 && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+              Median Advertised Rate — 1hr, USD <span style={{ color: AMBER }}>· PILOT</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {ratesData.fetchedAt && <AsOfPill date={ratesData.fetchedAt} />}
+              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+                source: eurogirlsescort.es
+              </div>
+            </div>
+          </div>
+
+          <div className="panel" style={{ padding: 16 }}>
+            <div style={{ fontSize: 10, color: DIM, marginBottom: 12, lineHeight: 1.5 }}>
+              Median advertised 1-hour rate, FX-normalized to USD, sampled across{" "}
+              {ratesData.nProfilesPerCountry ?? "~18"} profiles/country. A coarse price signal for the alt-economy index.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+              {[...ratesData.countries]
+                .filter((c) => c.medianIncallUsd != null)
+                .sort((a, b) => b.medianIncallUsd - a.medianIncallUsd)
+                .map((c) => {
+                  const topCur = c.currencyMix
+                    ? Object.entries(c.currencyMix).sort((a, b) => b[1] - a[1])[0]?.[0]
+                    : null;
+                  return (
+                    <div key={c.iso} style={{ border: `1px solid ${BORDER}`, borderRadius: 4, padding: "10px 12px" }}>
+                      <div style={{ fontSize: 10, color: "var(--color-term-text)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                        {c.country}
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: CYAN, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                        ${c.medianIncallUsd.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: 8.5, color: DIM, marginTop: 5, letterSpacing: "0.03em" }}>
+                        n={c.sampleSize ?? "—"}{topCur ? ` · ${topCur}` : ""}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Section 3: Google Trends — Stress Signals ── */}
       <div>
