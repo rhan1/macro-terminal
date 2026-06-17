@@ -1330,7 +1330,7 @@ function renderWithBoldAndCitations(text, sources) {
     const boldMatch = tok.match(/^\*\*([^*]+)\*\*$/);
     if (boldMatch) {
       pieces.push(
-        <strong key={`b${key++}`} style={{ color: "hsl(220,15%,95%)", fontWeight: 600 }}>
+        <strong key={`b${key++}`} style={{ color: "#aeb6c2", fontWeight: 600 }}>
           {boldMatch[1]}
         </strong>
       );
@@ -1438,6 +1438,26 @@ function NarrativePanel({ spyChangePct }) {
       >
         Headline News · via Perplexity Sonar
       </div>
+      {Array.isArray(data.movers) && data.movers.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, margin: "2px 0 11px", fontSize: 11.5, fontVariantNumeric: "tabular-nums" }}>
+          {data.movers.map((m) => {
+            const v = Number(m.changePct);
+            const bad = Number.isNaN(v);
+            const isVix = /vix/i.test(m.label || "");
+            const col = bad ? "var(--color-term-dim)"
+              : isVix && v > 0 ? "#e6b35e"
+              : v > 0 ? "#4ec9a0" : v < 0 ? "#e06c75" : "var(--color-term-dim)";
+            const arrow = bad ? "" : v > 0 ? "▲" : v < 0 ? "▼" : "▬";
+            return (
+              <span key={m.label} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ color: col, fontSize: 9 }}>{arrow}</span>
+                <span style={{ color: "hsl(220,10%,55%)" }}>{m.label}</span>
+                <span style={{ color: col, fontWeight: 600 }}>{!bad && v > 0 ? "+" : ""}{bad ? "—" : formatNum(v, 2) + "%"}</span>
+              </span>
+            );
+          })}
+        </div>
+      )}
       {isBulletList ? (
         <ul
           style={{

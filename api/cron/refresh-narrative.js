@@ -246,6 +246,13 @@ export default async function handler(req, res) {
     const impliedSp500 = spyPrice != null ? spyPrice * 10 : null;
     const f = (k) => mkt[k] ? `${mkt[k].price?.toFixed(2)} (${mkt[k].changePct >= 0 ? "+" : ""}${mkt[k].changePct?.toFixed(2)}%)` : "unavailable";
 
+    // Movers strip data (deterministic from live market data — the UI renders this
+    // as a colored ticker row so the prose doesn't have to recite every move).
+    const movers = [
+      ["SPY", mkt?.SPY?.changePct], ["QQQ", mkt?.QQQ?.changePct], ["S&P 500", mkt?.GSPC?.changePct],
+      ["TLT", mkt?.TLT?.changePct], ["GLD", mkt?.GLD?.changePct], ["USO", mkt?.USO?.changePct], ["VIX", mkt?.VIX?.changePct],
+    ].map(([label, cp]) => ({ label, changePct: toNumber(cp) })).filter((m) => m.changePct != null);
+
     let tenY = "unavailable";
     let tenYPct = null;
     try {
@@ -365,8 +372,9 @@ export default async function handler(req, res) {
       "GROUND TRUTH — today's live US market state:",
       groundTruth,
       "",
+      "A separate MOVERS data row already displays the exact ticker % changes (SPY, QQQ, S&P 500, TLT, GLD, USO, VIX). Do NOT recite individual ticker percentages in Paragraph 1 — describe the market narrative and drivers qualitatively (e.g. 'equities pulled back', 'duration outperformed', 'crude collapsed on the ceasefire').",
       "Paragraph structure:",
-      "Paragraph 1: market state and main movers.",
+      "Paragraph 1: the market narrative and drivers (qualitative — no ticker % recitation; the movers row shows the numbers).",
       "Paragraph 2: policy and macro data.",
       "Paragraph 3: dominant catalyst and forward-looking positioning setup.",
       "",
@@ -469,6 +477,7 @@ export default async function handler(req, res) {
       const body = {
         paragraph: sanitizedParagraph.text,
         takeaway: sanitizedTakeaway?.text ?? null,
+        movers,
         sources: fallbackSources,
         fetchedAt,
         model: FINAL_MODEL,
@@ -493,6 +502,7 @@ export default async function handler(req, res) {
       const body = {
         paragraph: sanitized.text,
         takeaway: null,
+        movers,
         sources: fallbackSources,
         fetchedAt,
         model: FALLBACK_MODEL,
