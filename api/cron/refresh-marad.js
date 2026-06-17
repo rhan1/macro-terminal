@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const BASE_URL = "https://www.maritime.dot.gov";
 const LIST_URL = `${BASE_URL}/msci-advisories`;
@@ -147,9 +147,6 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "unauthorized" });
     }
 
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN missing" });
-
     let collected = [];
     const errors = [];
     let source = "MARAD";
@@ -194,13 +191,7 @@ export default async function handler(req, res) {
       .slice(0, MAX_ADVISORIES);
 
     const fetchedAt = new Date().toISOString();
-    await put(BLOB_PATH, JSON.stringify({ advisories, fetchedAt, source }), {
-      access: "private",
-      contentType: "application/json",
-      token,
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    await putJSON(BLOB_PATH, { advisories, fetchedAt, source });
 
     return res.status(200).json({
       ok: true,

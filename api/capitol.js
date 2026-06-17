@@ -1,6 +1,6 @@
 // Serves the Capitol Trades Blob written by /api/cron/refresh-capitol.
 // Narrows the trade list to a requested period, passes through aggregates.
-import { head } from "@vercel/blob";
+import { getJSON } from "../netlify/lib/netlify-blob.mjs";
 
 const BLOB_PATH = "capitol/trades.json";
 
@@ -12,21 +12,14 @@ function daysAgoIso(days) {
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN missing" });
 
   const period = parseInt(req.query?.period || "30", 10);
   const limit = Math.min(1000, parseInt(req.query?.limit || "200", 10));
   const cutoff = daysAgoIso(Math.max(1, period));
 
   try {
-    const meta = await head(BLOB_PATH, { token });
-    const resp = await fetch(meta.url, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!resp.ok) throw new Error(`blob fetch ${resp.status}`);
-    const blob = await resp.json();
+    const blob = await getJSON(BLOB_PATH);
+    if (!blob) throw new Error("not-seeded");
 
     const allTrades = Array.isArray(blob.trades) ? blob.trades : [];
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);

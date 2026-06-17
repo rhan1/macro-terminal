@@ -101,9 +101,16 @@ function regimeReason(regime, { cpiVal, gdpVal, vixVal, unrateVal, t10y2yVal }) 
       if (unrateVal != null) extras.push(`UNRATE ${formatNum(unrateVal, 1)}%`);
       if (t10y2yVal != null) extras.push(`10Y-2Y ${formatNum(t10y2yVal, 2)}%`);
       const baseline = parts.length > 0 ? parts.join(" · ") : extras.join(" · ");
+      // Surface elevated metrics instead of claiming no stress triggers when CPI or UNRATE is elevated
+      const stressFlags = [];
+      if (cpiVal != null && cpiVal > 3.0) stressFlags.push(`elevated inflation (CPI ${formatNum(cpiVal, 2)}%)`);
+      if (unrateVal != null && unrateVal > 4.5) stressFlags.push(`elevated unemployment (${formatNum(unrateVal, 1)}%)`);
+      const suffix = stressFlags.length > 0
+        ? stressFlags.join("; ")
+        : "no stress triggers active";
       return baseline
-        ? `${baseline} — no stress triggers active`
-        : "No stress triggers active";
+        ? `${baseline} — ${suffix}`
+        : suffix.charAt(0).toUpperCase() + suffix.slice(1);
     }
   }
 }
@@ -142,137 +149,65 @@ function buildBullets(data) {
   const recVal = val(data, "RECESSION");
 
   const bullets = [];
+  const GREEN = "#4ec9a0", RED = "#e06c75", AMBER = "#e6b35e", MUTED = "#8a93a0", NUM = "hsl(220,15%,95%)";
+  const lbl = (t) => <span style={{ color: MUTED, display: "inline-block", minWidth: 62 }}>{t}</span>;
 
   if (gdpVal != null) {
-    const regimeCall =
-      gdpVal >= 3.0 ? "a pace that historically sustains broad cyclical exposure" :
-      gdpVal >= 2.5 ? "above potential, which favors cyclical overweight but not indiscriminate risk-on" :
-      gdpVal >= 2.0 ? "still above trend, though the margin for error is narrowing" :
-      gdpVal >= 0.5 ? "below trend - the economy is decelerating into stall-speed territory" :
-      gdpVal >= 0 ? "near-stall, where the probability of outright contraction rises sharply" :
-      "contraction - technical recession criteria are being met";
-    const momentumNote =
-      gdpPrior != null
-        ? gdpVal > gdpPrior
-          ? `accelerating from a prior ${formatNum(gdpPrior, 1)}%, which strengthens the expansion case`
-          : gdpVal < gdpPrior
-          ? `decelerating from ${formatNum(gdpPrior, 1)}% - the direction of travel matters as much as the level`
-          : `unchanged from the prior ${formatNum(gdpPrior, 1)}%, offering no incremental signal`
-        : null;
-    const positionNote =
-      gdpVal < 1 ? "At sub-1%, the playbook shifts decisively to defensives and duration." :
-      gdpVal >= 2.5 ? "This pace supports selective cyclical exposure while maintaining quality discipline." :
-      "Mid-cycle velocity argues for quality over momentum and patience over conviction.";
+    const regime =
+      gdpVal >= 2.5 ? "above trend" :
+      gdpVal >= 2.0 ? "above trend, margin narrowing" :
+      gdpVal >= 0.5 ? "below trend, decelerating" :
+      gdpVal >= 0 ? "near-stall" : "contraction";
+    const pos = gdpVal < 1 ? "Defensives & duration." : gdpVal >= 2.5 ? "Selective cyclicals." : "Quality > momentum.";
     bullets.push(
       <>
-        The U.S. economy grew at{" "}
-        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(gdpVal, 1)}%</strong>
-        <DeltaArrow current={gdpVal} prior={gdpPrior} bullish={true} /> annualized,
-        {momentumNote ? ` ${momentumNote} - ` : " "}
-        {regimeCall}. Growth velocity sets the risk-asset regime, and the current trajectory is the
-        primary variable to watch. {positionNote}
+        {lbl("Growth")}GDP <strong style={{ color: GREEN }}>{formatNum(gdpVal, 1)}%</strong>
+        <DeltaArrow current={gdpVal} prior={gdpPrior} bullish={true} />
+        {gdpPrior != null ? ` (from ${formatNum(gdpPrior, 1)}%)` : ""} — {regime}. {pos}
       </>
     );
-  } else {
-    bullets.push("GDP data is not yet available from FRED - the growth regime cannot be assessed with confidence.");
   }
 
   if (cpiVal != null || pceVal != null) {
-    const inf = cpiVal ?? pceVal;
-    const lbl = cpiVal != null ? "CPI" : "Core PCE";
-    const gap = inf - 2.0;
-    const gapStr = gap > 0 ? `${formatNum(gap, 1)}pp above` : `${formatNum(Math.abs(gap), 1)}pp below`;
-    const lastMileNote =
-      inf > 4.0 ? "Rate cuts are off the table until the Fed sees sustained, material disinflation - the policy path is unambiguously higher for longer." :
-      inf > 3.0 ? "The last mile of disinflation is proving sticky, and a premature pivot would risk a second inflation wave. The Fed cannot afford to blink." :
-      inf > 2.5 ? "Disinflation is progressing, but the final leg back to 2% has historically been the hardest. The Fed retains a tightening bias." :
-      inf > 1.5 ? "Inflation is functionally on target, giving the Fed meaningful optionality to ease without sacrificing credibility." :
-      "Inflation has undershot the target - disinflationary forces are dominant, and the easing case is building.";
+    const infBase = cpiVal ?? pceVal;
+    const gap = infBase - 2.0;
+    const gapStr = `${formatNum(Math.abs(gap), 1)}pp ${gap >= 0 ? "above" : "below"} target`;
+    const note = infBase > 4 ? "higher-for-longer" : infBase > 3 ? "sticky last mile" : infBase > 2.5 ? "tightening bias" : "near target";
     bullets.push(
       <>
-        Inflation remains the binding constraint for policy. {lbl} is running at{" "}
-        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(inf, 2)}%</strong>
-        <DeltaArrow current={cpiVal != null ? cpiVal : pceVal} prior={cpiVal != null ? cpiPrior : pcePrior} bullish={false} />,{" "}
-        {gapStr} the Fed&apos;s 2% target. {lastMileNote}
-        {pceVal != null && (
-          <>
-            {" "}Core PCE at{" "}
-            <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(pceVal, 2)}%</strong>
-            <DeltaArrow current={pceVal} prior={pcePrior} bullish={false} /> - the Fed&apos;s
-            preferred gauge - confirms the picture.
-          </>
-        )}
+        {lbl("Inflation")}CPI <strong style={{ color: RED }}>{formatNum(cpiVal ?? infBase, 2)}%</strong>
+        <DeltaArrow current={cpiVal ?? infBase} prior={cpiVal != null ? cpiPrior : pcePrior} bullish={false} />
+        {pceVal != null ? <> · Core PCE <strong style={{ color: RED }}>{formatNum(pceVal, 2)}%</strong><DeltaArrow current={pceVal} prior={pcePrior} bullish={false} /></> : null}
+        {" — "}{gapStr}; {note}.
       </>
     );
-  } else {
-    bullets.push("Inflation data is not yet available from FRED - the policy constraint cannot be fully assessed.");
   }
 
   if (unrateVal != null) {
-    const nairu = 4.2;
-    const gap = unrateVal - nairu;
-    const laborRead =
-      gap < -0.5 ? `${formatNum(Math.abs(gap), 1)}pp below NAIRU, embedding wage pressure that keeps the Fed's hands tied` :
-      gap < 0.3 ? "essentially at NAIRU - labor supply and demand are in rough balance" :
-      gap < 1.0 ? `${formatNum(gap, 1)}pp above NAIRU, with slack beginning to build and wage growth softening` :
-      `${formatNum(gap, 1)}pp above NAIRU - meaningful slack has opened up, and consumer demand is feeling the pressure`;
-    const payNote = payemsVal != null
-      ? (
-          <>
-            {" "}Monthly payrolls are tracking around{" "}
-            <strong style={{ color: "hsl(220,15%,95%)" }}>{Math.round(payemsVal)}K</strong>
-            <DeltaArrow current={payemsVal} prior={payemsPrior} bullish={true} /> - above the ~100K
-            break-even needed to absorb new labor force entrants.
-          </>
-        )
-      : "";
-    const sahmNote =
-      unrateVal > 5.5
-        ? "History shows that unemployment at this level compresses consumer spending with a 6-12 month lag - the second-order effects are worth watching."
-        : "Tight labor market conditions are the primary support for consumer resilience, but they also keep inflation from falling cleanly.";
+    const gap = unrateVal - 4.2;
+    const read = gap < 0.3 ? "~NAIRU" : gap < 1.0 ? "slack building" : "slack opened";
     bullets.push(
       <>
-        Unemployment stands at{" "}
-        <strong style={{ color: "hsl(220,15%,95%)" }}>{formatNum(unrateVal, 1)}%</strong>
-        <DeltaArrow current={unrateVal} prior={unratePrior} bullish={false} />, {laborRead}.
-        {payNote} The Sahm Rule - triggered by a 0.5pp rise from the 12-month low - remains the
-        cleanest real-time recession signal. {sahmNote}
+        {lbl("Labor")}U-rate <strong style={{ color: AMBER }}>{formatNum(unrateVal, 1)}%</strong>
+        <DeltaArrow current={unrateVal} prior={unratePrior} bullish={false} />
+        {payemsVal != null ? <> · NFP <strong style={{ color: NUM }}>{Math.round(payemsVal)}K</strong><DeltaArrow current={payemsVal} prior={payemsPrior} bullish={true} /></> : null}
+        {" — "}{read}; {unrateVal > 5.5 ? "watch consumer lag" : "Sahm not triggered"}.
       </>
     );
-  } else {
-    bullets.push("Unemployment data is not yet available from FRED - labor market conditions cannot be assessed.");
   }
 
   if (fedVal != null) {
     const realRate = cpiVal != null ? fedVal - cpiVal : null;
-    const rateRead =
-      fedVal >= 5.0 ? "deeply in restrictive territory - financial conditions are meaningfully tight" :
-      fedVal >= 3.5 ? "in restrictive territory, actively restraining credit and investment" :
-      fedVal >= 2.5 ? "at the boundary of neutral - neither stimulative nor clearly restrictive" :
-      fedVal >= 1.5 ? "accommodative, providing a tailwind to risk assets and credit" :
-      "at emergency-level accommodation - the Fed is in crisis-fighting mode";
-    const realRateNote = realRate != null
-      ? ` The real rate - Fed Funds minus CPI - sits at ${realRate > 0 ? "+" : ""}${formatNum(realRate, 2)}%, the truest measure of how tight conditions actually are.`
-      : "";
-    const curveNote =
-      t10y2yVal != null
-        ? t10y2yVal < -0.5
-          ? ` The curve remains deeply inverted (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) - historically the most reliable recession signal, with a 12-18 month average lead time.`
-          : t10y2yVal < 0
-          ? ` A shallow inversion persists (10Y-2Y: ${formatNum(t10y2yVal, 2)}%) - the recessionary signal is there, but timing is uncertain.`
-          : t10y2yVal < 0.5
-          ? ` The curve is normalizing (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) - disinversion is underway, but a return to expansion-phase steepness is not confirmed.`
-          : ` The curve has re-steepened (10Y-2Y: +${formatNum(t10y2yVal, 2)}%) - an expansion-phase structure that is supportive of credit conditions.`
-        : "";
-    const recNote = recVal != null
-      ? ` FRED's recession probability model is at ${formatNum(recVal, 1)}% - ${recVal > 30 ? "an elevated reading that has historically preceded recession within 12 months" : recVal > 10 ? "a moderate risk reading that warrants monitoring" : "a subdued reading, below levels that historically demand defensive repositioning"}.`
-      : "";
+    const curve = t10y2yVal != null ? (t10y2yVal < 0 ? "inverted" : t10y2yVal < 0.5 ? "disinverting" : "steepening") : null;
     bullets.push(
-      `Fed Funds at ${formatNum(fedVal, 2)}% places policy ${rateRead}. ` +
-      `The 10Y Treasury is ${t10Val != null ? `at ${formatNum(t10Val, 3)}%` : "unavailable"}.${realRateNote}${curveNote}${recNote}`
+      <>
+        {lbl("Rates")}FF <strong style={{ color: AMBER }}>{formatNum(fedVal, 2)}%</strong>
+        {" · "}10Y <strong style={{ color: AMBER }}>{t10Val != null ? formatNum(t10Val, 2) + "%" : "—"}</strong>
+        {realRate != null ? <> · real <strong style={{ color: realRate < 0 ? RED : GREEN }}>{realRate > 0 ? "+" : ""}{formatNum(realRate, 2)}%</strong></> : null}
+        {t10y2yVal != null ? <> · 2s10s <strong style={{ color: t10y2yVal < 0 ? RED : GREEN }}>{t10y2yVal > 0 ? "+" : ""}{formatNum(t10y2yVal, 2)}%</strong>{curve ? ` (${curve})` : ""}</> : null}
+        {recVal != null ? <> · rec prob <strong style={{ color: recVal > 30 ? RED : recVal > 10 ? AMBER : GREEN }}>{formatNum(recVal, 1)}%</strong></> : null}
+      </>
     );
-  } else {
-    bullets.push("Fed Funds rate data is not yet available from FRED - the policy stance cannot be assessed.");
   }
 
   return bullets;
@@ -617,10 +552,11 @@ export default function Overview() {
       {/* 1 ── REGIME SUMMARY BOX ── */}
       <div
         style={{
-          border: `1px solid ${regimeTint.border}`,
-          background: regimeTint.bg,
+          border: "1px solid rgba(255,255,255,0.09)",
+          background: "#121316",
           padding: 16,
-          borderRadius: 4,
+          borderRadius: 8,
+          boxShadow: "0 2px 16px rgba(0,0,0,0.45)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, justifyContent: "space-between" }}>
@@ -679,7 +615,7 @@ export default function Overview() {
                 style={{
                   margin: 0,
                   fontSize: 11,
-                  color: "var(--color-term-text)",
+                  color: "#c4ccd6",
                   lineHeight: 1.65,
                   display: "flex",
                   gap: 7,
@@ -839,7 +775,7 @@ export default function Overview() {
           {/* DXY from FRED (no Yahoo data) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "center" }}>
             <div style={{ fontSize: 10, color: "var(--color-term-dim)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              DXY
+              USD
             </div>
             <div
               style={{
@@ -1253,8 +1189,8 @@ export default function Overview() {
           value={fedVal}
           unit="%"
           decimals={2}
-          signal="neutral"
-          direction="flat"
+          signal={fedVal != null ? (fedVal >= 5.0 ? "bearish" : fedVal >= 3.0 ? "neutral" : "bullish") : "neutral"}
+          direction={spreadDir(fedVal, fedPriorVal)}
           changeLabel={bpsLabel(fedVal, fedPriorVal)}
           detail={
             fedVal != null
@@ -1394,7 +1330,7 @@ function renderWithBoldAndCitations(text, sources) {
     const boldMatch = tok.match(/^\*\*([^*]+)\*\*$/);
     if (boldMatch) {
       pieces.push(
-        <strong key={`b${key++}`} style={{ color: "hsl(220,15%,95%)", fontWeight: 600 }}>
+        <strong key={`b${key++}`} style={{ color: "#aeb6c2", fontWeight: 600 }}>
           {boldMatch[1]}
         </strong>
       );
@@ -1502,6 +1438,26 @@ function NarrativePanel({ spyChangePct }) {
       >
         Headline News · via Perplexity Sonar
       </div>
+      {Array.isArray(data.movers) && data.movers.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, margin: "2px 0 11px", fontSize: 11.5, fontVariantNumeric: "tabular-nums" }}>
+          {data.movers.map((m) => {
+            const v = Number(m.changePct);
+            const bad = Number.isNaN(v);
+            const isVix = /vix/i.test(m.label || "");
+            const col = bad ? "var(--color-term-dim)"
+              : isVix && v > 0 ? "#e6b35e"
+              : v > 0 ? "#4ec9a0" : v < 0 ? "#e06c75" : "var(--color-term-dim)";
+            const arrow = bad ? "" : v > 0 ? "▲" : v < 0 ? "▼" : "▬";
+            return (
+              <span key={m.label} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <span style={{ color: col, fontSize: 9 }}>{arrow}</span>
+                <span style={{ color: "hsl(220,10%,55%)" }}>{m.label}</span>
+                <span style={{ color: col, fontWeight: 600 }}>{!bad && v > 0 ? "+" : ""}{bad ? "—" : formatNum(v, 2) + "%"}</span>
+              </span>
+            );
+          })}
+        </div>
+      )}
       {isBulletList ? (
         <ul
           style={{
@@ -1517,7 +1473,7 @@ function NarrativePanel({ spyChangePct }) {
                 margin: i === bulletItems.length - 1 ? 0 : "0 0 8px 0",
                 fontSize: 11,
                 lineHeight: 1.7,
-                color: "var(--color-term-text)",
+                color: "#c4ccd6",
                 display: "flex",
                 gap: 7,
                 alignItems: "flex-start",
@@ -1535,7 +1491,7 @@ function NarrativePanel({ spyChangePct }) {
             style={{
               margin: i === paragraphs.length - 1 ? 0 : "0 0 14px 0",
               fontSize: 11,
-              color: "var(--color-term-text)",
+              color: "#c4ccd6",
               lineHeight: 1.7,
             }}
           >
@@ -1567,7 +1523,7 @@ function NarrativePanel({ spyChangePct }) {
           borderLeft: `3px solid ${tint.accent}`,
           background: "hsla(220,15%,11%,0.5)",
           fontSize: 11,
-          color: "var(--color-term-text)",
+          color: "#c4ccd6",
           lineHeight: 1.6,
           fontWeight: 500,
         }}>

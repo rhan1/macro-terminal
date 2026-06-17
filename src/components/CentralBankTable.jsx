@@ -14,13 +14,15 @@ function directionChip(dir) {
 
 function fmtDate(iso) {
   if (!iso) return "—";
-  const d = new Date(iso);
+  // Parse date-only ISO (YYYY-MM-DD) at local noon so toLocaleDateString doesn't
+  // shift it back a day in negative-UTC timezones.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 }
 
-export default function CentralBankTable({ banks }) {
-  const rows = banks || centralBanksData.banks;
+export default function CentralBankTable({ banks: banksProp }) {
+  const rows = banksProp || centralBanksData.banks;
 
   return (
     <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
@@ -29,7 +31,7 @@ export default function CentralBankTable({ banks }) {
           Central Bank Pulse
         </span>
         <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
-          Monthly BIS auto-refresh · manual JSON seed
+          AS OF {centralBanksData.updated} · curated snapshot
         </span>
       </div>
 

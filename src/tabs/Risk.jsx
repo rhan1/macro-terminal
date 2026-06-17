@@ -84,9 +84,11 @@ const RISK_COLORS = {
 };
 
 // ── heat map category derivation ──────────────────────────────────────────────
-function heatMapInfo(category, data) {
-  const goldVal  = latest(data.GOLD)?.value;
-  const goldPrev = prior(data.GOLD)?.value;
+// overrides.goldVal / overrides.goldPrev allow callers to substitute GC=F
+// futures prices (matching GlobalAlert) in place of the FRED NASDAQQGLDI index.
+function heatMapInfo(category, data, overrides = {}) {
+  const goldVal  = overrides.goldVal  ?? latest(data.GOLD)?.value;
+  const goldPrev = overrides.goldPrev ?? prior(data.GOLD)?.value;
   const cpiVal   = latest(data.CPI)?.value;
   const cpiPrev  = prior(data.CPI)?.value;
   const pceVal   = latest(data.COREPCE)?.value;
@@ -135,10 +137,11 @@ function heatMapInfo(category, data) {
     case "Fiscal/Deficit": {
       const vixV = latest(data.VIXCLS)?.value;
       const vixP = prior(data.VIXCLS)?.value;
-      const goldV = latest(data.GOLD)?.value;
+      // Use futures price (same source as Geopolitical cell) — thresholds calibrated for spot-equivalent ~$3000–4500.
+      const goldV = goldVal;
       const trend = vixV != null && vixP != null ? (vixV > vixP ? "worsening" : vixV < vixP ? "improving" : "stable") : "stable";
-      if (vixV != null && vixV > 25 && goldV != null && goldV > 2300) return { level: "HIGH", desc: "VIX + gold signal fiscal stress", trend };
-      if ((vixV != null && vixV > 25) || (goldV != null && goldV > 2300)) return { level: "ELEVATED", desc: `Deficit >$1.5T — structural concern`, trend };
+      if (vixV != null && vixV > 25 && goldV != null && goldV > 3800) return { level: "HIGH", desc: "VIX + gold signal fiscal stress", trend };
+      if ((vixV != null && vixV > 25) || (goldV != null && goldV > 3000)) return { level: "ELEVATED", desc: `Deficit >$1.5T — structural concern`, trend };
       return { level: "MODERATE", desc: "Fiscal deficits persistent but contained", trend };
     }
 
@@ -249,7 +252,7 @@ const TREND_ARROW_GROWTH = {
 };
 
 // ── Risk Heat Map ─────────────────────────────────────────────────────────────
-function RiskHeatMap({ data }) {
+function RiskHeatMap({ data, goldOverrides }) {
   return (
     <div
       className="grid-4"
@@ -259,7 +262,7 @@ function RiskHeatMap({ data }) {
       }}
     >
       {HEAT_MAP_CATEGORIES.map((cat) => {
-        const { level, desc, trend } = heatMapInfo(cat, data);
+        const { level, desc, trend } = heatMapInfo(cat, data, goldOverrides);
         const colors = RISK_COLORS[level] || RISK_COLORS.UNKNOWN;
         const arrowMap = cat === "Growth Momentum" ? TREND_ARROW_GROWTH : TREND_ARROW;
         const arrow = arrowMap[trend] || arrowMap.stable;
@@ -624,7 +627,7 @@ export default function Risk() {
           </div>
           {heatMapDate && <AsOfPill date={heatMapDate} />}
         </div>
-        <RiskHeatMap data={data} />
+        <RiskHeatMap data={data} goldOverrides={{ goldVal: goldFut?.price ?? fredGoldVal, goldPrev: goldFut?.prevClose ?? fredGoldPrev }} />
       </div>
 
       {/* ── Indicator Cards ─────────────────────────────────────────────── */}
@@ -649,17 +652,17 @@ export default function Risk() {
           sparkData={data.VIXCLS?.slice(0, 12)}
         />
         <IndicatorCard
-          label="Gold (GLD)"
+          label="Gold (GC=F)"
           value={goldVal}
           prefix="$"
           unit=""
           change={goldChg}
           decimals={0}
           signal={goldSignal}
-          detail="Gold spot price (USD/troy oz). Above $2,200 signals active safe-haven demand — a bearish risk signal indicating geopolitical or macro stress. Central bank buying (esp. China, India) and de-dollarization flows have driven structural demand. Gold correlates inversely with real yields — falling real rates are bullish for gold."
-          source="ICE / FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/GOLDAMGBD228NLBM"
-          dateLabel={fmtCardDate(latest(data.GOLD)?.date)}
+          detail="Gold futures price (USD/troy oz, GC=F front-month). Above $3,800 signals active safe-haven demand — a bearish risk signal indicating geopolitical or macro stress. Central bank buying (esp. China, India) and de-dollarization flows have driven structural demand. Gold correlates inversely with real yields — falling real rates are bullish for gold."
+          source="Yahoo Finance GC=F"
+          sourceUrl="https://finance.yahoo.com/quote/GC=F"
+          dateLabel={goldFut?.date ? fmtCardDate(goldFut.date) : fmtCardDate(latest(data.GOLD)?.date)}
           sparkData={data.GOLD?.slice(0, 12)}
         />
         <IndicatorCard

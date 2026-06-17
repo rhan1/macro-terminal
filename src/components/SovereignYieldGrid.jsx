@@ -17,7 +17,9 @@ function fmtBps(n) {
 }
 
 export default function SovereignYieldGrid({ yields, stress }) {
-  const list = (yields || []).slice().sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
+  const allSorted = (yields || []).slice().sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
+  const hasAnyValue = allSorted.some((y) => y.value != null);
+  const list = hasAnyValue ? allSorted.filter((y) => y.value != null) : allSorted;
 
   return (
     <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>

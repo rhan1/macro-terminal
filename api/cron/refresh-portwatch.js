@@ -1,4 +1,4 @@
-import { put } from "@vercel/blob";
+import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const BLOB_PATH = "shipments/portwatch.json";
 const BASE_URL = "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0/query";
@@ -95,9 +95,6 @@ export default async function handler(req, res) {
     if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
       return res.status(401).json({ error: "unauthorized" });
     }
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) return res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN missing" });
-
     const settled = await Promise.allSettled(
       SOURCE_MAP.map(async ({ name, portname }) => ({
         name,
@@ -120,13 +117,7 @@ export default async function handler(req, res) {
       ...(Object.keys(errors).length ? { errors } : {}),
     };
 
-    await put(BLOB_PATH, JSON.stringify(payload), {
-      access: "private",
-      contentType: "application/json",
-      token,
-      addRandomSuffix: false,
-      allowOverwrite: true,
-    });
+    await putJSON(BLOB_PATH, payload);
 
     return res.status(200).json({
       ok: true,

@@ -477,8 +477,8 @@ export default function Sentiment() {
                   {regimeData.regime.name?.toUpperCase() || "—"}
                 </span>
               </div>
-              {regimeData.regime.description && (
-                <div style={{ fontSize: 10, color: DIM, lineHeight: 1.6, marginBottom: 8 }}>{regimeData.regime.description}</div>
+              {(regimeData.regime.description || regimeData.regime.desc) && (
+                <div style={{ fontSize: 10, color: DIM, lineHeight: 1.6, marginBottom: 8 }}>{regimeData.regime.description || regimeData.regime.desc}</div>
               )}
               {regimeData.regime.action && (
                 <div style={{ fontSize: 10, color: CYAN, lineHeight: 1.6 }}>

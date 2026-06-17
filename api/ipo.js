@@ -9,8 +9,12 @@
 //               sharesMil, estVolumeMil, sector }
 //   pipeline: filed-only rows (no pricing date yet)
 
+import { getJSON, putJSON } from "../netlify/lib/netlify-blob.mjs";
+
+const BLOB_CACHE_KEY = "ipo/calendar.json";
+
 const NASDAQ_UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const SEC_UA = "macro-terminal/1.0 (raza.khan@locallabs.com)";
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -72,21 +76,51 @@ function mapStatus(dealStatus, section) {
   return null; // upcoming → null → statusLabel shows "UPCOMING"
 }
 
-// ── Nasdaq fetch ────────────────────────────────────────────────────────────
+// ── Nasdaq fetch (with retry + backoff) ────────────────────────────────────
 
-async function fetchNasdaqMonth(yearMonth) {
+/** Sleep for `ms` milliseconds. */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch one Nasdaq IPO calendar month with up to `maxAttempts` retries.
+ * Backoff: 1s → 2s → 4s (exponential, capped).
+ */
+async function fetchNasdaqMonth(yearMonth, maxAttempts = 3) {
   const url = `https://api.nasdaq.com/api/ipo/calendar?date=${yearMonth}`;
-  const resp = await fetch(url, {
-    headers: {
-      "User-Agent": NASDAQ_UA,
-      Accept: "application/json, text/plain, */*",
-      "Accept-Language": "en-US,en;q=0.9",
-    },
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!resp.ok) throw new Error(`Nasdaq ${yearMonth} HTTP ${resp.status}`);
-  const json = await resp.json();
-  return json?.data ?? {};
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      await sleep(1000 * Math.pow(2, attempt - 1)); // 1s, 2s, …
+    }
+    try {
+      const resp = await fetch(url, {
+        headers: {
+          "User-Agent": NASDAQ_UA,
+          Accept: "application/json, text/plain, */*",
+          "Accept-Language": "en-US,en;q=0.9",
+          Referer: "https://www.nasdaq.com/",
+          "Sec-Fetch-Site": "same-site",
+          "Sec-Fetch-Mode": "cors",
+          "Sec-Fetch-Dest": "empty",
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!resp.ok) {
+        lastErr = new Error(`Nasdaq ${yearMonth} HTTP ${resp.status}`);
+        // 403/429 → retry; 404 → no point retrying
+        if (resp.status === 404) throw lastErr;
+        continue;
+      }
+      const json = await resp.json();
+      return json?.data ?? {};
+    } catch (err) {
+      lastErr = err;
+      // AbortError (timeout) → retry
+    }
+  }
+  throw lastErr ?? new Error(`Nasdaq ${yearMonth} failed after ${maxAttempts} attempts`);
 }
 
 /** Extract rows from a section object, handling both `rows` and
@@ -189,7 +223,7 @@ export default async function handler(req, res) {
     const nextDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const nextMonth = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, "0")}`;
 
-    // 2. Fetch both months in parallel
+    // 2. Fetch both months in parallel (each retries up to 3× internally)
     const [curResult, nxtResult] = await Promise.allSettled([
       fetchNasdaqMonth(currentMonth),
       fetchNasdaqMonth(nextMonth),
@@ -200,6 +234,15 @@ export default async function handler(req, res) {
     if (nxtResult.status === "fulfilled") datasets.push(nxtResult.value);
 
     if (datasets.length === 0) {
+      // All Nasdaq fetches failed — try to serve last good result from blob cache
+      const cached = await getJSON(BLOB_CACHE_KEY).catch(() => null);
+      if (cached?.ipos?.length > 0) {
+        return res.status(200).json({
+          ...cached,
+          stale: true,
+          source: cached.source ?? "nasdaq.com (cached)",
+        });
+      }
       const errs = [curResult, nxtResult]
         .filter((r) => r.status === "rejected")
         .map((r) => r.reason?.message)
@@ -254,14 +297,28 @@ export default async function handler(req, res) {
     const cleanIpos = ipos.map(({ _dealID, ...rest }) => rest);
     const cleanPipeline = pipeline.map(({ _dealID, ...rest }) => rest);
 
-    return res.status(200).json({
+    const payload = {
       source: "nasdaq.com + sec.gov",
       fetchedAt: new Date().toISOString(),
       count: cleanIpos.length,
       ipos: cleanIpos,
       pipeline: cleanPipeline,
-    });
+    };
+
+    // 6. Persist to blob cache on success (best-effort, don't block response)
+    putJSON(BLOB_CACHE_KEY, payload).catch(() => {});
+
+    return res.status(200).json(payload);
   } catch (err) {
+    // Unexpected top-level error — try blob cache before returning empty
+    const cached = await getJSON(BLOB_CACHE_KEY).catch(() => null);
+    if (cached?.ipos?.length > 0) {
+      return res.status(200).json({
+        ...cached,
+        stale: true,
+        source: cached.source ?? "nasdaq.com (cached)",
+      });
+    }
     return res.status(200).json({
       error: err.message,
       ipos: [],
