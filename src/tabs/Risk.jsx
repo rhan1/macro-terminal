@@ -720,14 +720,25 @@ export default function Risk() {
           dateLabel={fmtCardDate(latest(data.WALCL || [])?.date)}
           sparkData={(data.WALCL || [])?.slice(0, 12)}
         />
+        {(() => {
+          const rrpRaw = latest(data.RRPONTSYD || [])?.value;
+          const rrpPrevRaw = prior(data.RRPONTSYD || [])?.value;
+          // Use $B with 2 decimals so near-zero values (e.g. $0.04B) show correctly.
+          const rrpVal = rrpRaw != null ? rrpRaw / 1000 : null;
+          const rrpChg = change(rrpRaw, rrpPrevRaw);
+          // Suppress % change when prior value is tiny (< $5B raw = 5000 in FRED units)
+          // to avoid misleading triple-digit swings on near-zero balances.
+          const rrpChgSafe = rrpPrevRaw != null && Math.abs(rrpPrevRaw) < 5000 ? null : rrpChg;
+          return (
         <IndicatorCard
           label="Reverse Repo"
-          value={latest(data.RRPONTSYD || [])?.value != null ? latest(data.RRPONTSYD || []).value / 1000 : null}
+          value={rrpVal}
           unit="B"
           prefix="$"
-          decimals={0}
-          change={change(latest(data.RRPONTSYD || [])?.value, prior(data.RRPONTSYD || [])?.value)}
-          direction={change(latest(data.RRPONTSYD || [])?.value, prior(data.RRPONTSYD || [])?.value) == null ? "flat" : change(latest(data.RRPONTSYD || [])?.value, prior(data.RRPONTSYD || [])?.value) > 0 ? "up" : "down"}
+          decimals={2}
+          change={rrpChg}
+          changeLabel={rrpChgSafe != null ? formatPct(rrpChgSafe) : "—"}
+          direction={rrpChg == null ? "flat" : rrpChg > 0 ? "up" : "down"}
           signal="neutral"
           detail="Overnight reverse repo facility usage (RRPONTSYD). High usage = excess liquidity parked at the Fed. Declining RRP = liquidity draining into Treasuries or risk assets. Near-zero RRP means the liquidity buffer is exhausted."
           source="NY Fed / FRED RRPONTSYD"
@@ -735,6 +746,8 @@ export default function Risk() {
           dateLabel={fmtCardDate(latest(data.RRPONTSYD || [])?.date)}
           sparkData={(data.RRPONTSYD || [])?.slice(0, 12)}
         />
+          );
+        })()}
       </div>
 
     </div>

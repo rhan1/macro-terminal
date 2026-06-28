@@ -887,9 +887,9 @@ export default function AlternativeIndex() {
                     signal={fSignal}
                     changeLabel={
                       fl.yoyPct != null
-                        ? `${fl.yoyPct >= 0 ? "+" : ""}${fl.yoyPct}% y/y${fl.dayChangePct != null ? ` · ${fl.dayChangePct >= 0 ? "+" : ""}${fl.dayChangePct}% d/d` : ""}`
-                        : fl.dayChangePct != null
-                          ? `${fl.dayChangePct >= 0 ? "+" : ""}${fl.dayChangePct}% d/d`
+                        ? `${fl.yoyPct >= 0 ? "+" : ""}${fl.yoyPct}% y/y${fl.weekChangePct != null ? ` · ${fl.weekChangePct >= 0 ? "+" : ""}${fl.weekChangePct}% w/w` : ""}`
+                        : fl.weekChangePct != null
+                          ? `${fl.weekChangePct >= 0 ? "+" : ""}${fl.weekChangePct}% w/w`
                           : (fl.period ?? "")
                     }
                     detail={fDetail}
