@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     // Cannabis
     "TLRY", "CGC", "ACB", "CRON", "SNDL",
     // Firearms & Ammo
-    "SWBI", "RGR", "VSTO", "OLN",
+    "SWBI", "RGR", "OLN",
     // Dating
     "MTCH", "BMBL",
     // Dollar Stores (Stress Economy)
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       }
 
       const price = meta.regularMarketPrice;
-      const prevClose = meta.chartPreviousClose ?? meta.regularMarketPreviousClose;
+      const prevClose = meta.regularMarketPreviousClose ?? meta.chartPreviousClose ?? chart.at(-2)?.close ?? null;
       const change = prevClose != null ? price - prevClose : 0;
       const changePct = prevClose ? (change / Math.abs(prevClose)) * 100 : 0;
 
@@ -76,27 +76,35 @@ export default async function handler(req, res) {
   );
 
   const stocks = {};
+  const failedSymbols = new Set();
   for (let i = 0; i < symbols.length; i++) {
     const r = results[i];
     if (r.status === "fulfilled") {
       const { symbol, ...data } = r.value;
       stocks[symbol] = data;
     } else {
-      stocks[symbols[i]] = { error: r.reason?.message ?? "Unknown error" };
+      // Drop failed tickers from output so errored symbols don't emit em-dash cards
+      failedSymbols.add(symbols[i]);
     }
   }
 
-  const categories = {
+  const categoriesRaw = {
     "Adult Entertainment": ["RICK"],
     "Gambling & Casinos": ["MGM", "LVS", "WYNN", "CZR", "DKNG", "PENN", "BYD", "BALY"],
     "Alcohol": ["DEO", "STZ", "BUD", "SAM", "TAP"],
     "Tobacco": ["MO", "PM", "BTI"],
     "Cannabis": ["TLRY", "CGC", "ACB", "CRON", "SNDL"],
-    "Firearms & Ammo": ["SWBI", "RGR", "VSTO", "OLN"],
+    "Firearms & Ammo": ["SWBI", "RGR", "OLN"],
     "Dating": ["MTCH", "BMBL"],
     "Dollar Stores": ["DG", "DLTR", "FIVE"],
     "Pawn Shops": ["EZPW", "FCFS"],
   };
+  // Drop failed tickers from category arrays so UI never renders em-dash cards
+  const categories = {};
+  for (const [cat, tickers] of Object.entries(categoriesRaw)) {
+    const filtered = tickers.filter((t) => !failedSymbols.has(t));
+    if (filtered.length > 0) categories[cat] = filtered;
+  }
 
   // Groups: which categories belong to which top-level section in the UI
   const groups = {

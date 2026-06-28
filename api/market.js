@@ -117,10 +117,16 @@ export default async function handler(req, res) {
 
         const result = await fetchYahoo(sym, "5d");
         const meta = result.meta;
-        const closes = result.indicators?.quote?.[0]?.close || [];
-        const prevClose = closes.length >= 2 ? closes[closes.length - 2] : meta.chartPreviousClose;
         const price = meta.regularMarketPrice;
-        const changePct = prevClose ? ((price - prevClose) / Math.abs(prevClose)) * 100 : 0;
+        // Prefer meta.regularMarketChangePercent (avoids 5d day-count mismatch on index tickers like ^GSPC vs SPY)
+        const changePct =
+          meta.regularMarketChangePercent != null
+            ? meta.regularMarketChangePercent
+            : (() => {
+                const prevClose = meta.regularMarketPreviousClose ?? meta.chartPreviousClose;
+                return prevClose ? ((price - prevClose) / Math.abs(prevClose)) * 100 : 0;
+              })();
+        const prevClose = meta.regularMarketPreviousClose ?? meta.chartPreviousClose;
 
         return {
           symbol: sym.replace("^", ""),
