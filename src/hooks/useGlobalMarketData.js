@@ -35,9 +35,11 @@ async function fetchChunk(symbols) {
 export function useGlobalMarketData() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
+    setError(null);
     const groups = chunk(ALL_SYMBOLS, CHUNK_SIZE);
     Promise.allSettled(groups.map(fetchChunk))
       .then((results) => {
@@ -55,9 +57,15 @@ export function useGlobalMarketData() {
         }
         setData(merged);
         setLoading(false);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err?.message ?? "Failed to load global market data");
+          setLoading(false);
+        }
       });
     return () => { cancelled = true; };
   }, []);
 
-  return { data, loading };
+  return { data, loading, error };
 }
