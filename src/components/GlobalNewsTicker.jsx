@@ -4,7 +4,7 @@ const BORDER = "hsl(220,15%,14%)";
 
 const SOURCE_COLORS = {
   BBC: "hsl(0,70%,60%)",
-  Reuters: "hsl(30,80%,60%)",
+  Guardian: "hsl(210,70%,60%)",
   "Al Jazeera": "hsl(142,50%,55%)",
   NYT: "hsl(220,15%,85%)",
   FT: "hsl(20,50%,70%)",
@@ -23,6 +23,7 @@ function relTime(iso) {
 
 export default function GlobalNewsTicker({ items, sources, errors }) {
   const visible = (items || []).slice(0, 15);
+  const downSources = errors ? Object.keys(errors) : [];
   return (
     <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -36,10 +37,15 @@ export default function GlobalNewsTicker({ items, sources, errors }) {
 
       {visible.length === 0 ? (
         <div style={{ fontSize: 11, color: DIM }}>
-          {errors && Object.keys(errors).length ? `News feeds unreachable (${Object.keys(errors).length}/5 failing).` : "Loading headlines…"}
+          {downSources.length ? `News feeds unreachable (${downSources.length}/5 failing).` : "Loading headlines…"}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column" }}>
+          {downSources.length > 0 && (
+            <div style={{ fontSize: 9, color: DIM, opacity: 0.7, padding: "0 0 6px" }}>
+              source unavailable: {downSources.join(", ")}
+            </div>
+          )}
           {visible.map((it, i) => {
             const sourceColor = SOURCE_COLORS[it.source] || AMBER;
             return (

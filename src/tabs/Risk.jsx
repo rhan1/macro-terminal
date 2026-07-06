@@ -395,6 +395,9 @@ export default function Risk() {
   const sp500Val  = latest(data.SP500)?.value;
   const sp500Prev = prior(data.SP500)?.value;
   const sp500Chg  = change(sp500Val, sp500Prev);
+  // A daily move that rounds to 0.00% (e.g. 7483.23 → 7483.24 on Jul 1→2 2026)
+  // must read as "unch", not a fake-precision "+0.00%" tagged BULLISH.
+  const sp500Unch = sp500Chg != null && Math.abs(sp500Chg) < 0.005;
 
   // VIX chart value label
   const vixLabel = vixVal != null ? formatNum(vixVal, 2) : "—";

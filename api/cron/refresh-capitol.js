@@ -3,11 +3,20 @@
 // returns only the shell; a direct fetch with browser headers hits a Vercel
 // edge HIT that contains the full page payload including the trade array.
 //
+// ~2026-06-05 capitoltrades.com enabled Vercel Attack Challenge Mode
+// (HTTP 429 + `x-vercel-mitigated: challenge` on every plain fetch), which
+// killed the direct path and left the blob stale. Each page fetch now tries
+// the direct fetch first (free, fails fast) and falls back to Firecrawl's
+// real-browser scrape, which passes the challenge. Because Firecrawl costs
+// ~5-10s per page, the run fetches a small fixed batch of pages in PARALLEL
+// and MERGES with the previous blob snapshot instead of paginating the whole
+// 365-day window every run.
+//
 // The payload is shaped as JS-escaped JSON inside a `self.__next_f.push([1,
 // "..."])` chunk. We locate `\"data\":[{\"_issuerId\"...`, walk to the
 // unescaped closing quote, JSON-parse once to unescape, then parse the
 // array directly.
-import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
+import { putJSON, getJSON } from "../../netlify/lib/netlify-blob.mjs";
 import committeesData from "../../src/data/committees.json" with { type: "json" };
 
 const BASE = "https://www.capitoltrades.com/trades";

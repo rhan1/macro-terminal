@@ -1,5 +1,17 @@
 export default async function handler(req, res) {
   try {
+    // NOTE (verified 2026-07-04): this URL slug looks wrong (reads "business
+    // confidence") but IS the correct ISM Manufacturing PMI page — Trading
+    // Economics kept the legacy "business-confidence" slug when it remapped
+    // this indicator to ISM Mfg PMI. Confirmed via: (1) the page's own <h1>
+    // reads "United States ISM Manufacturing PMI"; (2) its historical range
+    // (1948–present, all-time high 77.5 in Jul 1950) matches the well-known
+    // ISM/NAPM series exactly; (3) the live scraped value (53.3 Jun / 54.0
+    // May 2026) matches ISM's official PR Newswire release to the decimal.
+    // Do NOT swap to /united-states/ism-purchasing-managers-index — that
+    // slug doesn't exist on TE (soft-404: generic homepage shell, no data).
+    // Do NOT swap to /united-states/manufacturing-pmi either — that's a
+    // *different* composite (S&P Global/Markit Mfg PMI, history starts 2012).
     const url = "https://tradingeconomics.com/united-states/business-confidence";
     const resp = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; MacroTerminal/1.0)" },

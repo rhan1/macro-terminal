@@ -16,22 +16,86 @@ const PERPLEXITY_MODEL = "sonar-pro";
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 const FINAL_MODEL = `${PERPLEXITY_MODEL}+claude-haiku-4-5`;
 const FALLBACK_MODEL = `${PERPLEXITY_MODEL}-fallback`;
+// Matched by suffix against the URL hostname (www. and other subdomains included).
 const DISALLOWED_CITATION_HOSTNAMES = new Set([
+  // Social / video platforms
   "youtube.com",
-  "www.youtube.com",
   "twitter.com",
-  "www.twitter.com",
   "x.com",
-  "www.x.com",
   "reddit.com",
-  "www.reddit.com",
   "tiktok.com",
-  "www.tiktok.com",
   "facebook.com",
-  "www.facebook.com",
   "instagram.com",
-  "www.instagram.com",
+  // Event-calendar / tourism / local-promo contaminants observed in prod
+  "visitspacecoast.com",
+  "delano4th.com",
+  "minocqua.org",
+  "cmu.edu",
+  "fortcollins.gov",
+  "sfmta.com",
+  "eventbrite.com",
+  "meetup.com",
+  "tripadvisor.com",
+  "yelp.com",
+  // Weather
+  "weather.com",
+  "accuweather.com",
+  "wunderground.com",
+  "weather.gov",
 ]);
+
+// Reject any URL whose host+path looks like an event calendar, weather report,
+// holiday/tourism promo, or entertainment piece — the classes of contamination
+// Perplexity's day-recency web search drags in around holidays.
+const NON_FINANCIAL_URL_PATTERN = new RegExp(
+  [
+    "(?:^|[-_./])events?(?:[-_./]|$)",
+    "calendar",
+    "weather",
+    "forecast",
+    "heat[-_]?wave",
+    "tourism",
+    "things[-_]?to[-_]?do",
+    "festival",
+    "fireworks",
+    "parade",
+    "(?:fourth|4th)[-_]?of[-_]?july",
+    "july[-_]?(?:4th?|fourth)",
+    "golf",
+    "recipes?",
+    "horoscope",
+    "obituar",
+    "lottery",
+    "celebrit",
+    "entertainment",
+  ].join("|"),
+  "i",
+);
+
+// Default-deny allowlist: a citation is kept only when its hostname matches a
+// known financial/economic publisher (suffix match) OR its host+path contains
+// a financial/economic keyword.
+const ALLOWED_FINANCIAL_HOSTNAMES = new Set([
+  // Wires & major financial press
+  "bloomberg.com", "bnnbloomberg.ca", "reuters.com", "wsj.com", "ft.com",
+  "cnbc.com", "marketwatch.com", "barrons.com", "economist.com",
+  "finance.yahoo.com", "investing.com", "seekingalpha.com", "morningstar.com",
+  "forbes.com", "businessinsider.com", "fortune.com", "axios.com",
+  "apnews.com", "marketplace.org", "stocktitan.net", "benzinga.com",
+  "fxstreet.com", "kitco.com", "oilprice.com", "tradingeconomics.com",
+  "zacks.com", "thestreet.com", "investopedia.com",
+  // Official / institutional
+  "federalreserve.gov", "stlouisfed.org", "newyorkfed.org", "bls.gov",
+  "bea.gov", "treasury.gov", "sec.gov", "cbo.gov", "imf.org",
+  "worldbank.org", "oecd.org", "adb.org", "bis.org", "ecb.europa.eu",
+  // Asset managers / banks (research notes)
+  "apollo.com", "goldmansachs.com", "jpmorgan.com", "morganstanley.com",
+  "blackrock.com", "pimco.com", "schwab.com", "fidelity.com", "vanguard.com",
+  "ubs.com", "fisherinvestments.com", "hermes-investment.com",
+]);
+
+const FINANCIAL_URL_KEYWORD_PATTERN =
+  /market|stock|equit|invest|econom|financ|business|trading|treasur|bond|yield|rates?\b|fed\b|fomc|inflation|tariff|earnings|macro|monetar|banking|crypto|commodit|currenc|forex|gdp\b|payroll|labor[-_]market/i;
 // Example: sanitizeParagraph("S&P 500 above 7,150", { "S&P 500": 7101 }) should replace "7,150" with "7,101"
 
 const SANITIZER_CONFIG = {
@@ -84,6 +148,16 @@ const SANITIZER_CONFIG = {
       /\b(?:10Y|10-year|10 year|10-year Treasury yield|10 year Treasury yield)\b\s+(?:at|above|below|near|around|hit|hits|reached|reaches|closed at|traded at|was|is|stood at)\s*\$?(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/gi,
     ],
   },
+  "Fed funds": {
+    tolerance: 0.15,
+    format: (value) => Number(value).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+    patterns: [
+      /\b(?:fed(?:eral)? funds(?: effective| target)? rate|effective fed(?:eral)? funds rate|DFF)\b\s+(?:at|above|below|near|around|of|is|was|stood at|currently at|holding at)\s*(\d+(?:\.\d+)?)/gi,
+    ],
+  },
   Gold: {
     tolerance: 30,
     format: (value) => Number(value).toLocaleString("en-US", {
@@ -122,17 +196,56 @@ function parseJsonObject(text) {
   }
 }
 
-function normalizeSources(urls) {
+function normalizeSources(urls, titleByUrl) {
   return [...new Set((Array.isArray(urls) ? urls : []).filter(Boolean).map((url) => String(url).trim()))]
-    .map((url) => ({ url, title: null }));
+    .map((url) => ({ url, title: titleByUrl?.get(url) ?? null }));
 }
 
-function isDisallowedCitationUrl(url) {
+// Perplexity's `search_results` field carries {title, url, date} for each hit;
+// the legacy `citations` field is bare URLs. Prefer citations for ordering
+// (they align with the [n] markers) and use search_results to recover titles.
+function extractCitations(payload) {
+  const searchResults = Array.isArray(payload?.search_results) ? payload.search_results : [];
+  const titleByUrl = new Map();
+  for (const result of searchResults) {
+    const url = result?.url ? String(result.url).trim() : null;
+    const title = result?.title ? String(result.title).trim() : null;
+    if (url && title && !titleByUrl.has(url)) titleByUrl.set(url, title);
+  }
+  const citations = Array.isArray(payload?.citations) && payload.citations.length > 0
+    ? payload.citations
+    : searchResults.map((result) => result?.url).filter(Boolean);
+  return { citations, titleByUrl };
+}
+
+function hostnameMatchesSet(hostname, set) {
+  // Suffix match so "www.reuters.com" and "events.cmu.edu" hit "reuters.com"/"cmu.edu".
+  const parts = hostname.split(".");
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    if (set.has(parts.slice(i).join("."))) return true;
+  }
+  return false;
+}
+
+// Default-deny citation filter: drop disallowed hosts and event/weather/
+// entertainment-shaped URLs, then require a financial/economic signal
+// (allowlisted publisher or financial keyword in host+path).
+function isAllowedFinancialSource(url) {
+  let parsed;
   try {
-    return DISALLOWED_CITATION_HOSTNAMES.has(new URL(url).hostname.toLowerCase());
+    parsed = new URL(url);
   } catch {
     return false;
   }
+  const hostname = parsed.hostname.toLowerCase();
+  const hostAndPath = `${hostname}${parsed.pathname}`.toLowerCase();
+
+  if (hostnameMatchesSet(hostname, DISALLOWED_CITATION_HOSTNAMES)) return false;
+  if (NON_FINANCIAL_URL_PATTERN.test(hostAndPath)) return false;
+  return (
+    hostnameMatchesSet(hostname, ALLOWED_FINANCIAL_HOSTNAMES) ||
+    FINANCIAL_URL_KEYWORD_PATTERN.test(hostAndPath)
+  );
 }
 
 function sanitizeParagraph(text, lookup) {
@@ -211,6 +324,52 @@ function stripBullishLanguage(text) {
   return { text: result, changed };
 }
 
+// Fed-stance guard: when the fed funds effective rate (DFF) has been falling
+// over the past year — an easing cycle — hawkish/tightening framing is a
+// factual contradiction. Strip/replace it analogously to the bullish guard.
+// "tightening" is only matched in explicit policy contexts (never bare) so
+// legitimate phrases like "credit spreads tightening" are untouched.
+const HAWKISH_PATTERN = /\b(hawkish(?:ly|ness)?|rate[ -]hikes?|(?:fed|fomc|policy|monetary)\s+tightening|tightening\s+(?:cycle|bias|stance|path|campaign)|hiking\s+cycle|(?:raise|raising|hike|hiking)\s+(?:interest\s+)?rates)\b/gi;
+const HAWKISH_REPLACEMENT_MAP = {
+  hawkish: "dovish",
+  hawkishly: "dovishly",
+  hawkishness: "dovishness",
+  "rate hike": "rate cut",
+  "rate hikes": "rate cuts",
+  "rate-hike": "rate-cut",
+  "rate-hikes": "rate-cuts",
+  "hiking cycle": "cutting cycle",
+  "tightening cycle": "easing cycle",
+  "tightening bias": "easing bias",
+  "tightening stance": "easing stance",
+  "tightening path": "easing path",
+  "tightening campaign": "easing campaign",
+  "fed tightening": "Fed easing",
+  "fomc tightening": "FOMC easing",
+  "policy tightening": "policy easing",
+  "monetary tightening": "monetary easing",
+  "raise rates": "cut rates",
+  "raising rates": "cutting rates",
+  "hike rates": "cut rates",
+  "hiking rates": "cutting rates",
+  "raise interest rates": "cut interest rates",
+  "raising interest rates": "cutting interest rates",
+  "hike interest rates": "cut interest rates",
+  "hiking interest rates": "cutting interest rates",
+};
+
+function stripHawkishLanguage(text) {
+  let changed = false;
+  const result = text.replace(HAWKISH_PATTERN, (match) => {
+    changed = true;
+    const lower = match.toLowerCase().replace(/\s+/g, " ");
+    if (HAWKISH_REPLACEMENT_MAP[lower]) return HAWKISH_REPLACEMENT_MAP[lower];
+    // Generic fallback: neutralize any unmapped variant
+    return "easing-cycle policy";
+  });
+  return { text: result, changed };
+}
+
 async function parseErrorBody(response) {
   try {
     return (await response.text()).slice(0, 400);
@@ -267,12 +426,42 @@ export default async function handler(req, res) {
       }
     } catch {}
 
+    // Fed funds effective rate (DFF, daily) — current level plus the 12-month
+    // trend direction, so the LLM (and the stance guard below) know whether
+    // the Fed is actually easing or tightening.
+    let dffCurrent = null;
+    let dffYearAgo = null;
+    let dffTrendBps = null;
+    try {
+      const dffResp = await fetch(`${base}/api/fred?series_id=DFF&limit=366&sort_order=desc`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      const dj = dffResp.ok ? await dffResp.json() : null;
+      const obs = Array.isArray(dj?.observations)
+        ? dj.observations.filter((o) => o?.value && o.value !== ".")
+        : [];
+      if (obs.length > 0) {
+        dffCurrent = toNumber(obs[0].value);
+        dffYearAgo = toNumber(obs[obs.length - 1].value); // ~12 months back (daily series)
+        if (dffCurrent != null && dffYearAgo != null) {
+          dffTrendBps = Math.round((dffCurrent - dffYearAgo) * 100);
+        }
+      }
+    } catch {}
+    const dffEasing = dffTrendBps != null && dffTrendBps <= -25;
+    const dffTightening = dffTrendBps != null && dffTrendBps >= 25;
+    const dffTrendLabel = dffEasing ? "EASING (cutting)" : dffTightening ? "TIGHTENING (hiking)" : "ON HOLD";
+    const fedFunds = dffCurrent != null
+      ? `${dffCurrent.toFixed(2)}% (12 months ago: ${dffYearAgo?.toFixed(2)}%; 12m change: ${dffTrendBps >= 0 ? "+" : ""}${dffTrendBps}bps — Fed policy direction over the past year: ${dffTrendLabel})`
+      : "unavailable";
+
     const groundTruthLookup = {
       "S&P 500": impliedSp500,
       SPY: spyPrice,
       QQQ: qqqPrice,
       VIX: vixLevel,
       "10Y": tenYPct,
+      "Fed funds": dffCurrent,
       Gold: goldPrice,
       Oil: oilPrice,
     };
@@ -283,6 +472,7 @@ export default async function handler(req, res) {
       `QQQ = ${f("QQQ")}`,
       `VIX = ${f("VIX")}`,
       `10Y Treasury yield = ${tenY}`,
+      `Fed funds effective rate (DFF) = ${fedFunds}`,
       `TLT (long bonds) = ${f("TLT")}`,
       `Gold (GLD) = ${f("GLD")}`,
       `WTI oil (USO) = ${f("USO")}`,
@@ -332,14 +522,14 @@ export default async function handler(req, res) {
     }
 
     let rawOutput = perplexityPayload?.choices?.[0]?.message?.content?.trim() ?? "";
-    let citationUrls = Array.isArray(perplexityPayload?.citations) ? perplexityPayload.citations : [];
-    const preFilterCount = citationUrls.length;
-    citationUrls = citationUrls.filter((url) => !isDisallowedCitationUrl(url));
+    const { citations, titleByUrl } = extractCitations(perplexityPayload);
+    const preFilterCount = citations.length;
+    const citationUrls = citations.filter(isAllowedFinancialSource);
     const filteredCount = preFilterCount - citationUrls.length;
     if (filteredCount > 0) {
-      console.warn(`[narrative] filtered ${filteredCount} disallowed-domain citations`);
+      console.warn(`[narrative] filtered ${filteredCount}/${preFilterCount} non-financial citations`);
     }
-    const fallbackSources = normalizeSources(citationUrls);
+    const fallbackSources = normalizeSources(citationUrls, titleByUrl);
     console.info(`[narrative] sources after filter: ${fallbackSources.length}`);
     if (fallbackSources.length === 0) {
       console.warn("[narrative] zero sources after filter");
@@ -359,6 +549,29 @@ export default async function handler(req, res) {
         ].join("\n")
       : "";
 
+    // Fed policy rule based on the actual DFF 12-month trend: prevents
+    // "hawkish Fed" / "rate hike" claims while the Fed is in an easing cycle
+    // (and the symmetric error during a tightening cycle).
+    const fedPolicyRule = dffEasing
+      ? [
+          "",
+          "FED POLICY RULE — MANDATORY:",
+          `The fed funds effective rate is ${dffCurrent.toFixed(2)}%, DOWN ${Math.abs(dffTrendBps)}bps over the past 12 months. The Fed is in an EASING cycle.`,
+          "You MUST NOT describe the Fed as hawkish, tightening, hiking, or signaling rate hikes.",
+          "If a news item claims the Fed is hawkish or planning hikes, omit that claim rather than repeating it.",
+          "Violating this rule is a critical factual error.",
+        ].join("\n")
+      : dffTightening
+        ? [
+            "",
+            "FED POLICY RULE — MANDATORY:",
+            `The fed funds effective rate is ${dffCurrent.toFixed(2)}%, UP ${Math.abs(dffTrendBps)}bps over the past 12 months. The Fed is in a TIGHTENING cycle.`,
+            "You MUST NOT describe the Fed as dovish, easing, cutting, or signaling rate cuts.",
+            "If a news item claims the Fed is dovish or planning cuts, omit that claim rather than repeating it.",
+            "Violating this rule is a critical factual error.",
+          ].join("\n")
+        : "";
+
     const anthropicSystem = [
       "You are a macro markets analyst for a Bloomberg-style terminal.",
       "Rewrite the provided news items into EXACTLY THREE short paragraphs separated by blank lines.",
@@ -368,6 +581,7 @@ export default async function handler(req, res) {
       "If you reference any of the instruments below, you MUST use the exact ground-truth value provided here and nothing else.",
       "If a ground-truth series is marked unavailable, omit it rather than guessing.",
       directionalRule,
+      fedPolicyRule,
       "",
       "GROUND TRUTH — today's live US market state:",
       groundTruth,
@@ -471,6 +685,27 @@ export default async function handler(req, res) {
         }
       }
 
+      // Fed-stance guard: if DFF has fallen over the past 12 months, strip any
+      // hawkish/tightening framing that slipped through the LLM instruction.
+      if (dffEasing) {
+        const guardedParagraph = stripHawkishLanguage(paragraph);
+        const guardedTakeaway = takeaway ? stripHawkishLanguage(takeaway) : null;
+        if (guardedParagraph.changed) {
+          console.warn("[narrative] fed-stance guard stripped hawkish language from paragraph", {
+            dffCurrent,
+            dffTrendBps,
+          });
+          paragraph = guardedParagraph.text;
+        }
+        if (guardedTakeaway?.changed) {
+          console.warn("[narrative] fed-stance guard stripped hawkish language from takeaway", {
+            dffCurrent,
+            dffTrendBps,
+          });
+          takeaway = guardedTakeaway.text;
+        }
+      }
+
       const fetchedAt = new Date().toISOString();
       const sanitizedParagraph = sanitizeParagraph(paragraph, groundTruthLookup);
       const sanitizedTakeaway = takeaway ? sanitizeParagraph(takeaway, groundTruthLookup) : null;
@@ -498,7 +733,20 @@ export default async function handler(req, res) {
       console.error(anthropicErr?.message ?? anthropicErr);
 
       const fetchedAt = new Date().toISOString();
-      const sanitized = sanitizeParagraph(rawOutput, groundTruthLookup);
+      // The raw Perplexity text is exactly where hawkish-while-easing claims
+      // originate, so the fed-stance guard applies to the fallback path too.
+      let fallbackParagraph = rawOutput;
+      if (dffEasing) {
+        const guarded = stripHawkishLanguage(fallbackParagraph);
+        if (guarded.changed) {
+          console.warn("[narrative] fed-stance guard stripped hawkish language from fallback paragraph", {
+            dffCurrent,
+            dffTrendBps,
+          });
+          fallbackParagraph = guarded.text;
+        }
+      }
+      const sanitized = sanitizeParagraph(fallbackParagraph, groundTruthLookup);
       const body = {
         paragraph: sanitized.text,
         takeaway: null,

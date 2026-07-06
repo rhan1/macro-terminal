@@ -1,4 +1,4 @@
-import { putJSON } from "../../netlify/lib/netlify-blob.mjs";
+import { getJSON, putJSON } from "../../netlify/lib/netlify-blob.mjs";
 
 const BASE_URL = "https://www.maritime.dot.gov";
 const LIST_URL = `${BASE_URL}/msci-advisories`;
@@ -55,7 +55,16 @@ function inferRegionTags(title) {
 
 function parseAdvisories(html) {
   const advisories = [];
-  const rowRe = /<tr>\s*<td[^>]*>\s*<a href="([^"]+)"[^>]*>(\d{4}-\d{3}[\s\S]*?)<\/a>\s*<\/td>\s*<td[^>]*>([^<]+)<\/td>\s*<td[^>]*>([^<]+)<\/td>\s*<td[^>]*>([^<]+)<\/td>\s*<\/tr>/gi;
+  // Current marad.dot.gov markup (Drupal "views" table, verified live 2026-07-04):
+  //   <tbody><tr><td headers="view-title-table-column"><a href="/msci/..." hreflang="en">2026-009-Title</a></td>
+  //     <td headers="...status...">Active</td>
+  //     <td headers="...effective-date...">06/24/2026</td>
+  //     <td headers="...effective-date-1...">12/21/2026</td>
+  //   </tr>
+  // Anchor attributes are matched order-agnostically (`href` need not be first)
+  // so a future markup tweak (e.g. added class/id before href) doesn't silently
+  // zero out every row again.
+  const rowRe = /<tr>\s*<td[^>]*>\s*<a[^>]*\shref="([^"]+)"[^>]*>(\d{4}-\d{3}[\s\S]*?)<\/a>\s*<\/td>\s*<td[^>]*>([^<]+)<\/td>\s*<td[^>]*>([^<]+)<\/td>\s*<td[^>]*>([^<]+)<\/td>\s*<\/tr>/gi;
 
   for (const match of html.matchAll(rowRe)) {
     const rawTitle = decodeHtml(match[2].replace(/<[^>]+>/g, ""));
@@ -77,32 +86,50 @@ function parseAdvisories(html) {
   return advisories;
 }
 
+function parseUkmtoDate(dateStr = "", timeStr = "") {
+  // ukmto.org renders "Issue Date" as DD/MM/YYYY (UK format) plus a separate
+  // "Time" column (HH:MM) — do not reuse the US-style parseIssuedAt() above.
+  const [day, month, year] = dateStr.trim().split("/");
+  if (!day || !month || !year) return null;
+  const [hh, mm] = (timeStr || "00:00").split(":");
+  const d = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hh) || 0, Number(mm) || 0));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function parseUkmtoAdvisories(html) {
+  // ukmto.org migrated from HTML advisory "cards" (old markup, matched by the
+  // previous regex) to a React-rendered table (verified live 2026-07-04):
+  //   <table class="ProductListTable_productListTable__3NQ9C">
+  //     <thead>...<th>Reference</th><th>Issue Date</th><th>Time</th><th>Name</th><th>Location</th>...</thead>
+  //     <tbody><tr class="ProductListTable_productTableRow__4Y8x8">
+  //       <td>UKMTO ADVISORY 003-26</td><td>28/02/2026</td><td>02:00</td>
+  //       <td>20260228-UKMTO_ADVISORY_003-26</td><td>Arabian Sea</td>
+  //       <td class="...pdfColumn..."><a href="https://.../....pdf?rev=...">Open PDF</a>...</td>
+  //     </tr></tbody>
+  //   </table>
+  // The header row shares the same <tr class="ProductListTable_productTableRow...">
+  // class but uses <th>, not <td>, so it's naturally skipped by the tds.length check.
   const advisories = [];
-  const cardRe = /<a[^>]+href="([^"]*\/ukmto-products\/advisories\/2026\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const rowRe = /<tr class="ProductListTable_productTableRow[^"]*">([\s\S]*?)<\/tr>/gi;
+  const tdRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
 
-  for (const match of html.matchAll(cardRe)) {
-    const href = match[1];
-    const cardHtml = match[2];
-    const text = decodeHtml(cardHtml.replace(/<[^>]+>/g, " "));
-    const advisoryNumber = text.match(/\b(\d{3}\/[A-Z]{3}\/\d{4})\b/)?.[1] || null;
-    const dateMatch = text.match(/\b(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})\b/);
-    const issuedDate = dateMatch ? new Date(`${dateMatch[1]} 00:00:00 UTC`) : null;
-    const issuedAt = issuedDate && !Number.isNaN(issuedDate.getTime()) ? issuedDate.toISOString() : null;
-    const title = text
-      .replace(advisoryNumber || "", "")
-      .replace(dateMatch?.[1] || "", "")
-      .replace(/\s+/g, " ")
-      .trim();
+  for (const rowMatch of html.matchAll(rowRe)) {
+    const rowHtml = rowMatch[1];
+    const tds = [...rowHtml.matchAll(tdRe)].map((m) => decodeHtml(m[1].replace(/<[^>]+>/g, " ")));
+    if (tds.length < 5) continue; // header row (all <th>) or malformed row
 
-    if (!advisoryNumber || !title || !issuedAt) continue;
+    const [reference, dateStr, timeStr, , location] = tds;
+    const pdfHref = rowHtml.match(/href="(https:[^"]+\.pdf[^"]*)"/i)?.[1] || null;
+    const issuedAt = parseUkmtoDate(dateStr, timeStr);
+    if (!reference || !issuedAt) continue;
 
+    const title = location ? `${reference} - ${location}` : reference;
     advisories.push({
-      advisoryNumber,
+      advisoryNumber: reference,
       title,
       issuedAt,
       status: "Published",
-      url: href.startsWith("http") ? href : `https://www.ukmto.org${href}`,
+      url: pdfHref,
       regionTags: inferRegionTags(title),
     });
   }
@@ -111,15 +138,27 @@ function parseUkmtoAdvisories(html) {
 }
 
 async function scrapingBeeFetch(targetUrl, opts = {}) {
-  if (!SCRAPINGBEE_API_KEY) {
-    return fetch(targetUrl, opts);
+  // Route through ScrapingBee because maritime.dot.gov blocks direct cron scraping
+  // (confirmed: direct fetch gets an Akamai "Access Denied" 403). ScrapingBee has
+  // a hard monthly call cap though (confirmed: account currently returns 401
+  // "Monthly API calls limit reached" on every URL, not just this one) — when that
+  // happens, fall back to a direct fetch rather than failing outright. Direct fetch
+  // may still be blocked, but it's strictly better than giving up immediately, and
+  // costs nothing if Akamai's IP/UA block ever loosens or the runtime IP differs.
+  if (SCRAPINGBEE_API_KEY) {
+    try {
+      const beeUrl =
+        `https://app.scrapingbee.com/api/v1/?api_key=${SCRAPINGBEE_API_KEY}` +
+        `&url=${encodeURIComponent(targetUrl)}&render_js=false&premium_proxy=true&country_code=us`;
+      const beeResp = await fetch(beeUrl, { signal: opts.signal });
+      if (beeResp.ok) return beeResp;
+      console.error(`ScrapingBee fetch failed for ${targetUrl}: HTTP ${beeResp.status} ${await beeResp.text().catch(() => "")}`);
+    } catch (err) {
+      console.error(`ScrapingBee fetch errored for ${targetUrl}:`, err?.message ?? err);
+    }
   }
 
-  // Route through ScrapingBee because maritime.dot.gov blocks direct cron scraping.
-  const beeUrl =
-    `https://app.scrapingbee.com/api/v1/?api_key=${SCRAPINGBEE_API_KEY}` +
-    `&url=${encodeURIComponent(targetUrl)}&render_js=false&premium_proxy=true&country_code=us`;
-  return fetch(beeUrl, { signal: opts.signal });
+  return fetch(targetUrl, opts);
 }
 
 async function fetchPage(page) {
@@ -191,13 +230,43 @@ export default async function handler(req, res) {
       .slice(0, MAX_ADVISORIES);
 
     const fetchedAt = new Date().toISOString();
-    await putJSON(BLOB_PATH, { advisories, fetchedAt, source });
+
+    // Guard: never let a scrape failure (upstream markup change, blocked IP,
+    // exhausted ScrapingBee quota, etc.) blank out a previously-good feed.
+    // Keep serving the last non-empty advisory list and just log the miss —
+    // an empty result here means the fetch/parse pipeline failed, not that
+    // MARAD/UKMTO genuinely published zero advisories (that scenario doesn't
+    // happen in practice; there are always cancelled/expired advisories listed).
+    let finalAdvisories = advisories;
+    let staleGuardTriggered = false;
+    let priorFetchedAt = null;
+    if (advisories.length === 0) {
+      const prior = await getJSON(BLOB_PATH);
+      if (prior?.advisories?.length) {
+        staleGuardTriggered = true;
+        finalAdvisories = prior.advisories;
+        priorFetchedAt = prior.fetchedAt ?? null;
+        console.warn(
+          `MARAD refresh got 0 advisories (source=${source}); keeping ${prior.advisories.length} prior advisories from ${priorFetchedAt}. Errors: ${JSON.stringify(errors)}`
+        );
+      }
+    }
+
+    await putJSON(BLOB_PATH, {
+      advisories: finalAdvisories,
+      fetchedAt: staleGuardTriggered ? priorFetchedAt : fetchedAt,
+      source: staleGuardTriggered ? "stale-guard" : source,
+      lastAttemptAt: fetchedAt,
+      lastAttemptErrors: errors.length ? errors : undefined,
+    });
 
     return res.status(200).json({
       ok: true,
       source,
-      advisories: advisories.length,
-      fetchedAt,
+      advisories: finalAdvisories.length,
+      staleGuardTriggered,
+      fetchedAt: staleGuardTriggered ? priorFetchedAt : fetchedAt,
+      lastAttemptAt: fetchedAt,
       errors,
     });
   } catch (err) {
