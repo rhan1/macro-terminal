@@ -1,7 +1,13 @@
 // IPO Calendar API
 // Sources:
 //   1. Nasdaq IPO calendar JSON (current + next month, parallel)
-//   2. SEC EDGAR submissions (sector enrichment via sicDescription)
+//   2. SEC EDGAR submissions (sector enrichment via sicDescription), tiered:
+//      a) ticker -> company_tickers.json -> CIK -> sicDescription (fast path;
+//         empty for freshly-filed IPOs whose ticker isn't SEC-registered yet)
+//      b) EDGAR full-text-search fallback: company name -> S-1/F-1 filing ->
+//         CIK -> sicDescription, backed by a 7-day blob cache. This is what
+//         covers the bulk of the `pipeline` (filed-only) rows, since those
+//         tickers essentially never exist in company_tickers.json yet.
 //
 // Response contract (matches src/tabs/IPO.jsx):
 //   { ipos: [...], pipeline: [...], source, fetchedAt, count }
@@ -12,6 +18,8 @@
 import { getJSON, putJSON } from "../netlify/lib/netlify-blob.mjs";
 
 const BLOB_CACHE_KEY = "ipo/calendar.json";
+const SECTOR_CACHE_KEY = "ipo/sector-cache.json";
+const SECTOR_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — SIC rarely changes; re-tries blank-check SPACs weekly
 
 const NASDAQ_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -81,6 +89,24 @@ function mapStatus(dealStatus, section) {
 /** Sleep for `ms` milliseconds. */
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ── SEC EDGAR request pacing ────────────────────────────────────────────────
+// SEC's fair-use guidance caps automated access at ~10 req/s across
+// *.sec.gov. All calls below (company_tickers.json, data.sec.gov submissions,
+// efts.sec.gov full-text-search) funnel through this single module-level
+// pacer so the ceiling holds even though callers dispatch concurrently via
+// Promise.allSettled. The read-then-update of `lastSecDispatchAt` happens
+// synchronously (no await in between), so concurrent callers can't race it.
+let lastSecDispatchAt = 0;
+const SEC_MIN_GAP_MS = 110; // ~9 req/s dispatch pacing — safely under the 10 req/s ceiling
+
+function paceSecRequest() {
+  const now = Date.now();
+  const scheduledAt = Math.max(now, lastSecDispatchAt + SEC_MIN_GAP_MS);
+  lastSecDispatchAt = scheduledAt;
+  const wait = scheduledAt - now;
+  return wait > 0 ? sleep(wait) : Promise.resolve();
 }
 
 /**
@@ -167,6 +193,7 @@ function rowToPipeline(row) {
 // ── SEC EDGAR sector enrichment ─────────────────────────────────────────────
 
 async function buildTickerCikMap() {
+  await paceSecRequest();
   const resp = await fetch("https://www.sec.gov/files/company_tickers.json", {
     headers: { "User-Agent": SEC_UA },
     signal: AbortSignal.timeout(8000),
@@ -186,6 +213,7 @@ async function buildTickerCikMap() {
 async function fetchSicDescription(cik) {
   const padded = String(cik).padStart(10, "0");
   const url = `https://data.sec.gov/submissions/CIK${padded}.json`;
+  await paceSecRequest();
   const resp = await fetch(url, {
     headers: { "User-Agent": SEC_UA },
     signal: AbortSignal.timeout(8000),
@@ -208,6 +236,91 @@ async function enrichWithSec(records, tickerCikMap) {
       if (sic) rec.sector = sic;
     })
   );
+}
+
+// ── SEC EDGAR full-text-search fallback ─────────────────────────────────────
+// Freshly-filed IPOs (esp. `pipeline` rows) almost never have a ticker in
+// company_tickers.json yet — that file only fills in once the S-1 clears and
+// the exchange listing is finalized. But the S-1/F-1 itself is on EDGAR the
+// day it's filed, so we can find the CIK by searching for the company name
+// in EDGAR's full-text-search index instead of by ticker.
+
+const EFTS_FORMS = ["S-1", "F-1"]; // F-1 covers foreign private issuers (no ticker/US-domestic S-1)
+
+/** Look up a CIK via EDGAR full-text search by exact company-name phrase.
+ *  Tries S-1 first (US domestic), then F-1 (foreign private issuer). */
+async function fetchCikViaFullTextSearch(companyName) {
+  if (!companyName) return null;
+  const q = encodeURIComponent(`"${companyName.trim()}"`);
+  for (const forms of EFTS_FORMS) {
+    await paceSecRequest();
+    try {
+      const url = `https://efts.sec.gov/LATEST/search-index?q=${q}&forms=${forms}`;
+      const resp = await fetch(url, {
+        headers: { "User-Agent": SEC_UA },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!resp.ok) continue;
+      const json = await resp.json();
+      const cik = json?.hits?.hits?.[0]?._source?.ciks?.[0];
+      if (cik) return String(cik);
+    } catch {
+      // try the next form
+    }
+  }
+  return null;
+}
+
+function normalizeCompanyKey(name) {
+  return (name || "").trim().toLowerCase();
+}
+
+/** Load the company-name -> { sector, cik, resolvedAt } blob cache.
+ *  Returns {} on any failure (cold start / first run / corrupt blob). */
+async function loadSectorCache() {
+  const cached = await getJSON(SECTOR_CACHE_KEY).catch(() => null);
+  return cached && typeof cached === "object" ? cached : {};
+}
+
+/** Fallback enrichment for records `enrichWithSec` couldn't resolve (no
+ *  ticker hit in company_tickers.json). For each still-unsectored record:
+ *    1. Check the blob cache (by normalized company name) — skip EDGAR
+ *       entirely on a fresh hit, positive or negative, within the TTL.
+ *    2. Otherwise hit EDGAR full-text-search -> CIK -> sicDescription,
+ *       and record the outcome (even a miss) in the cache so we don't
+ *       re-query every 15-minute CDN cache revalidation.
+ *  Mutates each record's `.sector` in place and the cache object in place.
+ *  Returns true if the cache object was mutated (caller should persist it). */
+async function enrichWithSecFullTextSearch(records, sectorCache) {
+  const now = Date.now();
+  let cacheDirty = false;
+
+  await Promise.allSettled(
+    records.map(async (rec) => {
+      if (rec.sector) return; // already resolved via the ticker fast path
+      const key = normalizeCompanyKey(rec.company);
+      if (!key) return;
+
+      const cached = sectorCache[key];
+      if (cached && now - Date.parse(cached.resolvedAt || 0) < SECTOR_CACHE_TTL_MS) {
+        if (cached.sector) rec.sector = cached.sector;
+        return; // fresh cache entry (hit or miss) — don't re-query EDGAR
+      }
+
+      const cik = await fetchCikViaFullTextSearch(rec.company).catch(() => null);
+      const sic = cik ? await fetchSicDescription(cik).catch(() => null) : null;
+
+      sectorCache[key] = {
+        sector: sic || null,
+        cik: cik || null,
+        resolvedAt: new Date().toISOString(),
+      };
+      cacheDirty = true;
+      if (sic) rec.sector = sic;
+    })
+  );
+
+  return cacheDirty;
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -282,13 +395,31 @@ export default async function handler(req, res) {
       }
     }
 
-    // 4. SEC enrichment — fetch ticker→CIK map once, enrich in parallel
+    // 4. SEC enrichment — tiered, both stages best-effort:
+    //    a) ticker → company_tickers.json → CIK → sicDescription (fast path)
     try {
       const tickerCikMap = await buildTickerCikMap();
       await Promise.allSettled([
         enrichWithSec(ipos, tickerCikMap),
         enrichWithSec(pipeline, tickerCikMap),
       ]);
+    } catch {
+      // Ticker fast path is best-effort; fall through to full-text search
+      // for everything (it doesn't depend on the ticker map).
+    }
+
+    //    b) EDGAR full-text-search fallback for anything (a) missed — this is
+    //       what covers freshly-filed IPOs whose ticker isn't SEC-registered
+    //       yet. Backed by a 7-day blob cache (see enrichWithSecFullTextSearch).
+    try {
+      const sectorCache = await loadSectorCache();
+      const [dirty1, dirty2] = await Promise.all([
+        enrichWithSecFullTextSearch(ipos, sectorCache),
+        enrichWithSecFullTextSearch(pipeline, sectorCache),
+      ]);
+      if (dirty1 || dirty2) {
+        putJSON(SECTOR_CACHE_KEY, sectorCache).catch(() => {});
+      }
     } catch {
       // Sector enrichment is best-effort; failures leave sector: null
     }
