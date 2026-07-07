@@ -23,6 +23,7 @@ const REGION_COUNTRIES = [
   "Sudan",
   "Djibouti",
   "Oman",
+  "Iran",
 ];
 
 // Rough bounding boxes for each chokepoint — used to flag events by where
@@ -36,24 +37,23 @@ const CHOKEPOINT_BOXES = [
   { name: "Strait of Hormuz",  latMin: 24.5, latMax: 27.5, lonMin: 54.5, lonMax: 58.5 },
 ];
 
-// Keywords that REQUIRE maritime/shipping context.  An event must match at
-// least one of these to be considered maritime — geography alone is not enough.
-const MARITIME_KEYWORDS = [
-  "vessel", "ship", "tanker", "cargo", "bulker", "container", "dhow",
+// Strong maritime context allows a small coordinate tolerance around the
+// chokepoint boxes. Generic attack words are intentionally excluded.
+const STRONG_MARITIME_KEYWORDS = [
+  "vessel", "vessels", "ship", "ships", "shipping", "tanker", "tankers",
+  "boat", "boats", "cargo", "bulker", "container", "dhow",
   "maritime", "naval", "coast guard",
   "anti-ship", "unmanned surface", "kamikaze drone", "sea mine",
   "hijack", "piracy", "pirate",
+  "strait", "sea", "gulf",
   "red sea", "bab el-mandeb", "bab al-mandab", "hormuz", "suez canal",
-  "gulf of aden", "strait of hormuz",
-  "missile strike on", "drone strike on", "attack on",
+  "gulf of aden", "gulf of oman", "strait of hormuz",
 ];
 
-// These sub-strings indicate the event is specifically targeting a vessel or
-// sea-lane, preventing false positives on land-borne missile/drone mentions.
-const VESSEL_KEYWORDS = [
-  "vessel", "ship", "tanker", "cargo", "bulker", "container", "dhow",
-  "anti-ship", "unmanned surface", "sea mine",
-  "hijack", "piracy", "pirate",
+const PORT_ATTACK_KEYWORDS = [
+  "attack", "attacked", "strike", "struck", "missile", "drone", "shell",
+  "shelling", "explosion", "blast", "raid", "assault", "targeted", "fire",
+  "hijack", "piracy",
 ];
 
 // Events matching any of these are definitively land-based and must be excluded
@@ -96,17 +96,28 @@ async function exchangeToken(email, password) {
   return data.access_token;
 }
 
-async function fetchCountryEvents(token, country, startDate, endDate, limit) {
-  // Request newest events first so the per-country 1000-event cap never
-  // truncates recent incidents in favour of stale boundary-date events.
-  const url = `${READ_URL}?_format=json&country=${encodeURIComponent(country)}&event_date=${startDate}%7C${endDate}&event_date_where=BETWEEN&order=event_date&order_dir=DESC&limit=${limit}`;
+// ACLED's read API ignores every sort/order parameter (verified empirically
+// 2026-07-06: order/order_by/sort variants all return oldest-first) and caps
+// rows per request — so any broad country query samples the STALE end of a
+// 365d window. Instead of fetching whole countries and filtering client-side,
+// run one server-side notes-LIKE query per maritime keyword across all region
+// countries (pipe-joined country lists ARE supported). Maritime result sets
+// stay far below the cap, which makes the unfixable sort order irrelevant.
+const QUERY_KEYWORDS = [
+  "vessel", "ship", "tanker", "boat", "maritime",
+  "naval", "dhow", "piracy", "hijack", "strait",
+];
+
+async function fetchKeywordEvents(token, keyword, startDate, endDate, limit) {
+  const countries = encodeURIComponent(REGION_COUNTRIES.join("|"));
+  const url = `${READ_URL}?_format=json&country=${countries}&event_date=${startDate}%7C${endDate}&event_date_where=BETWEEN&notes=${encodeURIComponent(`%${keyword}%`)}&notes_where=LIKE&limit=${limit}`;
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(45000),
   });
-  if (!resp.ok) return { country, data: [], error: `http ${resp.status}` };
+  if (!resp.ok) return { keyword, data: [], error: `http ${resp.status}` };
   const j = await resp.json();
-  return { country, data: Array.isArray(j?.data) ? j.data : [] };
+  return { keyword, data: Array.isArray(j?.data) ? j.data : [] };
 }
 
 function chokepointFor(lat, lon) {
@@ -119,6 +130,29 @@ function chokepointFor(lat, lon) {
   return null;
 }
 
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasKeyword(text, keywords) {
+  return keywords.some((kw) => new RegExp(`\\b${escapeRegExp(kw)}\\b`, "i").test(text));
+}
+
+function inChokepointBox(lat, lon, tolerance = 0, strict = false) {
+  if (Number.isNaN(lat) || Number.isNaN(lon)) return false;
+  return CHOKEPOINT_BOXES.some((c) => {
+    if (strict) {
+      return lat > c.latMin && lat < c.latMax && lon > c.lonMin && lon < c.lonMax;
+    }
+    return (
+      lat >= c.latMin - tolerance &&
+      lat <= c.latMax + tolerance &&
+      lon >= c.lonMin - tolerance &&
+      lon <= c.lonMax + tolerance
+    );
+  });
+}
+
 function isMaritime(ev) {
   const lat = Number(ev.latitude);
   const lon = Number(ev.longitude);
@@ -127,22 +161,17 @@ function isMaritime(ev) {
   // Hard-exclude any event whose notes or location match land-crime/civil patterns.
   if (LAND_CRIME_KEYWORDS.some((kw) => fullText.includes(kw))) return false;
 
-  // An event must positively identify a vessel, sea-lane name, or maritime
-  // operation.  Geographic proximity alone is insufficient — inland towns near
-  // chokepoints would otherwise slip through.
-  const hasMaritimeContext = MARITIME_KEYWORDS.some((kw) => fullText.includes(kw));
-  if (!hasMaritimeContext) return false;
-
-  // If we have a vessel keyword, we're confident.
-  if (VESSEL_KEYWORDS.some((kw) => fullText.includes(kw))) return true;
-
-  // For sea-lane / chokepoint name matches without explicit vessel mention:
-  // require that the event coordinates actually fall near a chokepoint (not
-  // just that a place-name string appeared in the notes).
   if (Number.isNaN(lat) || Number.isNaN(lon)) return false;
-  return CHOKEPOINT_BOXES.some((c) =>
-    lat >= c.latMin - 0.5 && lat <= c.latMax + 0.5 && lon >= c.lonMin - 0.5 && lon <= c.lonMax + 0.5
-  );
+
+  const hasStrongMaritimeContext =
+    hasKeyword(fullText, STRONG_MARITIME_KEYWORDS) ||
+    (hasKeyword(fullText, ["port"]) && hasKeyword(fullText, PORT_ATTACK_KEYWORDS));
+
+  if (hasStrongMaritimeContext) return inChokepointBox(lat, lon, 0.5);
+  // No maritime keyword → excluded. The coarse chokepoint boxes include large
+  // inland areas (the Gulf of Aden box covers much of southern Yemen), so a
+  // bare coordinate test cannot distinguish a sea incident from a land battle.
+  return false;
 }
 
 function decodeXml(text = "") {
@@ -225,18 +254,18 @@ export default async function handler(req, res) {
     const access = await exchangeToken(email, password);
 
     const results = await Promise.allSettled(
-      REGION_COUNTRIES.map((c) => fetchCountryEvents(access, c, startDate, endDate, 1000))
+      QUERY_KEYWORDS.map((k) => fetchKeywordEvents(access, k, startDate, endDate, 1000))
     );
 
     const errors = {};
     const allEvents = [];
     results.forEach((r, i) => {
-      const country = REGION_COUNTRIES[i];
+      const keyword = QUERY_KEYWORDS[i];
       if (r.status === "fulfilled") {
-        if (r.value.error) errors[country] = r.value.error;
+        if (r.value.error) errors[keyword] = r.value.error;
         else allEvents.push(...r.value.data);
       } else {
-        errors[country] = r.reason?.message || "rejected";
+        errors[keyword] = r.reason?.message || "rejected";
       }
     });
 
@@ -253,6 +282,10 @@ export default async function handler(req, res) {
       .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
       .slice(0, 500);
 
+    if (daysParam >= 365 && incidents.length < 10) {
+      console.warn(`[refresh-acled] low maritime incident count for ${daysParam}d regional window: ${incidents.length}`);
+    }
+
     const news = await fetchGoogleNews();
 
     // Per-chokepoint aggregates for quick UI rendering.
@@ -266,9 +299,17 @@ export default async function handler(req, res) {
       if (!bucket.latest || ev.date > bucket.latest) bucket.latest = ev.date;
     }
 
-    if (incidents.length === 0 && Object.keys(errors).length === REGION_COUNTRIES.length) {
-      return res.status(502).json({ error: "all country fetches failed", errors });
+    if (incidents.length === 0 && Object.keys(errors).length === QUERY_KEYWORDS.length) {
+      return res.status(502).json({ error: "all keyword fetches failed", errors });
     }
+
+    // Verified 2026-07-06: this ACLED account is on the free tier, which
+    // EMBARGOES the most recent ~12 months of data (queries return rows for
+    // windows ≥12.5 months old, zero for anything newer). Live incidents are
+    // therefore structurally unavailable until the account is upgraded — the
+    // note below lets the UI say so instead of implying quiet seas.
+    const accessNote =
+      "ACLED free-tier data is embargoed ~12 months — live incident data unavailable on this account. Current maritime picture: see MARAD/UKMTO advisories and news below.";
 
     const fetchedAt = new Date().toISOString();
     await putJSON(BLOB_PATH, {
@@ -281,6 +322,7 @@ export default async function handler(req, res) {
         windowDays: daysParam,
         fetchedAt,
         newsFetchedAt: fetchedAt,
+        accessNote: incidents.length === 0 ? accessNote : undefined,
         errors: Object.keys(errors).length ? errors : undefined,
       },
       windowDays: daysParam,
