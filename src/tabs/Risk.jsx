@@ -74,6 +74,117 @@ function latestHeatMapObservationDate(data) {
     }, null);
 }
 
+function parseIsoDateParts(dateStr) {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split("-").map((x) => parseInt(x, 10));
+  if (!year || !month || !day) return null;
+  return { year, month, day, date: new Date(Date.UTC(year, month - 1, day)) };
+}
+
+function nthWeekdayOfMonth(year, month, weekday, n) {
+  let seen = 0;
+  for (let day = 1; day <= 31; day++) {
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCMonth() !== month - 1) break;
+    if (date.getUTCDay() === weekday) {
+      seen += 1;
+      if (seen === n) return day;
+    }
+  }
+  return null;
+}
+
+function lastWeekdayOfMonth(year, month, weekday) {
+  for (let day = 31; day >= 1; day--) {
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCMonth() !== month - 1) continue;
+    if (date.getUTCDay() === weekday) return day;
+  }
+  return null;
+}
+
+function easterSundayUtc(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function observedFixedHoliday(year, month, day) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const dow = date.getUTCDay();
+  if (dow === 6) date.setUTCDate(date.getUTCDate() - 1);
+  if (dow === 0) date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function isLikelyMarketClosedDate(dateStr) {
+  const parts = parseIsoDateParts(dateStr);
+  if (!parts) return false;
+  const { year, date } = parts;
+  const dow = date.getUTCDay();
+  if (dow === 0 || dow === 6) return true;
+
+  const holidays = new Set([
+    observedFixedHoliday(year, 1, 1),
+    observedFixedHoliday(year + 1, 1, 1),
+    `${year}-01-${String(nthWeekdayOfMonth(year, 1, 1, 3)).padStart(2, "0")}`,
+    `${year}-02-${String(nthWeekdayOfMonth(year, 2, 1, 3)).padStart(2, "0")}`,
+    observedFixedHoliday(year, 6, 19),
+    observedFixedHoliday(year, 7, 4),
+    `${year}-09-${String(nthWeekdayOfMonth(year, 9, 1, 1)).padStart(2, "0")}`,
+    `${year}-11-${String(nthWeekdayOfMonth(year, 11, 4, 4)).padStart(2, "0")}`,
+    observedFixedHoliday(year, 12, 25),
+  ]);
+
+  const memorialDay = lastWeekdayOfMonth(year, 5, 1);
+  if (memorialDay) holidays.add(`${year}-05-${String(memorialDay).padStart(2, "0")}`);
+
+  const goodFriday = easterSundayUtc(year);
+  goodFriday.setUTCDate(goodFriday.getUTCDate() - 2);
+  holidays.add(goodFriday.toISOString().slice(0, 10));
+
+  return holidays.has(dateStr);
+}
+
+function latestDistinctByDate(rows = []) {
+  const seen = new Set();
+  const out = [];
+  for (const row of rows) {
+    if (!row?.date || seen.has(row.date) || row.value == null || Number.isNaN(row.value)) continue;
+    seen.add(row.date);
+    out.push(row);
+  }
+  return out;
+}
+
+function latestValidSp500Pair(rows = []) {
+  const observations = latestDistinctByDate(rows);
+  let idx = 0;
+  while (
+    idx < observations.length - 1 &&
+    observations[idx].value === observations[idx + 1].value &&
+    isLikelyMarketClosedDate(observations[idx].date)
+  ) {
+    idx += 1;
+  }
+  return {
+    current: observations[idx] || null,
+    previous: observations[idx + 1] || null,
+  };
+}
+
 // ── risk level colors ─────────────────────────────────────────────────────────
 const RISK_COLORS = {
   HIGH:     { bg: "hsla(0,72%,55%,0.12)",   border: "hsla(0,72%,55%,0.3)",   text: "hsl(0,72%,55%)"   },
@@ -392,12 +503,14 @@ export default function Risk() {
   const recPrev  = prior(data.RECESSION)?.value;
   const recChg   = diff(recVal, recPrev);
 
-  const sp500Val  = latest(data.SP500)?.value;
-  const sp500Prev = prior(data.SP500)?.value;
+  const sp500Pair = latestValidSp500Pair(data.SP500);
+  const sp500Val  = sp500Pair.current?.value;
+  const sp500Prev = sp500Pair.previous?.value;
   const sp500Chg  = change(sp500Val, sp500Prev);
   // A daily move that rounds to 0.00% (e.g. 7483.23 → 7483.24 on Jul 1→2 2026)
   // must read as "unch", not a fake-precision "+0.00%" tagged BULLISH.
   const sp500Unch = sp500Chg != null && Math.abs(sp500Chg) < 0.005;
+  const sp500ChgLabel = sp500Unch ? "unch" : sp500Chg != null ? formatPct(sp500Chg) : undefined;
 
   // VIX chart value label
   const vixLabel = vixVal != null ? formatNum(vixVal, 2) : "—";
@@ -410,7 +523,7 @@ export default function Risk() {
   const goldSignal = goldVal == null ? "neutral" : goldVal > 3800 ? "bearish" : "neutral";
   const hySignal   = hyVal == null ? "neutral" : hyVal > 5 ? "bearish" : hyVal < 3 ? "bullish" : "neutral";
   const recSignal  = recVal == null ? "neutral" : recVal > 30 ? "bearish" : recVal < 10 ? "bullish" : "neutral";
-  const sp500Signal = sp500Chg == null ? "neutral" : sp500Chg >= 0 ? "bullish" : "bearish";
+  const sp500Signal = sp500Chg == null || sp500Unch ? "neutral" : sp500Chg > 0 ? "bullish" : "bearish";
 
   return (
     <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -682,15 +795,15 @@ export default function Risk() {
           sparkData={data.HYSPREAD?.slice(0, 12)}
         />
         <IndicatorCard
-          label="Recession Probability"
+          label="Recession Prob (Smoothed)"
           value={recVal}
           unit="%"
           change={recChg}
           changeLabel={recChg != null ? formatPP(recChg, 1) : undefined}
           decimals={1}
           signal={recSignal}
-          detail="NY Fed smoothed recession probability from a probit model using the 10Y-3M Treasury spread. Above 30% = elevated risk; above 40% = historically aligns with confirmed NBER recession dates. The model has predicted all 8 recessions since 1960. Lags by ~1 quarter due to data reporting delays."
-          source="NY Fed / FRED"
+          detail="Chauvet-Piger smoothed recession probability (RECPROUSM156N) — a dynamic-factor model of four coincident indicators (payrolls, industrial production, real income, real sales). Single-digit readings are normal in expansions; the model spikes only once a downturn is underway (80%+ sustained = recession confirmed). A coincident confirmation gauge, not a forward forecast; lags 1-2 months on data delays."
+          source="St. Louis Fed (Chauvet-Piger) / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/RECPROUSM156N"
           dateLabel={fmtCardDate(latest(data.RECESSION)?.date)}
           sparkData={data.RECESSION?.slice(0, 12)}
@@ -700,12 +813,13 @@ export default function Risk() {
           value={sp500Val}
           unit=""
           change={sp500Chg}
+          changeLabel={sp500ChgLabel}
           decimals={2}
           signal={sp500Signal}
           detail="S&P 500 composite index — 500 large-cap US equities weighted by market capitalization. Drawdowns of 10%+ (correction) or 20%+ (bear market) alongside rising VIX and widening credit spreads signal compounding systemic risk. The index accounts for ~80% of total US equity market cap. Forward P/E and earnings growth trajectory are the primary valuation anchors."
           source="S&P / FRED"
           sourceUrl="https://fred.stlouisfed.org/series/SP500"
-          dateLabel={fmtCardDate(latest(data.SP500)?.date)}
+          dateLabel={fmtCardDate(sp500Pair.current?.date)}
           sparkData={data.SP500?.slice(0, 12)}
         />
         <IndicatorCard
@@ -726,8 +840,8 @@ export default function Risk() {
         {(() => {
           const rrpRaw = latest(data.RRPONTSYD || [])?.value;
           const rrpPrevRaw = prior(data.RRPONTSYD || [])?.value;
-          // Use $B with 2 decimals so near-zero values (e.g. $0.04B) show correctly.
           const rrpVal = rrpRaw != null ? rrpRaw / 1000 : null;
+          const rrpDecimals = rrpVal != null && rrpVal !== 0 && Math.abs(rrpVal) < 10 ? 1 : 2;
           const rrpChg = change(rrpRaw, rrpPrevRaw);
           // Suppress % change when prior value is tiny (< $5B raw = 5000 in FRED units)
           // to avoid misleading triple-digit swings on near-zero balances.
@@ -738,10 +852,10 @@ export default function Risk() {
           value={rrpVal}
           unit="B"
           prefix="$"
-          decimals={2}
-          change={rrpChg}
+          decimals={rrpDecimals}
+          change={rrpChgSafe}
           changeLabel={rrpChgSafe != null ? formatPct(rrpChgSafe) : "—"}
-          direction={rrpChg == null ? "flat" : rrpChg > 0 ? "up" : "down"}
+          direction={rrpChgSafe == null ? "flat" : rrpChgSafe > 0 ? "up" : "down"}
           signal="neutral"
           detail="Overnight reverse repo facility usage (RRPONTSYD). High usage = excess liquidity parked at the Fed. Declining RRP = liquidity draining into Treasuries or risk assets. Near-zero RRP means the liquidity buffer is exhausted."
           source="NY Fed / FRED RRPONTSYD"

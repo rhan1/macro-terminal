@@ -6,6 +6,7 @@ import { getJSON } from "../netlify/lib/netlify-blob.mjs";
 const FEED_URL =
   "https://news.google.com/rss/search?q=layoffs+company&hl=en-US&gl=US&ceid=US:en";
 const BLOB_PATH = "labor/layoffs-structured.json";
+const STALE_AFTER_HOURS = 28;
 
 function decodeEntities(s) {
   if (!s) return "";
@@ -85,6 +86,15 @@ async function fetchStructuredBlob() {
   return await getJSON(BLOB_PATH);
 }
 
+function staleMeta(fetchedAt) {
+  const ts = Date.parse(fetchedAt || "");
+  if (Number.isNaN(ts)) return {};
+
+  const staleHours = Math.floor((Date.now() - ts) / (60 * 60 * 1000));
+  if (staleHours <= STALE_AFTER_HOURS) return {};
+  return { stale: true, staleHours };
+}
+
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=7200");
 
@@ -99,6 +109,7 @@ export default async function handler(req, res) {
       source: "SEC 8-K + Claude Haiku + Google News RSS",
       fetchedAt: blob.fetchedAt,
       model: blob.model || null,
+      ...staleMeta(blob.fetchedAt),
     });
   }
 
