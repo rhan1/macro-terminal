@@ -840,12 +840,14 @@ export default function Risk() {
         {(() => {
           const rrpRaw = latest(data.RRPONTSYD || [])?.value;
           const rrpPrevRaw = prior(data.RRPONTSYD || [])?.value;
-          const rrpVal = rrpRaw != null ? rrpRaw / 1000 : null;
+          // RRPONTSYD is denominated in BILLIONS on FRED — no scaling.
+          // (A legacy /1000 here rendered $2.7B as $0.0B.)
+          const rrpVal = rrpRaw;
           const rrpDecimals = rrpVal != null && rrpVal !== 0 && Math.abs(rrpVal) < 10 ? 1 : 2;
           const rrpChg = change(rrpRaw, rrpPrevRaw);
-          // Suppress % change when prior value is tiny (< $5B raw = 5000 in FRED units)
-          // to avoid misleading triple-digit swings on near-zero balances.
-          const rrpChgSafe = rrpPrevRaw != null && Math.abs(rrpPrevRaw) < 5000 ? null : rrpChg;
+          // Suppress % change when the prior value is below $5B — avoids
+          // misleading triple-digit swings on near-zero balances.
+          const rrpChgSafe = rrpPrevRaw != null && Math.abs(rrpPrevRaw) < 5 ? null : rrpChg;
           return (
         <IndicatorCard
           label="Reverse Repo"
