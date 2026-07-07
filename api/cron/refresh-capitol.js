@@ -186,6 +186,36 @@ function aggregateTickerTrades(trades, side, days) {
   return [...map.values()].sort((a, b) => b.netDollar - a.netDollar).slice(0, 10).map((x) => ({ ...x, politicians: [...x.politicians] }));
 }
 
+const FIRECRAWL_URL = "https://api.firecrawl.dev/v1/scrape";
+
+async function firecrawlHtml(url) {
+  const key = process.env.FIRECRAWL_API_KEY;
+  if (!key) throw new Error("FIRECRAWL_API_KEY not set");
+  const resp = await fetch(FIRECRAWL_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ url, formats: ["rawHtml"], waitFor: 500, timeout: 20000 }),
+    signal: AbortSignal.timeout(25000),
+  });
+  if (!resp.ok) throw new Error(`Firecrawl HTTP ${resp.status}`);
+  const body = await resp.json();
+  if (!body?.success || !body?.data?.rawHtml) throw new Error("Firecrawl returned no rawHtml");
+  return body.data.rawHtml;
+}
+
+// Direct fetch first (free, fails fast on the 429 challenge), Firecrawl second.
+async function fetchPageHtml(page) {
+  const url = `${BASE}?page=${page}&pageSize=50`;
+  try {
+    const resp = await fetch(url, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(8000) });
+    if (resp.ok) return await resp.text();
+    console.warn(`[capitol] direct page ${page} HTTP ${resp.status} — Firecrawl fallback`);
+  } catch (err) {
+    console.warn(`[capitol] direct page ${page} ${err?.message ?? err} — Firecrawl fallback`);
+  }
+  return firecrawlHtml(url);
+}
+
 function tradeDedupKey(trade) {
   return [
     trade?.politician || "",
@@ -199,32 +229,43 @@ export default async function handler(req, res) {
   try {
     if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) return res.status(401).json({ error: "unauthorized" });
 
+    // Each page may cost a Firecrawl credit now, so the default batch is small
+    // (6 pages = 300 newest filings) and the run MERGES with the previous blob
+    // to preserve the 365d window. ?backfill=N goes deeper for manual seeding.
     const backfillRaw = Array.isArray(req.query?.backfill) ? req.query.backfill[0] : req.query?.backfill;
-    const maxPages = Math.max(1, parseInt(backfillRaw || "60", 10) || 60);
+    const maxPages = Math.max(1, parseInt(backfillRaw || "6", 10) || 6);
     const cutoff = new Date(Date.now() - YEAR_MS).toISOString().slice(0, 10);
     const pageTrades = [];
     let anyRows = false;
+    let pagesFailed = 0;
 
-    for (let page = 1; page <= maxPages; page += 1) {
-      const resp = await fetch(`${BASE}?page=${page}&pageSize=50`, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(20000) });
-      if (!resp.ok) {
-        // Don't throw — tolerate per-page failures and keep going so one bad edge doesn't kill the whole refresh
-        console.error(`CapitolTrades page ${page} HTTP ${resp.status}`);
-        break;
+    const pageNums = Array.from({ length: maxPages }, (_, i) => i + 1);
+    for (let i = 0; i < pageNums.length; i += 3) {
+      const chunk = pageNums.slice(i, i + 3);
+      const results = await Promise.allSettled(chunk.map(async (page) => {
+        const html = await fetchPageHtml(page);
+        const rawTrades = extractTradesFromHtml(html);
+        return rawTrades.map(normTrade).filter((t) => t.politician && t.tradeDate && t.side);
+      }));
+      let sawEmpty = false;
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          if (!r.value.length) { sawEmpty = true; continue; }
+          anyRows = true;
+          pageTrades.push(...r.value);
+        } else {
+          pagesFailed += 1;
+          console.error(`[capitol] page fetch failed: ${r.reason?.message ?? r.reason}`);
+        }
       }
-      const html = await resp.text();
-      const rawTrades = extractTradesFromHtml(html);
-      if (!rawTrades.length) break; // Empty page = end of pagination
-      anyRows = true;
-      const normalized = rawTrades.map(normTrade).filter((t) => t.politician && t.tradeDate && t.side);
-      pageTrades.push(...normalized);
-      // Stop when the FILED date crosses the 365d cutoff. Using tradeDate breaks
-      // here because STOCK Act allows up to 45 days (and habitual late-filers
-      // hundreds of days) — so old txDates appear on every page and trigger an
-      // early exit at ~21 pages, capping the dataset at ~1,042 trades.
-      const oldestFiled = normalized.map((x) => x.filedDate).filter(Boolean).sort()[0] || null;
-      if (oldestFiled && oldestFiled < cutoff) break;
+      if (sawEmpty) break; // ran past the end of pagination
     }
+
+    // Merge with the previous snapshot so a small fresh batch never shrinks
+    // the 365d dataset. Fresh trades go first so the newest parse wins dedupe.
+    const prevBlob = await getJSON("capitol/trades.json");
+    const prevTrades = Array.isArray(prevBlob?.trades) ? prevBlob.trades : [];
+    pageTrades.push(...prevTrades);
 
     // Dedupe by composite key (CapitolTrades doesn't always fill txId for every row)
     const seen = new Set();
@@ -332,10 +373,10 @@ export default async function handler(req, res) {
       leaderboard: [...leaderboardMap.values()].sort((a, b) => b.volume - a.volume).slice(0, 10),
       fetchedAt: new Date().toISOString(),
       count: trades.length,
-      source: "capitoltrades.com SSR Flight"
+      source: "capitoltrades.com SSR Flight (direct+firecrawl, merged)"
     };
     await putJSON("capitol/trades.json", payload);
-    return res.status(200).json({ ok: true, count: payload.count, pages: pageTrades.length ? Math.ceil(pageTrades.length / 50) : 0, fetchedAt: payload.fetchedAt });
+    return res.status(200).json({ ok: true, count: payload.count, pagesRequested: maxPages, pagesFailed, mergedFromPrev: prevTrades.length, fetchedAt: payload.fetchedAt });
   } catch (err) {
     console.error(err?.message ?? err);
     return res.status(500).json({ error: err?.message ?? "Unknown error" });

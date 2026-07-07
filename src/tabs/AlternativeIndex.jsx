@@ -145,6 +145,12 @@ function RickChartPanel({ stock, range }) {
 
   const priceColor  = changePct == null ? GREEN : changePct >= 0 ? GREEN : RED;
   const changeColor = changePct == null ? DIM   : changePct >= 0 ? GREEN : RED;
+  // The area chart spans the selected range — color it by the range
+  // trajectory, not the daily change, so a -30% year never renders green.
+  const rangeUp = chartData.length > 1
+    ? chartData[chartData.length - 1].value >= chartData[0].value
+    : changePct == null || changePct >= 0;
+  const chartColor = rangeUp ? GREEN : RED;
   const changeStr   = changePct == null
     ? "—"
     : `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`;
@@ -200,8 +206,8 @@ function RickChartPanel({ stock, range }) {
         <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
           <defs>
             <linearGradient id="viceGrad-RICK" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={GREEN} stopOpacity={0.15} />
-              <stop offset="95%" stopColor={GREEN} stopOpacity={0.01} />
+              <stop offset="5%"  stopColor={chartColor} stopOpacity={0.15} />
+              <stop offset="95%" stopColor={chartColor} stopOpacity={0.01} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="2 4" stroke={BORDER} vertical={false} />
@@ -233,11 +239,11 @@ function RickChartPanel({ stock, range }) {
             type="monotone"
             dataKey="value"
             name="RICK"
-            stroke={GREEN}
+            stroke={chartColor}
             strokeWidth={1.5}
             fill="url(#viceGrad-RICK)"
             dot={false}
-            activeDot={{ r: 3, fill: GREEN }}
+            activeDot={{ r: 3, fill: chartColor }}
           />
         </AreaChart>
       </ResponsiveContainer>
