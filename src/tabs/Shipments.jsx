@@ -1,12 +1,10 @@
 import { useMemo, useState } from "react";
-import { useShipmentsData } from "../hooks/useShipmentsData";
 import { useMaradData } from "../hooks/useMaradData";
 import { usePortwatchData } from "../hooks/usePortwatchData";
 import ShipmentsMap, { CHOKEPOINTS as MAP_CHOKEPOINTS } from "../components/ShipmentsMap";
 import AsOfPill from "../components/AsOfPill";
 
 const GREEN = "hsl(142,70%,55%)";
-const RED = "hsl(0,72%,55%)";
 const AMBER = "hsl(45,90%,55%)";
 const CYAN = "hsl(185,70%,55%)";
 const DIM = "hsl(220,10%,52%)";
@@ -39,20 +37,6 @@ function fmtDate(iso) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
-}
-
-function daysAgo(iso) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return Math.max(0, Math.round((Date.now() - d.getTime()) / 86_400_000));
-}
-
-function fatalityColor(n) {
-  if (!n) return DIM;
-  if (n >= 10) return RED;
-  if (n >= 1) return AMBER;
-  return DIM;
 }
 
 function formatCompactDate(iso) {
@@ -104,48 +88,6 @@ function sumTrendSeries(chokepoints) {
     });
   });
   return [...totalsByDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-}
-
-function ChokepointCard({ name, stats, windowDays }) {
-  const incidents = stats?.incidents || 0;
-  const fatalities = stats?.fatalities || 0;
-  const latest = stats?.latest;
-  const heat = incidents > 20 ? RED : incidents > 5 ? AMBER : incidents > 0 ? CYAN : DIM;
-  return (
-    <div
-      style={{
-        background: "hsl(220,20%,9%)",
-        border: `1px solid ${BORDER}`,
-        borderLeft: `3px solid ${heat}`,
-        padding: "10px 12px",
-      }}
-    >
-      <div style={{ fontSize: 10, color: "hsl(220,15%,85%)", fontWeight: 600, letterSpacing: "0.06em" }}>
-        {name.toUpperCase()}
-      </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 4 }}>
-        <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 18, fontWeight: 600, color: heat }}>
-          {incidents}
-        </span>
-        <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.06em" }}>{`INCIDENTS ${windowDays}D`}</span>
-      </div>
-      {fatalities > 0 && (
-        <div style={{ fontSize: 10, color: fatalityColor(fatalities), fontFamily: '"JetBrains Mono", monospace' }}>
-          {fatalities} fatalities
-        </div>
-      )}
-      {latest && (
-        <div style={{ fontSize: 9, color: DIM, marginTop: 3 }}>
-          Latest: {fmtDate(latest)}
-          {latest && (
-            <span style={{ fontSize: 9, color: "var(--color-term-dim)", marginLeft: 4 }}>
-              ({daysAgo(latest)}d ago)
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function PortwatchCard({ point, totalLabel = "TOTAL TRANSITS", subtitle = null }) {
@@ -228,48 +170,6 @@ function PortwatchCard({ point, totalLabel = "TOTAL TRANSITS", subtitle = null }
           <div style={{ fontSize: 10, color: DIM }}>No trend data.</div>
         )}
       </div>
-    </div>
-  );
-}
-
-function IncidentRow({ ev, i, last }) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "auto 110px 1fr auto",
-        gap: 10,
-        alignItems: "baseline",
-        padding: "7px 0",
-        borderBottom: !last ? `1px solid ${BORDER}` : "none",
-        fontSize: 11,
-        color: "var(--color-term-text)",
-      }}
-    >
-      <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, color: DIM, minWidth: 72 }}>
-        {fmtDate(ev.date)}
-      </span>
-      <span
-        style={{
-          fontSize: 9,
-          color: ev.chokepoint ? CYAN : DIM,
-          letterSpacing: "0.04em",
-          textAlign: "left",
-        }}
-      >
-        {ev.chokepoint || ev.country?.toUpperCase()}
-      </span>
-      <span style={{ fontSize: 11, color: "hsl(220,15%,88%)", lineHeight: 1.35 }}>
-        <span style={{ color: AMBER, fontSize: 9, letterSpacing: "0.06em" }}>
-          {(ev.subType || "").toUpperCase()}
-        </span>
-        {" · "}
-        <span style={{ color: "hsl(220,15%,72%)" }}>{ev.location}</span>
-        <div style={{ fontSize: 10, color: DIM, marginTop: 2 }}>{ev.notes}</div>
-      </span>
-      <span style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, color: fatalityColor(ev.fatalities), textAlign: "right", minWidth: 48 }}>
-        {ev.fatalities > 0 ? `${ev.fatalities} K` : "—"}
-      </span>
     </div>
   );
 }
@@ -361,17 +261,10 @@ function MaradAdvisoryRow({ advisory, last }) {
 }
 
 export default function Shipments() {
-  const { data, loading } = useShipmentsData();
   const { data: maradData, loading: maradLoading } = useMaradData();
   const { data: portwatchData, loading: portwatchLoading } = usePortwatchData();
-  const [filterChokepoint, setFilterChokepoint] = useState("ALL");
-  const [query, setQuery] = useState("");
-  const [windowDays, setWindowDays] = useState(30);
   const [showAllAdvisories, setShowAllAdvisories] = useState(false);
 
-  const incidents = Array.isArray(data?.incidents) ? data.incidents : [];
-  const byChokepoint = data?.byChokepoint || {};
-  const chokepointList = data?.chokepoints || [];
   const advisories = Array.isArray(maradData?.advisories) ? maradData.advisories : [];
   const visibleAdvisories = showAllAdvisories ? advisories.slice(0, 30) : advisories.slice(0, 10);
   const portwatchChokepoints = Array.isArray(portwatchData?.chokepoints) ? portwatchData.chokepoints : [];
@@ -410,35 +303,6 @@ export default function Shipments() {
       };
     });
   }, [portwatchChokepoints]);
-  const cutoffMs = Date.now() - windowDays * 86_400_000;
-  const windowedIncidents = incidents.filter((ev) => {
-    if (!ev?.date) return false;
-    const t = new Date(ev.date).getTime();
-    return Number.isFinite(t) && t >= cutoffMs;
-  });
-
-  const filtered = windowedIncidents.filter((ev) => {
-    if (filterChokepoint !== "ALL" && ev.chokepoint !== filterChokepoint) return false;
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      const hay = `${ev.location || ""} ${ev.notes || ""} ${ev.actor1 || ""}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-
-  const totalFatalities = windowedIncidents.reduce((n, e) => n + (e.fatalities || 0), 0);
-  const recentCount = incidents.filter((e) => {
-    const days = daysAgo(e.date);
-    return days != null && days <= 30;
-  }).length;
-  const latestAcledIncidentDate = windowedIncidents.reduce((latestDate, ev) => {
-    const candidate = ev?.date;
-    if (!candidate) return latestDate;
-    if (!latestDate) return candidate;
-    return candidate > latestDate ? candidate : latestDate;
-  }, null) || new Date(Date.now() - 365 * 86_400_000).toISOString();
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
@@ -446,52 +310,8 @@ export default function Shipments() {
           $ SHIPMENTS
         </div>
         <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>
-          — Chokepoint Traffic & Maritime Incidents · Red Sea / Hormuz / Suez via ACLED
+          — Chokepoint Traffic & Maritime Advisories · IMF PortWatch + MARAD
         </div>
-      </div>
-
-      <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
-        {[
-          { label: "30D", val: 30 },
-          { label: "90D", val: 90 },
-          { label: "365D", val: 365 },
-        ].map(({ label, val }) => (
-          <button
-            key={val}
-            onClick={() => setWindowDays(val)}
-            style={{
-              background: windowDays === val ? "hsla(142,70%,55%,0.15)" : "none",
-              border: windowDays === val ? "1px solid hsla(142,70%,55%,0.4)" : "1px solid transparent",
-              color: windowDays === val ? "hsl(142,70%,55%)" : "var(--color-term-dim)",
-              fontSize: 9,
-              fontFamily: "inherit",
-              padding: "2px 8px",
-              cursor: "pointer",
-              letterSpacing: "0.04em",
-              fontWeight: windowDays === val ? 600 : 400,
-              transition: "all 0.1s",
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {recentCount > 5 && (
-        <div className="panel" style={{ padding: "10px 14px", borderLeft: `3px solid ${AMBER}` }}>
-          <span style={{ color: AMBER, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em" }}>
-            ⚠ {recentCount} maritime incidents reported in last 30 days
-          </span>
-        </div>
-      )}
-
-      {/* KPI strip */}
-      <div className="panel" style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
-        <Kpi label={`INCIDENTS ${windowDays}D`} value={windowedIncidents.length} />
-        <Kpi label={`FATALITIES ${windowDays}D`} value={totalFatalities} color={fatalityColor(totalFatalities)} />
-        <Kpi label="RECENT 30D" value={recentCount} color={recentCount > 10 ? RED : AMBER} />
-        <Kpi label="CHOKEPOINTS" value={chokepointList.length} color={CYAN} small />
-        <Kpi label="WINDOW" value={`${windowDays}D`} color={DIM} small />
       </div>
 
       <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 12 }}>
@@ -526,17 +346,7 @@ export default function Shipments() {
         <div style={{ display: "flex", gap: 12, alignItems: "stretch", flexWrap: "wrap" }}>
           <div style={{ flex: "7 1 420px", minWidth: 0 }}>
             <ShipmentsMap
-              incidents={incidents
-                .filter((ev) => ev.lat != null && ev.lon != null)
-                .slice(0, 200)
-                .map((ev) => ({
-                  lat: Number(ev.lat),
-                  lng: Number(ev.lon),
-                  location: ev.location,
-                  eventType: ev.subType || ev.eventType,
-                  fatalities: Number(ev.fatalities) || 0,
-                  date: ev.date,
-                }))}
+              incidents={[]}
               chokepoints={mappedChokepoints}
               width={1200}
               height={500}
@@ -597,41 +407,6 @@ export default function Shipments() {
         </div>
       </div>
 
-      {/* Chokepoint grid */}
-      <div className="panel" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ fontSize: 10, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 600 }}>
-          Chokepoint Activity
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 8 }}>
-          {chokepointList.length === 0 && (
-            <div style={{ fontSize: 11, color: DIM, gridColumn: "1 / -1" }}>
-              Shipments feed not yet seeded.
-            </div>
-          )}
-          {chokepointList.map((name) => {
-            const cardIncidents = windowedIncidents.filter((ev) => ev.chokepoint === name);
-            const cardFatalities = cardIncidents.reduce((n, e) => n + (e.fatalities || 0), 0);
-            const latestIncidentDate = cardIncidents.reduce(
-              (latest, e) => (e.date && (!latest || e.date > latest) ? e.date : latest),
-              null
-            );
-            return (
-              <ChokepointCard
-                key={name}
-                name={name}
-                windowDays={windowDays}
-                stats={{
-                  ...(byChokepoint[name] || {}),
-                  incidents: cardIncidents.length,
-                  fatalities: cardFatalities,
-                  latest: latestIncidentDate,
-                }}
-              />
-            );
-          })}
-        </div>
-      </div>
-
       <div className="panel" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: CYAN, letterSpacing: "0.12em", textTransform: "uppercase" }}>
@@ -679,88 +454,6 @@ export default function Shipments() {
         )}
       </div>
 
-      {/* Incident feed */}
-      <div className="panel" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: AMBER, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            ACLED Historical (12-Mo Rolling)
-          </span>
-          <AsOfPill date={latestAcledIncidentDate} />
-          <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em", marginLeft: "auto" }}>
-            via ACLED · maritime-filtered
-          </span>
-        </div>
-        <div style={{ fontSize: 10, fontFamily: '"JetBrains Mono", monospace', color: DIM }}>
-          Historical reference — see MARAD advisories panel above for current events
-        </div>
-
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <select
-            value={filterChokepoint}
-            onChange={(e) => setFilterChokepoint(e.target.value)}
-            style={{
-              background: "hsl(220,20%,9%)",
-              border: `1px solid ${BORDER}`,
-              color: "hsl(220,15%,85%)",
-              fontFamily: "inherit",
-              fontSize: 10,
-              padding: "4px 8px",
-              letterSpacing: "0.05em",
-            }}
-          >
-            <option value="ALL">ALL CHOKEPOINTS</option>
-            {chokepointList.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search location / actor / notes…"
-            style={{
-              background: "hsl(220,20%,9%)",
-              border: `1px solid ${BORDER}`,
-              color: "hsl(220,15%,85%)",
-              fontFamily: "inherit",
-              fontSize: 10,
-              padding: "4px 8px",
-              flex: 1,
-              minWidth: 220,
-              outline: "none",
-            }}
-          />
-          <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
-            {filtered.length} of {windowedIncidents.length}
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {loading && <div style={{ fontSize: 11, color: DIM }}>Loading incidents…</div>}
-          {!loading && filtered.length === 0 && (
-            <div style={{ fontSize: 11, color: DIM }}>
-              {data?.meta?.accessNote || "No incidents match the current filters."}
-            </div>
-          )}
-          {filtered.slice(0, 60).map((ev, i) => (
-            <IncidentRow key={ev.id || i} ev={ev} i={i} last={i === Math.min(filtered.length, 60) - 1} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Kpi({ label, value, color, small }) {
-  return (
-    <div style={{ border: `1px solid ${BORDER}`, padding: "8px 12px", background: "hsl(220,20%,9%)" }}>
-      <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.08em", marginBottom: 4 }}>{label}</div>
-      <div style={{
-        fontSize: small ? 12 : 18,
-        fontWeight: 600,
-        fontFamily: '"JetBrains Mono", monospace',
-        color: color || "hsl(220,15%,90%)",
-        lineHeight: 1.1,
-      }}>
-        {value}
-      </div>
     </div>
   );
 }
