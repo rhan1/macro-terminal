@@ -376,16 +376,16 @@ export default function Inflation() {
         />
 
         <IndicatorCard
-          label="PPI (YoY)"
+          label="PPI Final Demand (YoY)"
           value={ppiLatest?.value}
           unit="%"
           change={ppiChange}
           changeLabel={ppiChange != null ? formatPP(ppiChange) : undefined}
           direction={ppiChange != null ? (ppiChange > 0 ? "up" : ppiChange < 0 ? "down" : "flat") : undefined}
           signal={ppiSignal(ppiLatest?.value)}
-          detail="Producer Price Index for all commodities. Measures price changes at the wholesale level. PPI leads CPI by 3–6 months — upstream cost pressures flow through to consumer prices. Negative PPI is a disinflationary tailwind."
-          source="FRED"
-          sourceUrl="https://fred.stlouisfed.org/series/PPIACO"
+          detail="Producer Price Index for Final Demand (PPIFIS) — the headline PPI in BLS releases. Measures prices received by domestic producers for goods, services, and construction sold to final demand. PPI leads CPI by 3–6 months — upstream cost pressures flow through to consumer prices. Negative PPI is a disinflationary tailwind."
+          source="BLS / FRED PPIFIS"
+          sourceUrl="https://fred.stlouisfed.org/series/PPIFIS"
           dateLabel={fmtCardDate(latest(ppiData)?.date)}
           sparkData={ppiData?.slice(0, 12)}
         />

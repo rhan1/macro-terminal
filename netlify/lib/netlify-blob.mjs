@@ -49,6 +49,12 @@ import { getStore } from "@netlify/blobs";
 const STORE_NAME = "macro-terminal";
 
 function store() {
+  // Local/off-platform runs (seed scripts, cron debugging) can't use the
+  // ambient function context — pass explicit credentials via env instead.
+  const { NETLIFY_LOCAL_SITE_ID, NETLIFY_LOCAL_BLOB_TOKEN } = process.env;
+  if (NETLIFY_LOCAL_SITE_ID && NETLIFY_LOCAL_BLOB_TOKEN) {
+    return getStore({ name: STORE_NAME, siteID: NETLIFY_LOCAL_SITE_ID, token: NETLIFY_LOCAL_BLOB_TOKEN });
+  }
   return getStore(STORE_NAME);
 }
 

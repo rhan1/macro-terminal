@@ -145,6 +145,12 @@ function RickChartPanel({ stock, range }) {
 
   const priceColor  = changePct == null ? GREEN : changePct >= 0 ? GREEN : RED;
   const changeColor = changePct == null ? DIM   : changePct >= 0 ? GREEN : RED;
+  // The area chart spans the selected range — color it by the range
+  // trajectory, not the daily change, so a -30% year never renders green.
+  const rangeUp = chartData.length > 1
+    ? chartData[chartData.length - 1].value >= chartData[0].value
+    : changePct == null || changePct >= 0;
+  const chartColor = rangeUp ? GREEN : RED;
   const changeStr   = changePct == null
     ? "—"
     : `${changePct >= 0 ? "+" : ""}${changePct.toFixed(2)}%`;
@@ -200,8 +206,8 @@ function RickChartPanel({ stock, range }) {
         <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
           <defs>
             <linearGradient id="viceGrad-RICK" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={GREEN} stopOpacity={0.15} />
-              <stop offset="95%" stopColor={GREEN} stopOpacity={0.01} />
+              <stop offset="5%"  stopColor={chartColor} stopOpacity={0.15} />
+              <stop offset="95%" stopColor={chartColor} stopOpacity={0.01} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="2 4" stroke={BORDER} vertical={false} />
@@ -233,11 +239,11 @@ function RickChartPanel({ stock, range }) {
             type="monotone"
             dataKey="value"
             name="RICK"
-            stroke={GREEN}
+            stroke={chartColor}
             strokeWidth={1.5}
             fill="url(#viceGrad-RICK)"
             dot={false}
-            activeDot={{ r: 3, fill: GREEN }}
+            activeDot={{ r: 3, fill: chartColor }}
           />
         </AreaChart>
       </ResponsiveContainer>
@@ -448,6 +454,12 @@ export default function AlternativeIndex() {
   // ── Escorts state ───────────────────────────────────────────────────────────
   const [escortData, setEscortData]       = useState(null);
   const [escortLoading, setEscortLoading] = useState(true);
+  // Shared growth/decline window (mom | q3m | h6m | yoy) — drives the trend
+  // panel, movers leaderboard, and the heatmap's Δ-change coloring.
+  const [escortWindow, setEscortWindow]   = useState("yoy");
+
+  // ── Escort advertised-rate pilot (median 1h rate, USD) ─────────────────────
+  const [ratesData, setRatesData] = useState(null);
 
   // ── Google Trends stress signals state ─────────────────────────────────────
   const [trendsData, setTrendsData]       = useState(null);
@@ -533,11 +545,22 @@ export default function AlternativeIndex() {
       setEscortData({
         countries,
         totalWorldwide,
+        worldMoMPct: egs?.totalWorldwideMoMPct ?? null,
+        worldwideTrend: egs?.worldwideTrend ?? null,
+        worldwideChanges: egs?.worldwideChanges ?? null,
         activeLabel: sources.join(" + "),
         fetchedAt: primary?.fetchedAt || tryst?.fetchedAt,
       });
       setEscortLoading(false);
     })();
+  }, []);
+
+  // ── Fetch escort advertised-rate pilot ─────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/egs-rates")
+      .then((r) => r.json())
+      .then((d) => { if (d && !d.error && (d.countries?.length ?? 0) > 0) setRatesData(d); })
+      .catch(() => {});
   }, []);
 
   // ── Fetch Google Trends stress signals ─────────────────────────────────────
@@ -554,6 +577,9 @@ export default function AlternativeIndex() {
   // ── Derived escort data ─────────────────────────────────────────────────────
   const escortCountries = escortData?.countries ?? [];
   const escortTotal     = escortData?.totalWorldwide ?? escortData?.total ?? null;
+  const escortMoM       = escortData?.worldMoMPct ?? null;
+  const escortTrend     = escortData?.worldwideTrend ?? null;
+  const escortChanges   = escortData?.worldwideChanges ?? null;
   const escortSource    = escortData?.activeLabel ?? null;
 
   // ── Derived vice stocks data ────────────────────────────────────────────────
@@ -867,9 +893,9 @@ export default function AlternativeIndex() {
                     signal={fSignal}
                     changeLabel={
                       fl.yoyPct != null
-                        ? `${fl.yoyPct >= 0 ? "+" : ""}${fl.yoyPct}% y/y${fl.dayChangePct != null ? ` · ${fl.dayChangePct >= 0 ? "+" : ""}${fl.dayChangePct}% d/d` : ""}`
-                        : fl.dayChangePct != null
-                          ? `${fl.dayChangePct >= 0 ? "+" : ""}${fl.dayChangePct}% d/d`
+                        ? `${fl.yoyPct >= 0 ? "+" : ""}${fl.yoyPct}% y/y${fl.weekChangePct != null ? ` · ${fl.weekChangePct >= 0 ? "+" : ""}${fl.weekChangePct}% w/w` : ""}`
+                        : fl.weekChangePct != null
+                          ? `${fl.weekChangePct >= 0 ? "+" : ""}${fl.weekChangePct}% w/w`
                           : (fl.period ?? "")
                     }
                     detail={fDetail}
@@ -881,6 +907,91 @@ export default function AlternativeIndex() {
                 )}
               </div>
             )}
+          </div>
+        );
+      })()}
+
+      {/* ── Section 4b: Escort Economy — Growth & Decline ── */}
+      {escortTrend?.length > 1 && (() => {
+        const WL = { mom: "MoM", q3m: "3M", h6m: "6M", yoy: "YoY" };
+        const winLabel = WL[escortWindow];
+        const worldPct = escortChanges?.[escortWindow]?.pct ?? null;
+        const latestTotal = escortTrend[escortTrend.length - 1]?.total ?? escortTotal;
+        const movers = escortCountries
+          .filter((c) => c.iso && (c.total ?? 0) >= 200 && c.chg?.[escortWindow]?.pct != null)
+          .map((c) => ({ iso: c.iso, country: c.country, pct: c.chg[escortWindow].pct }));
+        const gainers = [...movers].sort((a, b) => b.pct - a.pct).slice(0, 6);
+        const decliners = [...movers].sort((a, b) => a.pct - b.pct).slice(0, 6);
+        return (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                Escort Economy — Growth &amp; Decline
+              </div>
+              <div style={{ display: "flex", gap: 2 }}>
+                {[["mom", "MoM"], ["q3m", "3M"], ["h6m", "6M"], ["yoy", "YoY"]].map(([k, lbl]) => {
+                  const active = escortWindow === k;
+                  return (
+                    <button key={k} onClick={() => setEscortWindow(k)} title={`Change over ~${lbl}`} style={{
+                      background: active ? "hsla(185,70%,55%,0.15)" : "none",
+                      border: active ? "1px solid hsla(185,70%,55%,0.4)" : "1px solid transparent",
+                      color: active ? CYAN : DIM, fontSize: 9, fontFamily: "inherit",
+                      padding: "2px 8px", cursor: "pointer", letterSpacing: "0.04em", fontWeight: active ? 600 : 400,
+                    }}>{lbl}</button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="panel" style={{ padding: 16 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 28, fontWeight: 700, color: CYAN, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
+                  {latestTotal != null ? latestTotal.toLocaleString() : "—"}
+                </span>
+                <span style={{ fontSize: 10, color: DIM, textTransform: "uppercase", letterSpacing: "0.1em" }}>tracked worldwide listings</span>
+                {worldPct != null && (
+                  <span style={{ fontSize: 14, fontWeight: 700, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums",
+                    color: worldPct > 0 ? GREEN : worldPct < 0 ? RED : DIM }}>
+                    {worldPct > 0 ? "▲ +" : worldPct < 0 ? "▼ " : ""}{worldPct}%{" "}
+                    <span style={{ fontSize: 9, color: DIM, fontWeight: 400 }}>{winLabel}</span>
+                  </span>
+                )}
+                <span style={{ marginLeft: "auto", fontSize: 9, color: DIM }}>
+                  {escortTrend[0]?.date?.slice(0, 7)} → now · {escortTrend.length} mo
+                </span>
+              </div>
+              <ResponsiveContainer width="100%" height={150}>
+                <AreaChart data={escortTrend} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="egsGrowthGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CYAN} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={CYAN} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="hsl(220,15%,12%)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: DIM }} tickFormatter={(d) => String(d).slice(0, 4)} minTickGap={36} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: DIM }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} width={42} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: "hsl(220,15%,8%)", border: `1px solid ${CYAN}55`, fontSize: 11, borderRadius: 2 }} labelStyle={{ color: DIM }} formatter={(v) => [`${Number(v).toLocaleString()} listings`, ""]} />
+                  <Area type="monotone" dataKey="total" stroke={CYAN} strokeWidth={1.5} fill="url(#egsGrowthGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 12 }}>
+                {[["▲ TOP GAINERS", GREEN, gainers], ["▼ TOP DECLINERS", RED, decliners]].map(([title, col, list]) => (
+                  <div key={title}>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: col, letterSpacing: "0.08em", marginBottom: 6 }}>{title} ({winLabel})</div>
+                    {list.length === 0 ? (
+                      <div style={{ fontSize: 10, color: DIM }}>not enough history yet</div>
+                    ) : list.map((m) => (
+                      <div key={m.iso} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "2px 0" }}>
+                        <span style={{ color: "var(--color-term-text)" }}>{m.country}</span>
+                        <span style={{ color: m.pct > 0 ? GREEN : m.pct < 0 ? RED : DIM, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums" }}>
+                          {m.pct > 0 ? "+" : ""}{m.pct}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         );
       })()}
@@ -908,13 +1019,60 @@ export default function AlternativeIndex() {
             <Loading />
           </div>
         ) : escortCountries.length > 0 ? (
-          <EscortHeatMap countries={escortCountries} totalWorldwide={escortTotal} />
+          <EscortHeatMap countries={escortCountries} totalWorldwide={escortTotal} worldMoMPct={escortMoM} changeWindow={escortWindow} />
         ) : (
           <div className="panel" style={{ padding: 16 }}>
             <div style={{ fontSize: 11, color: DIM }}>No country data available.</div>
           </div>
         )}
       </div>
+
+      {/* ── Section 5b: Escort Advertised Rates (USD/hr) — pilot ── */}
+      {ratesData?.countries?.length > 0 && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, borderBottom: `1px solid ${BORDER}`, paddingBottom: 6 }}>
+            <div style={{ fontSize: 9, fontWeight: 600, color: DIM, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+              Median Advertised Rate — 1hr, USD <span style={{ color: AMBER }}>· PILOT</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {ratesData.fetchedAt && <AsOfPill date={ratesData.fetchedAt} />}
+              <div style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
+                source: eurogirlsescort.es
+              </div>
+            </div>
+          </div>
+
+          <div className="panel" style={{ padding: 16 }}>
+            <div style={{ fontSize: 10, color: DIM, marginBottom: 12, lineHeight: 1.5 }}>
+              Median advertised 1-hour rate, FX-normalized to USD, sampled across{" "}
+              {ratesData.nProfilesPerCountry ?? "~18"} profiles/country. A coarse price signal for the alt-economy index.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+              {[...ratesData.countries]
+                .filter((c) => c.medianIncallUsd != null)
+                .sort((a, b) => b.medianIncallUsd - a.medianIncallUsd)
+                .map((c) => {
+                  const topCur = c.currencyMix
+                    ? Object.entries(c.currencyMix).sort((a, b) => b[1] - a[1])[0]?.[0]
+                    : null;
+                  return (
+                    <div key={c.iso} style={{ border: `1px solid ${BORDER}`, borderRadius: 4, padding: "10px 12px" }}>
+                      <div style={{ fontSize: 10, color: "var(--color-term-text)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+                        {c.country}
+                      </div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: CYAN, fontFamily: '"JetBrains Mono", monospace', fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                        ${c.medianIncallUsd.toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: 8.5, color: DIM, marginTop: 5, letterSpacing: "0.03em" }}>
+                        n={c.sampleSize ?? "—"}{topCur ? ` · ${topCur}` : ""}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Section 3: Google Trends — Stress Signals ── */}
       <div>

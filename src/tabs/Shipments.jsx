@@ -735,7 +735,9 @@ export default function Shipments() {
         <div style={{ display: "flex", flexDirection: "column" }}>
           {loading && <div style={{ fontSize: 11, color: DIM }}>Loading incidents…</div>}
           {!loading && filtered.length === 0 && (
-            <div style={{ fontSize: 11, color: DIM }}>No incidents match the current filters.</div>
+            <div style={{ fontSize: 11, color: DIM }}>
+              {data?.meta?.accessNote || "No incidents match the current filters."}
+            </div>
           )}
           {filtered.slice(0, 60).map((ev, i) => (
             <IncidentRow key={ev.id || i} ev={ev} i={i} last={i === Math.min(filtered.length, 60) - 1} />
