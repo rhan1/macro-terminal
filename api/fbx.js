@@ -96,11 +96,12 @@ function buildFreightosResult(html, sourceUrl) {
   const valueMatch = html.match(/<span class="fr-value-amount">\$(.*?)<\/span>/i);
   const latestValue = num(valueMatch?.[1]) ?? history.at(-1)?.value ?? null;
   const latestDate = history.at(-1)?.date ?? null;
-  const derivedDay =
+  // FBX is a weekly index — compute week-over-week from the two most-recent
+  // history points rather than using the Freightos ticker's d/d change field.
+  const weekChangePct =
     history.length > 1
       ? Number((((history.at(-1).value - history.at(-2).value) / history.at(-2).value) * 100).toFixed(2))
       : null;
-  const dayChangePct = pct(ticker?.change) ?? derivedDay;
   if (latestValue == null) return null;
   return {
     source: "Freightos Baltic Index",
@@ -109,9 +110,9 @@ function buildFreightosResult(html, sourceUrl) {
     latest: {
       value: latestValue,
       period: fmtDate(latestDate),
-      dayChangePct,
+      weekChangePct,
       yoyPct: computeYoy(history),
-      direction: dayChangePct == null || dayChangePct === 0 ? null : dayChangePct > 0 ? "up" : "down",
+      direction: weekChangePct == null || weekChangePct === 0 ? null : weekChangePct > 0 ? "up" : "down",
     },
     history,
   };
@@ -121,8 +122,9 @@ function buildDrewryResult(html) {
   const desc = html.match(/<meta name="description" content="([^"]+)"/i)?.[1] || "";
   const period = title.match(/-\s*([0-9]{1,2}\s+[A-Z][a-z]{2})/)?.[1];
   const value = num(desc.match(/\$([0-9.,]+)/)?.[1]);
-  const dayChangePct = pct(desc.match(/(rises?|gains?|slips?|falls?)\s+([0-9.]+)%/i)?.[2]);
-  if (!period || dayChangePct == null || value == null) return null;
+  const weekChangePctRaw = pct(desc.match(/(rises?|gains?|slips?|falls?)\s+([0-9.]+)%/i)?.[2]);
+  if (!period || weekChangePctRaw == null || value == null) return null;
+  const weekChangePct = /slips?|falls?/i.test(desc) ? -Math.abs(weekChangePctRaw) : Math.abs(weekChangePctRaw);
   return {
     source: "Drewry WCI",
     sourceUrl: URLS.drewry,
@@ -130,7 +132,7 @@ function buildDrewryResult(html) {
     latest: {
       value,
       period,
-      dayChangePct: /slips?|falls?/i.test(desc) ? -Math.abs(dayChangePct) : Math.abs(dayChangePct),
+      weekChangePct,
       yoyPct: null,
       direction: /slips?|falls?/i.test(desc) ? "down" : "up",
     },

@@ -49,7 +49,7 @@ export default function Header() {
             }} />
           </span>
           <span className="glow-green" style={{ fontSize: 14, fontWeight: 600, color: "hsl(142,70%,55%)", letterSpacing: "0.05em" }}>
-            MACRO TERMINAL
+            MACRO SIGNAL
           </span>
           <span style={{ fontSize: 10, color: "hsl(220,10%,52%)", marginLeft: -4 }}>v{version}</span>
         </div>
