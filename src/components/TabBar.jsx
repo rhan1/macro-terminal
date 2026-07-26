@@ -9,6 +9,7 @@ const TABS = [
   { key: "shipments", label: "SHIPMENTS", num: "8", subtitle: "Chokepoint traffic, Red Sea / Hormuz incidents" },
   { key: "capitol", label: "CAPITOL", num: "9", subtitle: "Politician trading — STOCK Act filings" },
   { key: "global", label: "GLOBAL", num: "0", subtitle: "World indices, FX, commodities, yields" },
+  { key: "economies", label: "ECONOMIES", num: "", subtitle: "Quarterly GDP, unemployment, exports — 66 countries" },
   { key: "realestate", label: "REAL ESTATE", num: "", subtitle: "Housing prices, supply, construction" },
   { key: "auctions", label: "BOND AUCTIONS", num: "", subtitle: "Treasury auction results" },
   { key: "ipo", label: "IPOs", num: "", subtitle: "Pipeline and pricing calendar" },

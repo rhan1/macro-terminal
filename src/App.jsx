@@ -19,8 +19,9 @@ const Capitol = lazy(() => import("./tabs/Capitol"));
 const IPO = lazy(() => import("./tabs/IPO"));
 const Auctions = lazy(() => import("./tabs/Auctions"));
 const AlternativeIndex = lazy(() => import("./tabs/AlternativeIndex"));
+const Economies = lazy(() => import("./tabs/Economies"));
 
-const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "sentiment", "shipments", "capitol", "global", "realestate", "auctions", "ipo", "altindex"];
+const TAB_KEYS = ["overview", "rates", "inflation", "growth", "labor", "risk", "sentiment", "shipments", "capitol", "global", "economies", "realestate", "auctions", "ipo", "altindex"];
 
 function isTypingTarget(el) {
   if (!el) return false;
@@ -38,6 +39,7 @@ const TAB_COMPONENTS = {
   shipments: Shipments,
   labor: Labor,
   global: Global,
+  economies: Economies,
   risk: Risk,
   sentiment: Sentiment,
   capitol: Capitol,
