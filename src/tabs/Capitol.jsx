@@ -94,8 +94,7 @@ export default function Capitol() {
 
       {!hasData && !loading && (
         <div className="panel" style={{ padding: "14px 16px", fontSize: 11, color: DIM }}>
-          Capitol data not yet seeded. After the next deploy, trigger a refresh via{" "}
-          <code style={{ color: CYAN }}>curl -H "Authorization: Bearer $CRON_SECRET" /api/cron/refresh-capitol</code>
+          Congressional trade data is not yet available.
         </div>
       )}
 

@@ -35,9 +35,9 @@ function normalize(r) {
 
   // Derive a display label: "10-Year Note", "5-Year TIPS", "13-Week Bill", etc.
   const isTips = bool(r.tips);
-  const label =
-    `${r.term || r.securityTerm || r.originalSecurityTerm || ""}` +
-    ` ${isTips ? "TIPS" : r.type || r.securityType || ""}`.trim();
+  const term = r.term || r.securityTerm || r.originalSecurityTerm || "";
+  const type = r.type || r.securityType || "";
+  const label = (`${term} ${isTips ? "TIPS" : type}`).trim();
 
   // For bills, yield lives in highDiscountRate / highInvestmentRate
   const yieldValue =

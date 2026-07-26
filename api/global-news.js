@@ -1,6 +1,9 @@
 const FEEDS = [
   ["BBC", "http://feeds.bbci.co.uk/news/world/rss.xml"],
-  ["Reuters", "https://www.reuters.com/world/rss"],
+  // Reuters killed its public RSS feed (permanent 401 as of 2026); replaced
+  // with The Guardian's World feed, which is free, unauthenticated, and
+  // returns a valid <rss> document from a plain datacenter-IP curl.
+  ["Guardian", "https://www.theguardian.com/world/rss"],
   ["Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml"],
   ["NYT", "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"],
   ["FT", "https://www.ft.com/world?format=rss"],

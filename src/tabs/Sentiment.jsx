@@ -524,10 +524,10 @@ export default function Sentiment() {
               </div>
               {iStats && (
                 <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, color: GREEN }}>Buys: {iStats.total_buys ?? "—"}</div>
-                  <div style={{ fontSize: 10, color: RED }}>Sells: {iStats.total_sells ?? "—"}</div>
+                  <div style={{ fontSize: 10, color: GREEN }}>Buys: {iStats.total_buys != null ? Number(iStats.total_buys).toLocaleString() : "—"}</div>
+                  <div style={{ fontSize: 10, color: RED }}>Sells: {iStats.total_sells != null ? Number(iStats.total_sells).toLocaleString() : "—"}</div>
                   {iStats.csuite_buys != null && (
-                    <div style={{ fontSize: 10, color: CYAN }}>C-Suite Buys: {iStats.csuite_buys}</div>
+                    <div style={{ fontSize: 10, color: CYAN }}>C-Suite Buys: {Number(iStats.csuite_buys).toLocaleString()}</div>
                   )}
                 </div>
               )}
@@ -569,7 +569,7 @@ export default function Sentiment() {
               }
               // Prefer market_title (the specific yes/no question) over title
               // (the short category label) so probabilities read unambiguously.
-              const title = market.market_title ?? market.title ?? market.name ?? market.question ?? "—";
+              const title = (market.market_title ?? market.title ?? market.name ?? market.question ?? "—").replace(/\*\*/g, "");
               const subtitle = market.subtitle ?? market.category ?? null;
               return (
                 <div key={market.id ?? i} style={{

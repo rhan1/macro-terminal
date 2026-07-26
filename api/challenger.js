@@ -145,15 +145,21 @@ export default async function handler(req, res) {
     }
 
     // Top Reason extraction (Optional)
-    // Example: "Artificial Intelligence (AI) led all reasons for job cuts, with 15,341"
+    // Examples:
+    //   "Artificial Intelligence (AI) led all reasons for job cuts, with 15,341"
+    //   "Market Conditions led all reasons, with 8,200"
+    //   "Cost Cutting was the top reason for job cuts, with 5,000"
+    //   "Restructuring cited X as the primary driver of job cuts, with 3,100"
     const reasonMatch = cleanText.match(
-      /([A-Z][A-Za-z ()\/&-]+?) led all reasons for job cuts,? with ([\d,]+)/
+      /([A-Z][A-Za-z ()\/&-]+?)\s+(?:led all reasons(?:\s+for job cuts)?|was the top reason(?:\s+for job cuts)?|cited\s+\S+\s+as the primary driver(?:\s+of job cuts)?),?\s+with\s+([\d,]+)/
     );
     if (reasonMatch) {
       result.topReason = {
         name: reasonMatch[1].trim(),
         count: parseInt(reasonMatch[2].replace(/,/g, ""), 10),
       };
+    } else {
+      console.warn("[challenger] topReason regex produced no match — article text may have changed phrasing");
     }
 
     res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=172800");

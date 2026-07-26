@@ -1,4 +1,4 @@
 import handler from '../../api/cron/refresh-egs.js';
 import { wrap } from '../lib/vercel-shim.mjs';
 export default wrap(handler, { cronSecret: true });
-export const config = { schedule: '0 10 * * 1' };
+export const config = { schedule: '0 10 1 * *' }; // monthly — 1st at 10:00 UTC

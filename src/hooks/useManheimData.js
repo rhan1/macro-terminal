@@ -15,7 +15,7 @@ export function useManheimData() {
     }
 
     fetch("/api/manheim")
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then((d) => {
         if (!d.error) {
           cache.data = d;

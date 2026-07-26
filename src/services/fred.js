@@ -210,7 +210,10 @@ export const SERIES = {
   CPI: { id: "CPIAUCSL", frequency: "m", limit: 24, units: "pc1" },
   CORECPI: { id: "CPILFESL", frequency: "m", limit: 24, units: "pc1" },
   COREPCE: { id: "PCEPILFE", frequency: "m", limit: 24, units: "pc1" },
-  PPI: { id: "PPIACO", frequency: "m", limit: 24, units: "pc1" },
+  // PPI Final Demand (headline BLS PPI). PPIACO (All Commodities) was used
+  // before but its commodity-heavy basket ran ~13% YoY vs ~6% for Final Demand
+  // in mid-2026 — misleading next to CPI/PCE on the Inflation tab.
+  PPI: { id: "PPIFIS", frequency: "m", limit: 24, units: "pc1" },
 
   // Inflation components (SA indexes, YoY via pc1)
   CPI_SHELTER:    { id: "CUSR0000SAH1",   frequency: "m", limit: 12, units: "pc1" },

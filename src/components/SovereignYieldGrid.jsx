@@ -28,7 +28,7 @@ export default function SovereignYieldGrid({ yields, stress }) {
           Sovereign 10Y Yields
         </span>
         <span style={{ fontSize: 9, color: DIM, letterSpacing: "0.04em" }}>
-          via TradingEconomics · FRED fallback
+          FRED (US daily · others monthly) · CN via EastMoney
         </span>
       </div>
 
@@ -70,6 +70,9 @@ export default function SovereignYieldGrid({ yields, stress }) {
               )}
               <div style={{ fontSize: 8, color: "hsl(220,10%,38%)", letterSpacing: "0.04em" }}>
                 {y.source || "—"}
+                {y.asOf
+                  ? ` · as of ${/monthly/i.test(y.source || "") ? y.asOf.slice(0, 7) : y.asOf}`
+                  : ""}
               </div>
             </div>
           );

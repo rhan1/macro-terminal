@@ -50,6 +50,8 @@ export default async function handler(req, res) {
 
         const best = pickBestMarket(nestedMarkets);
         if (!best) continue;
+        // Skip finalized/voided/settled events — only emit active markets
+        if (best.status !== "active") continue;
 
         const probability = parseFloat(best.last_price_dollars ?? best.last_price_fp ?? "0");
         const volume_total = parseFloat(best.volume_fp ?? "0");
@@ -75,7 +77,7 @@ export default async function handler(req, res) {
     }
 
     markets.sort((a, b) => b.volume_24h - a.volume_24h);
-    const top = markets.slice(0, 15);
+    const top = markets.filter((m) => m.volume_24h >= 10).slice(0, 15);
 
     res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=60");
     return res.status(200).json({ markets: top, updated: new Date().toISOString() });
