@@ -78,14 +78,21 @@ function decodeArc(arcIndex, arcs, scale, translate, cache) {
 }
 
 function ringToPath(ring, arcs, scale, translate, cache) {
+  // Rings that cross the antimeridian (Russia, Fiji, Antarctica) jump from
+  // x≈960 to x≈0 between consecutive points; drawing that as an L produced
+  // filled slivers across the whole map ("gray tearing bands", visible at
+  // mobile widths). Break the path into a new subpath on any half-width jump.
   let d = "";
   let first = true;
+  let prevX = null;
   ring.forEach((arcIndex) => {
     const pts = decodeArc(arcIndex, arcs, scale, translate, cache);
     pts.forEach(([x, y], i) => {
       if (!first && i === 0) return;
-      d += `${first ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+      const wraps = prevX !== null && Math.abs(x - prevX) > 480;
+      d += `${first || wraps ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
       first = false;
+      prevX = x;
     });
   });
   return d ? `${d}Z` : "";

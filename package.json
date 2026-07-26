@@ -1,14 +1,13 @@
 {
   "name": "macro-signal",
   "private": true,
-  "version": "3.5.2",
+  "version": "3.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "seed-egs-blob": "node scripts/seed-egs-blob.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@netlify/blobs": "^10.7.9",
@@ -18,7 +17,6 @@
     "recharts": "^3.8.1"
   },
   "devDependencies": {
-    "@vercel/blob": "^2.3.3",
     "@eslint/js": "^9.39.4",
     "playwright": "^1.59.1",
     "@tailwindcss/postcss": "^4.2.2",
