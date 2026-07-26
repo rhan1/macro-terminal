@@ -202,7 +202,7 @@ export default function Economies() {
   const { data, loading, error } = useEconomies();
   const [tip, setTip] = useState(null);
   const tipRef = useRef(null);
-  const axis = useMemo(buildAxis, []);
+  const axis = useMemo(() => buildAxis(), []);
 
   const onTip = (e, content) => {
     if (!e || !content) { setTip(null); return; }
