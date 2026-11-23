@@ -23,7 +23,10 @@ const SECTOR_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — SIC rarely ch
 
 const NASDAQ_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-const SEC_UA = "macro-terminal/1.0";
+// SEC EDGAR asks every client to identify itself with a contact. That contact is private: it lives in the
+// host's environment (SEC_USER_AGENT, e.g. "my-app/1.0 (contact address)") and is never committed.
+// Without it the requests still go out under the bare app name, which SEC may throttle or refuse.
+const SEC_UA = process.env.SEC_USER_AGENT || "macro-terminal/1.0";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
